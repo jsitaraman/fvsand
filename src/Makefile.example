@@ -1,0 +1,38 @@
+MODULENAME=fvsand
+F90= mpif90
+CC = mpicc
+CXX= mpicxx
+AR = ar -rvs
+CFLAGS = -fPIC -rdynamic -g # -g -Wall -Wextra#-fpe0
+CXXFLAGS = -std=c++11
+FFLAGS = -fPIC  #-CB -traceback #-fbacktrace -fbounds-check
+INCLUDES = GlobalMesh.h 
+OBJF90 =  partSphere.o
+OBJECTS = fvsand.o StrandMesh.o createCommPatterns.o utils.o
+
+LDFLAGS= -lgfortran -lm
+
+ALL: default
+
+lib:	$(OBJECTS) $(OBJF90) $(INCLUDES)
+	$(AR) lib$(MODULENAME).a $(OBJECTS) $(OBJF90)
+
+shared:	$(OBJECTS) $(OBJF90) $(INCLUDES)
+	$(CXX) $(CFLAGS) $(OBJECTS) $(OBJF90) $(OBJEXEC)  -shared -o lib$(MODULENAME).so -lc
+
+default: $(OBJECTS) $(OBJF90) $(INCLUDES)
+	$(CXX) $(CFLAGS) $(OBJECTS) $(OBJF90) $(OBJEXEC) $(LDFLAGS) -lm -o $(MODULENAME).exe
+
+clean : 
+	rm -r *.o lib$(MODULENAME).a lib$(MODULENAME).so
+
+%.o:%.cu
+	$(CUC)  $(CFLAGS) -c $< -o $*.o
+%.o:%.C
+	$(CXX) $(CFLAGS) $(CXXFLAGS) -c $< -o $*.o
+%.o:%.F90
+	$(F90) $(FFLAGS) -c $< -o $*.o
+%.o:%.f90
+	$(F90) $(FFLAGS) -c $< -o $*.o
+%.o:%.f
+	$(F90) $(FFLAGS) -c $< -o $*.o

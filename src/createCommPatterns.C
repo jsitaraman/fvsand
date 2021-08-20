@@ -1,0 +1,98 @@
+#include<vector>
+#include<map>
+//
+// create the communication patterns based on a partitioning map obtained
+// from a graph partitioner, global numbering are expected to be 64 bit unsigned integers
+// while all local numbering are 32 bit integers
+//
+void createCommPatterns( int myid,                                    // process id creating pattern
+			 int *procmap,                                // processor id for each node (global )
+ 			 uint64_t *node2node,                         // node2node graph            (global) 
+			 int  *ncon,                                  // number of connections per graph node (global)
+			 uint64_t nnodes,                             // number of nodes (global)
+			 int *nlocalcells,                            // number of local owned cells
+			 int *nhalo,                                  // number of halo cells internal interfaces only
+			 std::vector<int> &node2nodelocal,            // local node connectivity including ghosts
+			 std::vector<int> &ncon_local,                // number of connections per local graph node
+			 std::vector<uint64_t> &local2global,         // local2global map linear
+			 std::map <uint64_t, int > &global2local,     // global2local map (hashed)
+			 std::map <int, std::vector<int>> sndmap,     // map of send data (procid, local id of list of owned cells)
+			 std::map <int, std::vector<int>>  rcvmap     // map of recv data (procid, local id of ghost cells);
+			 )
+{
+  uint64_t *ngptr=new uint64_t [nnodes+1];
+  std::vector <uint64_t> ptmp;
+  std::map <int, std::vector<uint64_t> > pmap;
+  std::map <uint64_t, int> halomap;
+    
+  ngptr[0]=0;
+  (*nlocalcells)=0;
+  for(uint64_t i=0;i<nnodes;i++)
+    {
+      if (procmap[i]==myid) {
+	local2global.push_back(i);
+	global2local.emplace(i,*nlocalcells);
+	(*nlocalcells)++;
+      }
+      if (i > 0) ngptr[i]=ngptr[i-1]+ncon[i-1];
+    }
+  ngptr[nnodes]=ngptr[nnodes-1]+ncon[nnodes-1];
+
+  (*nhalo)=0;
+  for(auto inode : local2global)
+    {
+      ncon_local.push_back(ngptr[inode+1]-ngptr[inode]);      
+      for(int j=ngptr[inode];j<ngptr[inode+1];j++)
+      {
+	if (node2node[j] < 0) {
+	  node2nodelocal.push_back(node2node[j]); // local physical boundary condition
+	}
+	else if (node2node[j] > -1) {
+	  if (procmap[node2node[j]]!=myid) {
+	    auto idxit=pmap.find(procmap[node2node[j]]);
+	    if (idxit==pmap.end()) {	      
+	      pmap[procmap[node2node[j]]]=std::vector<uint64_t>(1,node2node[j]);
+	      sndmap[procmap[node2node[j]]]=std::vector<int>(1,global2local[inode]);
+	    }
+	    else {
+	      pmap[procmap[node2node[j]]].push_back(node2node[j]);
+	      sndmap[procmap[node2node[j]]].push_back(global2local[inode]);
+	    }
+	    int cellcount=(*nlocalcells)+(*nhalo);
+	    node2nodelocal.push_back(cellcount); // these are interface halo cells
+	    halomap[node2node[j]]=cellcount;     // map of global id to halo index
+	    (*nhalo)++;
+	  }
+	  else {	         
+	    node2nodelocal.push_back(global2local[node2node[j]]); // connection is to a local node,
+	                                                          // add the local id of that here
+	  }
+	}
+      }
+    }
+  /*
+  MPI_Request ireq=new MPI_Request [pmap.size()*2];
+  MPI_Status istatus=new MPI_Status [pmap.size()*2];
+  
+  int k=0;
+  for(const auto& [procid, sendlist] : pmap) {
+    MPI_Isend(sendlist.data(),sendlist.size(), MPI_long, procid, 0, MPI_COMM_WORLD, &ireq[k++]);
+  }
+
+  std::map <int, vector<uint64_t> > rcvmap;
+  for(const auto& [procid,sendlist] : pmap) {
+    rcvmap[procid]=std::vector(sendlist.size(),0);
+    MPI_Irecv(rcvmap[procid].data(),rcvmap[procid].size(), MPI_long, procid, 0, MPI_COMM_WORLD, &ireq[k++]);
+  }
+
+  MPI_Waitall(pmap.size()*2,ireq,istatus);
+
+  for(const auto &[procid, rcvlist] : rcvmap)
+    for(int i=0;i<rcvlist.size();i++) rcvlist.data[i]=halomap[rcvlist.data[i]];
+
+  delete [] ireq;
+  delete [] istatus;
+  */
+}
+  
+
