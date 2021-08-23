@@ -9,6 +9,9 @@
 extern "C" {
   void curl(double *, double *, double *);
   void normalize(double *);
+  void get_exposed_faces_prizms_(int *,int *);
+  void get_face_count_(int *,int *);
+  void get_graph_(int *, int *, int *, int *);
 };
 
 StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels)
@@ -99,8 +102,94 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
       offset+=nsurfnodes;
       ds*=stretch;
     }
+
+  /* call canned f90 to get the neighbor information for all cells */
+  
+  int *ndc6,ntri,nquad;
+  ndc6=new int[6*ncells];
+  for(int i=0;i<6*ncells;i++) ndc6[i]=(int)cell2node[i];
+  int ncells1=(int) ncells;	
+  printf("ncells1=%d\n",ncells1);
+  
+  get_exposed_faces_prizms_(ndc6,&ncells1);
+  get_face_count_(&ntri,&nquad);
+  nfaces=ntri+nquad;
+  printf("nfaces=%ld\n",nfaces);
+  int *ctmp,*ftmp;
+  int csize=5*ncells;
+  int fsize=8*nfaces;
+  ctmp=new int[csize];
+  ftmp=new int[fsize];
+  get_graph_(ctmp,ftmp,&csize,&fsize);
+  cell2cell = new int64_t[csize];
+  faceInfo  = new int64_t[fsize];
+  
+  for(int i=0;i<csize;i++) cell2cell[i]=(int64_t)(ctmp[i]);
+  for(int i=0;i<fsize;i++) faceInfo[i]=(int64_t)(ftmp[i]);
+  
+  k=0;
+  int itype=2; // prizms
+  
+  for(int i=0;i<ncells;i++)
+    for(int j=0;j<5;j++)
+      {
+        if (cell2cell[5*i+j] < 0) {
+	  int check_wall, check_outside;
+	  check_wall=check_outside=1;
+	  for(int v=0;v<numverts[itype][j];v++)
+	    {
+	      int f=face2node[itype][4*j+v]-1;
+	      check_wall = (check_wall && (cell2node[6*i+f] < nsurfnodes));
+	      check_outside=(check_outside && (cell2node[6*i+f] > nsurfnodes*nlevels-1));
+	    }
+	  if (check_wall) cell2cell[5*i+j]=-2;
+	  if (check_outside) cell2cell[5*i+j]=-3;
+  	 k++;
+        }
+      }
+  //printf("k=%d\n",k);
+  //WriteBoundaries(0);
+
+  delete [] ctmp;
+  delete [] ftmp;
+  delete [] ndc6;
+  
 }
 
+void StrandMesh::WriteBoundaries(int label)
+{
+
+  int nsurfcells=0;
+  for(int i=0;i<ncells;i++)
+    for(int j=0;j<5;j++)
+      if (cell2cell[5*i+j] < 0) nsurfcells++;
+
+  char fname[80];
+  sprintf(fname,"strand_bc%d.dat",label);
+  FILE *fp;
+
+  fp=fopen(fname,"w");
+  fprintf(fp,"TITLE =\"DCF output\"\n");
+  fprintf(fp,"VARIABLES=\"X\",\"Y\",\"Z\",\"PMAP\"\n");
+  fprintf(fp,"ZONE T=\"VOL_MIXED\",N=%ld E=%d ET=QUADRILATERAL, F=FEBLOCK\n",nnodes,
+          nsurfcells);
+  fprintf(fp,"VARLOCATION = (1=NODAL, 2=NODAL, 3=NODAL, 4=CELLCENTERED)\n");
+
+  for(int j=0;j<3;j++)
+    for(int i=0;i<nnodes;i++) fprintf(fp,"%.14e\n",x[3*i+j]);
+  for(int i=0;i<ncells;i++)
+    for(int j=0;j<5;j++)
+      if (cell2cell[5*i+j] < 0) fprintf(fp,"%ld\n",cell2cell[5*i+j]);
+
+  for(int i=0;i<ncells;i++)
+    for(int j=0;j<5;j++)
+      if (cell2cell[5*i+j] < 0) {
+	for(int k=0;k<4;k++)
+	  fprintf(fp,"%ld ",cell2node[6*i+face2node[2][4*j+k]-1]+1);
+	fprintf(fp,"\n");
+      }
+  fclose(fp);
+}
 void StrandMesh::WriteMesh(int label)
 {
   char fname[80];

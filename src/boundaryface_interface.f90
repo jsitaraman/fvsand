@@ -1,13 +1,41 @@
 module boundary_interface
   integer :: npatch
   integer :: ntrifaces,nquadfaces
-  integer, allocatable :: f2c(:,:)
-  integer, allocatable :: faceConn(:,:)
+  integer, allocatable :: faceInfo(:)
+  integer, allocatable :: cell2cell(:)
 
+  integer, dimension(3,4)  :: tetf
+  integer, dimension(4,5)  :: pyrf
+  integer, dimension(4,5)  :: prizmf
+  integer, dimension(4,6)  :: hexf
+  integer, dimension(6,4)  :: numverts
+  integer, dimension(4)    :: iface
+  integer :: tetmap(4)
+  integer :: pyrmap(5)
+  integer :: prizmap(5)
+  integer :: hexmap(6)
+  !
+  data tetf /1,2,3,1,4,2,2,4,3,1,3,4/                        ! ugrid/mcell face connectivity (tet)
+  !data tetmap /4,1,2,3/                                     ! map to exodus face ordering
+  data tetmap /1,2,3,4/
+  data pyrf /1,2,3,4,1,5,2,2,2,5,3,3,4,3,5,5,1,4,5,5/        ! ugrid/mcell face connectivity (pyramid)
+  !data pyrmap /5,1,2,3,4/                                     ! map to exodus face ordering
+  data pyrmap /1,2,3,4,5/
+  data prizmf /1,2,3,3,1,4,5,2,2,5,6,3,1,3,6,4,4,6,5,5/       ! prizm connectivity
+  !data prizmap /4,1,2,3,5/                                    ! map to exodus face ordering
+  data prizmap /1,2,3,4,5/
+  data hexf /1,2,3,4,1,5,6,2,2,6,7,3,3,7,8,4,1,4,8,5,5,8,7,6/ ! ugrid/mcell connectivity (hex)
+  data hexmap /1,2,3,4,5,6/
+  !data hexmap /5,1,2,3,4,6/                                   ! map to exodus face ordering
+  data iface/4,5,5,6/
+  data numverts/3,3,3,3,0,0,&
+       4,3,3,3,3,0,&
+       3,4,4,4,3,0,&
+       4,4,4,4,4,4/  
 contains
   subroutine deletedata
-    if (allocated(f2c)) deallocate(f2c)
-    if (allocated(faceConn)) deallocate(faceConn)
+    if (allocated(faceInfo)) deallocate(faceInfo)
+    if (allocated(cell2cell)) deallocate(cell2cell)
   end subroutine deletedata
   !>
   !> find boundary faces in a given graph, using the information of 
@@ -24,13 +52,13 @@ contains
   !> Jay Sitaraman
   !> 12/15/2017
   !>
-  subroutine findnewboundaryface(nbf,faceInfo,iflag,ntrifaces,nquadfaces,ndc4,ndc5,ndc6,ndc8, &
+  subroutine findnewboundaryface(cell2cell,faceInfo,iflag,ntrifaces,nquadfaces,ndc4,ndc5,ndc6,ndc8, &
        nnode,ntetra,npyra,nprizm,nhexa)
     !
     implicit none
     !
-    integer, allocatable, intent(out) :: nbf(:,:)          !> boundary face graph
-    integer, allocatable, intent(out) :: faceInfo(:,:)     !> face information (cell,faceId)
+    integer, allocatable, intent(out) :: cell2cell(:)      !> cell2cell graph
+    integer, allocatable, intent(out) :: faceInfo(:)       !> face information (faceconnectivity and cell connections
     integer, intent(inout) :: ntrifaces,nquadfaces         !> number of triangle and quad faces
     integer, intent(in) :: nnode,ntetra,npyra,nprizm,nhexa !> number of nodes and elements in the graph
     integer, intent(in) :: iflag(nnode)                    !> flag to say which one are boundary nodes
@@ -41,32 +69,8 @@ contains
     !
     ! local variables
     !
-    integer, dimension(3,4)  :: tetf
-    integer, dimension(4,5)  :: pyrf
-    integer, dimension(4,5)  :: prizmf
-    integer, dimension(4,6)  :: hexf
-    integer, dimension(6,4)  :: numverts
-    integer, dimension(4)    :: iface
-    integer :: tetmap(4)
-    integer :: pyrmap(5)
-    integer :: prizmap(5)
-    integer :: hexmap(6)
     !
-    data tetf /1,2,3,1,4,2,2,4,3,1,3,4/                         ! ugrid/mcell face connectivity (tet)
-    data tetmap /4,1,2,3/                                       ! map to exodus face ordering
-    data pyrf /1,2,3,4,1,5,2,2,2,5,3,3,4,3,5,5,1,4,5,5/         ! ugrid/mcell face connectivity (pyramid)
-    data pyrmap /5,1,2,3,4/                                     ! map to exodus face ordering
-    data prizmf /1,2,3,3,1,4,5,2,2,5,6,3,1,3,6,4,4,6,5,5/       ! prizm connectivity
-    data prizmap /4,1,2,3,5/                                    ! map to exodus face ordering
-    data hexf /1,2,3,4,1,5,6,2,2,6,7,3,3,7,8,4,1,4,8,5,5,8,7,6/ ! ugrid/mcell connectivity (hex)
-    data hexmap /5,1,2,3,4,6/                                   ! map to exodus face ordering
-    data iface/4,5,5,6/
-    data numverts/3,3,3,3,0,0,&
-         4,3,3,3,3,0,&
-         3,4,4,4,3,0,&
-         4,4,4,4,4,4/
-    !
-    integer :: i,j,k,l,nsum,ncells,maxfaces,tprev,qprev,nfaces,csum
+    integer :: i,j,k,l,nsum,ncells,maxfaces,nfaces,csum,nbface,icptr
     integer :: flocal(4)
     integer, allocatable :: face(:,:),ipointer(:),iflag_cell(:)
     integer, parameter :: base=1
@@ -208,55 +212,48 @@ contains
     !
     ntrifaces=0
     nquadfaces=0
-    tprev=0
-    qprev=0
+    nbface=0
     !
+    allocate(cell2cell(4*ntetra+5*npyra+5*nprizm+6*nhexa))
+    allocate(faceInfo(nfaces*8))
+    write(6,*) 'ntetra,npyra,nprizm,nhexa,nfaces=',ntetra,npyra,nprizm,nhexa,nfaces
     do i=1,nfaces
-       if (face(6,i) == 0) then
-          if (face(4,i)==0) then
-             if (iflag(face(1,i))+iflag(face(2,i))+iflag(face(3,i))==3) then
-                ntrifaces=ntrifaces+1
-                face(6,i)=tprev
-                tprev=i
-             endif
-          else
-             if (iflag(face(1,i))+iflag(face(2,i))+iflag(face(3,i))+iflag(face(4,i))==4) then
-                nquadfaces=nquadfaces+1
-                face(6,i)=qprev
-                qprev=i
-             endif
-          endif
+       if (face(4,i)==0) then
+          faceInfo((i-1)*8+1)=face(3,i)-base
+          faceInfo((i-1)*8+2)=face(2,i)-base
+          faceInfo((i-1)*8+3)=face(1,i)-base
+          faceInfo((i-1)*8+4)=face(1,i)-base
+          ntrifaces=ntrifaces+1
+       else
+          faceInfo((i-1)*8+1)=face(4,i)-base
+          faceInfo((i-1)*8+2)=face(3,i)-base
+          faceInfo((i-1)*8+3)=face(2,i)-base
+          faceInfo((i-1)*8+4)=face(1,i)-base
+          nquadfaces=nquadfaces+1
+       endif
+       faceInfo((i-1)*8+5)=face(5,i)-base
+       faceInfo((i-1)*8+6)=face(8,i)-base
+       faceInfo((i-1)*8+7)=face(6,i)-base
+       faceInfo((i-1)*8+8)=face(9,i)-base       
+       cell2cell(cell_index(face(5,i))+face(8,i))=face(6,i)-base
+       if (face(6,i) > 0) then
+          cell2cell(cell_index(face(6,i))+face(9,i))=face(5,i)-base
+       else
+          nbface=nbface+1
        endif
     enddo
     !
-    allocate(nbf(4,ntrifaces+nquadfaces))
-    allocate(faceInfo(ntrifaces+nquadfaces,2))
-    !
-    j=0
-    !
-    do while(tprev > 0)
-       j=j+1
-       nbf(1,j)=face(3,tprev)-base
-       nbf(2,j)=face(2,tprev)-base
-       nbf(3,j)=face(1,tprev)-base
-       nbf(4,j)=nbf(3,j)
-       faceInfo(j,1)=face(5,tprev)-base
-       faceInfo(j,2)=face(8,tprev)-base
-       tprev=face(6,tprev)
-    end do
-    !
-    j=ntrifaces
-    !
-    do while(qprev>0) 
-       j=j+1
-       nbf(1,j)=face(4,qprev)-base
-       nbf(2,j)=face(3,qprev)-base
-       nbf(3,j)=face(2,qprev)-base
-       nbf(4,j)=face(1,qprev)-base
-       faceInfo(j,1)=face(5,qprev)-base
-       faceInfo(j,2)=face(8,qprev)-base
-       qprev=face(6,qprev)
-    enddo
+    write(6,*) 'nbface=',nbface
+
+    ! nbface=0
+    ! do i=1,ncells
+    !    do j=1,5
+    !       if (cell2cell(5*(i-1)+j) .lt. 0) then
+    !          nbface=nbface+1
+    !       endif
+    !    enddo
+    ! enddo
+    ! write(6,*) 'nbface=',nbface
     !
     deallocate(face)
     deallocate(ipointer)
@@ -264,10 +261,24 @@ contains
     call cpu_time(t2)
     !
     write(6,*) 'Face calculation time :',t2-t1
-    !
     return
+  contains
+    function cell_index(cin) result (indx)
+      integer, intent(in) :: cin
+      integer :: indx
+      if (cin <= ntetra) then
+         indx=4*(cin-1)
+      elseif (cin <= ntetra+npyra) then
+         indx=5*(cin-(ntetra)-1)+4*ntetra
+      elseif (cin <= ntetra+npyra+nprizm) then
+         indx=5*(cin-(ntetra+npyra)-1)+4*ntetra+5*npyra
+      elseif (cin <= ntetra+npyra+nprizm+nhexa) then
+         indx=6*(cin-(ntetra+npyra+nprizm)-1)+4*ntetra+5*npyra+5*nprizm
+      endif
+    end function cell_index    
+    !
   end subroutine findnewboundaryface
-
+  !
   !===========================================================================
   subroutine sort_face(a,n)
     implicit none
@@ -352,7 +363,7 @@ subroutine get_exposed_faces_prizms(ndc6,nprizm)
   npyra=0
   nhexa=0
   
-  call findnewboundaryface(faceConn,f2c,iflag,ntrifaces,nquadfaces,&
+  call findnewboundaryface(cell2cell,faceInfo,iflag,ntrifaces,nquadfaces,&
                            ndc4,ndc5,ndc6,ndc8, &
                            nnode,ntetra,npyra,nprizm,nhexa)
   deallocate(iflag)
@@ -368,34 +379,21 @@ subroutine get_face_count(ntriout,nquadout)
   nquadout=nquadfaces
 end subroutine get_face_count
 
-subroutine get_faces(faceout,nfaces)
+subroutine get_graph(cellout,faceout,csize,fsize)
   use boundary_interface
   implicit none
-  integer, intent (in) :: nfaces
-  integer, intent(out) :: faceout(nfaces)
+  integer, intent (in) :: fsize,csize
+  integer, intent (out):: cellout(csize)
+  integer, intent(out) :: faceout(fsize)
   integer :: m,i
 
-  m=0
-  do i=1,ntrifaces
-     m=m+1
-     faceout(m)=faceConn(1,i)
-     m=m+1
-     faceout(m)=faceConn(2,i)
-     m=m+1
-     faceout(m)=faceConn(3,i)
+  do i=1,fsize
+     faceout(i)=faceInfo(i)
   enddo
-
-  do i=1,nquadfaces
-     m=m+1
-     faceout(m)=faceConn(1,i+ntrifaces)
-     m=m+1
-     faceout(m)=faceConn(2,i+ntrifaces)
-     m=m+1
-     faceout(m)=faceConn(3,i+ntrifaces)
-     m=m+1
-     faceout(m)=faceConn(4,i+ntrifaces)
+  do i=1,csize
+     cellout(i)=cell2cell(i)
   enddo
-
+     
   call deleteData
   
-end subroutine get_faces
+end subroutine get_graph

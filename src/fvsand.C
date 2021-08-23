@@ -8,4 +8,6 @@ int main(int argc, char *argv[])
   sm=new StrandMesh(fname,0.01,1.1,20);
   sm->WriteMesh(0);
 }
-  
+
+
+

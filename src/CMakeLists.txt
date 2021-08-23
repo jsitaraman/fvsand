@@ -3,7 +3,7 @@ ENABLE_LANGUAGE(Fortran C)
 CMAKE_MINIMUM_REQUIRED(VERSION 3.8)
 SET(CGNS_LOCATION /usr/local/lib)
 SET(CMAKE_C_FLAGS "-fPIC -g -rdynamic")
-SET(CMAKE_Fortran_FLAGS "-fbounds-check -fbacktrace")
+SET(CMAKE_Fortran_FLAGS "-fbounds-check -fbacktrace -g")
 
 set(DIST_SRCS
   fvsand.C
