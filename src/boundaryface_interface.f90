@@ -75,9 +75,11 @@ contains
     integer, allocatable :: face(:,:),ipointer(:),iflag_cell(:)
     integer, parameter :: base=1
     real*8 :: t1,t2
+    logical :: verbose
     !
     ! find all exposed cell faces
     !
+    verbose=.false.
     call cpu_time(t1)
     allocate(iflag_cell(ntetra+npyra+nprizm+nhexa))
     !
@@ -216,7 +218,7 @@ contains
     !
     allocate(cell2cell(4*ntetra+5*npyra+5*nprizm+6*nhexa))
     allocate(faceInfo(nfaces*8))
-    write(6,*) 'ntetra,npyra,nprizm,nhexa,nfaces=',ntetra,npyra,nprizm,nhexa,nfaces
+    !write(6,*) 'ntetra,npyra,nprizm,nhexa,nfaces=',ntetra,npyra,nprizm,nhexa,nfaces
     do i=1,nfaces
        if (face(4,i)==0) then
           faceInfo((i-1)*8+1)=face(3,i)-base
@@ -243,8 +245,7 @@ contains
        endif
     enddo
     !
-    write(6,*) 'nbface=',nbface
-
+    !write(6,*) 'nbface=',nbface
     ! nbface=0
     ! do i=1,ncells
     !    do j=1,5
@@ -260,7 +261,7 @@ contains
     deallocate(iflag_cell)
     call cpu_time(t2)
     !
-    write(6,*) 'Face calculation time :',t2-t1
+    if (verbose) write(6,*) 'Face calculation time :',t2-t1
     return
   contains
     function cell_index(cin) result (indx)

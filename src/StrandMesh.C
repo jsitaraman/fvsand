@@ -1,6 +1,8 @@
 #include <cstdio>
+#include <math.h>
+#include "mpi.h"
 #include "GlobalMesh.h"
-
+using namespace fvSand;
 //
 // read a surface mesh
 // construct a simple strand mesh (no smoothing)
@@ -12,6 +14,7 @@ extern "C" {
   void get_exposed_faces_prizms_(int *,int *);
   void get_face_count_(int *,int *);
   void get_graph_(int *, int *, int *, int *);
+  void getspherepart_(int *, int *, double *);
 };
 
 StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels)
@@ -45,9 +48,10 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
   // create the storage for the mesh
   
   x=new double [3*nnodes];
-  nv=new int [1];
+  ntypes=1;
+  nv=new int [ntypes];
   nv[0]=6;
-  nc=new uint64_t [1];
+  nc=new uint64_t [ntypes];
   nc[0]=ncells;
   procmap=new int [ncells];
   cell2node=new uint64_t [6*ncells];
@@ -109,12 +113,10 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
   ndc6=new int[6*ncells];
   for(int i=0;i<6*ncells;i++) ndc6[i]=(int)cell2node[i];
   int ncells1=(int) ncells;	
-  printf("ncells1=%d\n",ncells1);
   
   get_exposed_faces_prizms_(ndc6,&ncells1);
   get_face_count_(&ntri,&nquad);
   nfaces=ntri+nquad;
-  printf("nfaces=%ld\n",nfaces);
   int *ctmp,*ftmp;
   int csize=5*ncells;
   int fsize=8*nfaces;
@@ -123,9 +125,11 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
   get_graph_(ctmp,ftmp,&csize,&fsize);
   cell2cell = new int64_t[csize];
   faceInfo  = new int64_t[fsize];
+  nconn     = new int[ncells];
   
   for(int i=0;i<csize;i++) cell2cell[i]=(int64_t)(ctmp[i]);
   for(int i=0;i<fsize;i++) faceInfo[i]=(int64_t)(ftmp[i]);
+  for(int i=0;i<ncells;i++) nconn[i]=5;
   
   k=0;
   int itype=2; // prizms
@@ -189,6 +193,34 @@ void StrandMesh::WriteBoundaries(int label)
 	fprintf(fp,"\n");
       }
   fclose(fp);
+}
+void StrandMesh::PartitionSphereMesh(int myid,int numprocs,MPI_Comm comm)
+{
+  double *arange=new double [4];
+  int *pmap=new int [ncells];
+  int mp1=myid+1;
+  getspherepart_(&mp1,&numprocs,arange);
+  int k=0;
+  for(int i=0;i<ncells;i++)
+    {
+      pmap[i]=-1;
+      double xc[3];
+      xc[0]=xc[1]=xc[2]=0;
+      for(int j=0;j<6;j++)
+	for(int n=0;n<3;n++)
+	  xc[n]+=x[3*(cell2node[6*i+j])+n];
+      for(int n=0;n<3;n++)
+	xc[n]*=0.16666666667;
+      double theta=atan(xc[2]/sqrt(xc[1]*xc[1]+xc[0]*xc[0]));
+      double phi=atan2(xc[1],xc[0]);
+      if (phi < 0) phi+=(2*M_PI);
+      if ((theta-arange[0])*(theta-arange[1]) <= 0.0 &&
+	  (phi-arange[2])*(phi-arange[3]) <=0.0) {
+	pmap[i]=myid;
+	k++;
+      }
+    }
+  int ierr=MPI_Allreduce(pmap,procmap,ncells,MPI_INT,MPI_MAX,comm);
 }
 void StrandMesh::WriteMesh(int label)
 {

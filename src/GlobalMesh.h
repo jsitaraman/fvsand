@@ -8,7 +8,8 @@
 // MeshBlock class - container and functions for generic unstructured grid partition in 3D
 //
 // Jay Sitaraman
-
+namespace fvSand {
+  
 class GlobalMesh
 {
  public :
@@ -23,9 +24,10 @@ class GlobalMesh
   uint64_t *nc;         // < number of each of different kinds of cells
                         // < (tets, prism, pyramids, hex etc)
   int *procmap;         // < process map for each cell
+  int *ncon;            // < number of connections per cell
   int64_t *cell2cell;  // < connectivity map of each cell
   int64_t *faceInfo;   // < face connectivity and face to cell map
-  int *nconn;           // < number of connections per node
+  int *nconn;           // < number of connections per cell
   //
   // number of vertices per face for all regular polyhedra and
   // their implicit connectivity, using Dimitri's mcell style description
@@ -54,7 +56,6 @@ class GlobalMesh
     delete [] nconn;
   }
   
-
 };
 
 class StrandMesh : public GlobalMesh
@@ -63,8 +64,9 @@ class StrandMesh : public GlobalMesh
   StrandMesh(char *surface_file,double ds, double stretch, int nlevels);
   void WriteMesh(int label);
   void WriteBoundaries(int label);
+  void PartitionSphereMesh(int, int, MPI_Comm);
   ~StrandMesh() {};
 };
   
-
+}
 #endif /* GLOBALMESH_H */
