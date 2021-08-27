@@ -25,6 +25,14 @@ int main(int argc, char *argv[])
   std::vector<double> flovar = { 1.0, 0.2, 0.0, 0.0, 1./1.4};
   lm->initSolution(flovar.data(),nfields);
   lm->WriteMesh(myid);
+
+  int nsteps=100;
+  double dt=0.0001;
+  double rk[4]={0.25,8./15,5./12,3./4};
+  
+  for(int iter=0;iter<nsteps;iter++)
+    {
+    }
   
   MPI_Finalize();
 }

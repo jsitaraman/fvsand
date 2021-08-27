@@ -42,21 +42,22 @@ class LocalMesh
   // device data
   //
   // grid metrics
+  //
   double *x_d;
-  int *cell2node_d,*nvcft_d,*ncon_d;
+  int *cell2node_d,*ncon_d,*nvcft_d,*nccft_h,*nccft_d,*cell2cell_d;
   double *center;
   double *normals;
-  double *cellvolume;
+  double *volume;
   // gradient weights
   double *lsqwts;
-  // solution fields at n+1,n & n-1
-  double *q,*qn,*qnn;
 
   int nthreads,n_blocks;
   int block_size{128};
   
-  
  public:
+
+  // solution fields at n+1,n & n-1
+  double *q,*qn,*qnn;
   
   LocalMesh() {}; 
   ~LocalMesh();

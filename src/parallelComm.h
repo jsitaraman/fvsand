@@ -32,7 +32,7 @@ namespace FVSAND {
       uint64_t *ngptr=new uint64_t [nnodes+1];
       std::vector <uint64_t> ptmp;
       std::map <int, std::vector<uint64_t> > pmap;
-      std::vector<uint64_t> halomap;
+      std::vector<uint64_t> halo;
 
       int ierr=MPI_Comm_rank(comm,&myid);
       
@@ -76,14 +76,14 @@ namespace FVSAND {
 		    sndmap[procmap[node2node[j]]].push_back(global2local[inode]);
 		    }
 		  }
-		  auto it = std::find(halomap.begin(), halomap.end(), node2node[j]);
-		  if (it==halomap.end()) {
+		  auto it = std::find(halo.begin(), halo.end(), node2node[j]);
+		  if (it==halo.end()) {
 		    int nodecount=(*nlocal)+(*nhalo);
-		    halomap.push_back(node2node[j]);        // global id of halo node
+		    halo.push_back(node2node[j]);        // global id of halo node
 		    (*nhalo)++;
 		    node2nodelocal.push_back(nodecount);      // connection is to a local ghost;
 		  } else {
-		    node2nodelocal.push_back(distance(halomap.begin(),it));
+		    node2nodelocal.push_back(distance(halo.begin(),it)+(*nlocal));
 		  }	    
 		}
 		else {	         
@@ -95,14 +95,35 @@ namespace FVSAND {
 	}
 
       int b=(*nlocal);
-      for (auto h : halomap)
+      for (auto h : halo)
 	{
 	  local2global.push_back(h);
 	  ncon_local.push_back(ngptr[h+1]-ngptr[h]);
+	  for(int j=ngptr[h];j<ngptr[h+1];j++)
+	    {
+	      auto it = std::find(local2global.begin(), local2global.end(), node2node[j]);
+	      if (it!=local2global.end() && distance(local2global.begin(),it) < (*nlocal)) {
+	  	node2nodelocal.push_back(distance(local2global.begin(),it));
+	      }
+	      else {
+	  	node2nodelocal.push_back(-1);
+	      }
+	    }
 	  global2local.emplace(h,b);
 	  b++;
 	  //global2local[h.first]=h.second;
 	}
+
+      char fn[20];
+      sprintf(fn,"c2c%d.dat",myid);
+      FILE*fp=fopen(fn,"w");
+      for(int i=0;i<(*nlocal+*nhalo);i++)
+	{
+	  for(int j=0;j<5;j++)
+	    fprintf(fp,"%d ",node2nodelocal[5*i+j]);
+	  fprintf(fp,"\n");
+	}
+      fclose(fp);
 
       MPI_Request *ireq=new MPI_Request [pmap.size()*2];
       MPI_Status *istatus=new MPI_Status [pmap.size()*2];
@@ -120,9 +141,13 @@ namespace FVSAND {
 	  buffer[k]=(uint64_t *)malloc(sizeof(uint64_t)*sendlist.size());	  
 	  for(int b=0;b<sendlist.size();b++) buffer[k][b]=sendlist[b];
 	  // why is this needed, why not use sendlist.data() ?
-	  // MPI spews garbage if I send sendlist.data() 
+	  // MPI is unpredictable if I send sendlist.data() and
+	  // gives garbage on the recieving end sometimes.
+	  // I would think sendlist.data() is contiguous
 	  MPI_Isend(buffer[k],sendlist.size(), MPI_UNSIGNED_LONG, 
-		    procid, 0, MPI_COMM_WORLD, &(ireq[k]));
+	  	    procid, 0, comm, &(ireq[k]));
+	  //MPI_Isend(sendlist.data(),sendlist.size(), MPI_UNSIGNED_LONG,
+          //          procid, 0, comm, &(ireq[k]));
 	  k++;
 	}
       //
@@ -134,7 +159,7 @@ namespace FVSAND {
       for(auto p : pmap)
 	{
 	  auto procid=p.first;
-	  int ier=MPI_Probe(p.first,0,MPI_COMM_WORLD,&(istatus[pmap.size()+pcount]));
+	  int ier=MPI_Probe(p.first,0,comm,&(istatus[pmap.size()+pcount]));
 	  int datasize;
 	  MPI_Get_count(&(istatus[pmap.size()+pcount]),MPI_LONG,&datasize);
 	  rmap[procid]=std::vector<uint64_t>(datasize,0);
@@ -149,7 +174,7 @@ namespace FVSAND {
       //
       int err=MPI_Waitall(k,ireq,istatus);
       //
-      // free the send buffers now
+      // free the contiguous send buffers now
       //
       for(int k=0;k<pmap.size();k++) free(buffer[k]);
       free(buffer);
