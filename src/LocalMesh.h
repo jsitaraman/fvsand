@@ -9,7 +9,7 @@
 // MeshBlock class - container and functions for generic unstructured grid partition in 3D
 //
 // Jay Sitaraman
-namespace fvSand {
+namespace FVSAND {
 
 class GlobalMesh;
   
@@ -23,6 +23,11 @@ class LocalMesh
   int nfaces{0};       // < total number of faces
   int procid{0};       // < process id where this mesh belongs
   int meshtag{0};      // < meshtag
+  MPI_Comm mycomm;     // < communicator for this mesh
+  int myid;            // < rank in this mesh group
+  int ngroup;          // < number of ranks in this group
+  //
+  // host data populated by partitoner 
   //
   std::vector<double> x;        // < grid coordinates
   std::vector<int>  nvcft;      // < vertex connectivity location for each cell
@@ -34,19 +39,23 @@ class LocalMesh
   std::map< int, std::vector<int>> sndmap; // map of send data (procid, local id of owned cells)
   std::map <int, std::vector<int>> rcvmap; // map of recv data (procid, localid of ghost cells)
   //
-  // number of vertices per face for all regular polyhedra and
-  // their implicit connectivity, using Dimitri's mcell style description
-  // http://scientific-sims.com/oldsite/index.php/solver-file-formats/cell-type-definitions-dm
+  // device data
   //
-  // TODO
-  // This is repeated from GlobalMesh (find a common container in implementation) for now
-  //
-  int numverts[4][6]={3,3,3,3,0,0,4,3,3,3,3,0,3,4,4,4,3,0,4,4,4,4,4,4};
-  int face2node[4][24]={1,2,3,3,1,4,2,2,2,4,3,3,1,3,4,4,0,0,0,0,0,0,0,0,
-			1,2,3,4,1,5,2,2,2,5,3,3,4,3,5,5,1,4,5,5,0,0,0,0,
-			1,2,3,3,1,4,5,2,2,5,6,3,1,3,6,4,4,6,5,5,0,0,0,0,
-			1,2,3,4,1,5,6,2,2,6,7,3,3,7,8,4,1,4,8,5,5,8,7,6};
+  // grid metrics
+  double *x_d;
+  int *cell2node_d,*nvcft_d,*ncon_d;
+  double *center;
+  double *normals;
+  double *cellvolume;
+  // gradient weights
+  double *lsqwts;
+  // solution fields at n+1,n & n-1
+  double *q,*qn,*qnn;
 
+  int nthreads,n_blocks;
+  int block_size{128};
+  
+  
  public:
   
   LocalMesh() {}; 
@@ -55,7 +64,8 @@ class LocalMesh
 	    int myid,
 	    MPI_Comm comm);
   void WriteMesh(int label);
-  
+  void createGridMetrics();
+  void initSolution(double *, int);
 };
   
 }

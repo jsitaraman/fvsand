@@ -2,7 +2,7 @@
 #include <math.h>
 #include "mpi.h"
 #include "GlobalMesh.h"
-using namespace fvSand;
+using namespace FVSAND;
 //
 // read a surface mesh
 // construct a simple strand mesh (no smoothing)

@@ -2,12 +2,18 @@
 #include "GlobalMesh.h"
 #include "LocalMesh.h"
 #include "parallelComm.h"
+#include "fvsand_gpu.h"
+#include "metric_functions.h"
+#include "solver_functions.h"
 #include <cstdio>
 
-using namespace fvSand;
+using namespace FVSAND;
 
 LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
 {
+  mycomm=comm;
+  int ierr=MPI_Comm_rank(comm,&myid);
+  ierr=MPI_Comm_size(comm,&ngroup);
   parallelComm pc;
   
   // create communication patterns and ghost cells
@@ -25,7 +31,7 @@ LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
 			global2local,
 			sndmap,
 			rcvmap,
-			comm);
+			mycomm);
   //printf("ncells/nhalo=%d %d\n",ncells,nhalo);
   //
   // mine out the vertices of all the local cells
@@ -83,8 +89,54 @@ LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
     }
   for(auto c : cell2nodeg) cell2node.push_back(iflag[c]);
 
+  
 }
 
+void LocalMesh::createGridMetrics()
+{
+  x_d=gpu::push_to_device<double>(x.data(),sizeof(double)*x.size());
+  cell2node_d=gpu::push_to_device<int>(cell2node.data(),sizeof(int)*cell2node.size());
+  nvcft_d=gpu::push_to_device<int>(nvcft.data(),sizeof(int)*nvcft.size());
+  ncon_d=gpu::push_to_device<int>(ncon.data(),sizeof(int)*ncon.size());
+  
+  center=gpu::allocate_on_device<double>(sizeof(double)*3*(ncells+nhalo));
+  // allocate larger storage than necessary to avoid
+  // unequal stride, 6=max faces for hex and 3 doubles per face
+  normals=gpu::allocate_on_device<double>(sizeof(double)*18*(ncells+nhalo));
+
+  // compute cell centers
+  nthreads=(ncells+nhalo)*3;
+  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+  FVSAND_GPU_LAUNCH_FUNC(cell_center,n_blocks,block_size,0,0,
+			 center,x_d,nvcft_d,cell2node_d,ncells+nhalo);
+
+  // compute cell normals
+  
+  nthreads=ncells+nhalo;
+  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+  FVSAND_GPU_LAUNCH_FUNC(cell_normals,n_blocks,block_size,0,0,
+  			 normals,x_d,ncon_d,cell2node_d,nvcft_d,ncells+nhalo);
+  
+}
+
+void LocalMesh::initSolution(double *flovar, int nfields)
+{
+ q=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+ qn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+ qnn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+
+ nthreads=ncells+nhalo;
+ //nthreads=ncells;
+ n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+ int istor=0; // use row storage for now
+ FVSAND_GPU_LAUNCH_FUNC(init_q,n_blocks,block_size,0,0,
+		        q,center,flovar,nfields,istor,(ncells+nhalo));
+ parallelComm pc;
+ pc.exchangeDataDouble(q,nfields,(ncells+nhalo),istor,sndmap,rcvmap,mycomm);
+ 
+}
+
+  
 void LocalMesh::WriteMesh(int label)
 {
   char fname[80];
@@ -94,17 +146,19 @@ void LocalMesh::WriteMesh(int label)
   sprintf(fname,"localmesh%d.dat",label);
   fp=fopen(fname,"w");
   fprintf(fp,"TITLE =\"output\"\n");
-  fprintf(fp,"VARIABLES=\"X\",\"Y\",\"Z\",\"PMAP\"\n");
+  fprintf(fp,"VARIABLES=\"X\",\"Y\",\"Z\",\"PMAP\",\"Q0\",\n");
   fprintf(fp,"ZONE T=\"VOL_MIXED\",N=%d E=%d ET=BRICK, F=FEBLOCK\n",nnodes,
           ncells+nhalo);
-  fprintf(fp,"VARLOCATION = (1=NODAL, 2=NODAL, 3=NODAL, 4=CELLCENTERED)\n");
+  fprintf(fp,"VARLOCATION = (1=NODAL, 2=NODAL, 3=NODAL, 4=CELLCENTERED, 5=CELLCENTERED)\n");
   
   for(j=0;j<3;j++)
     for(i=0;i<nnodes;i++) fprintf(fp,"%.14e\n",x[3*i+j]);
   for(i=0;i<ncells;i++)
     fprintf(fp,"%d\n",1);
   for(i=0;i<nhalo;i++)
-    fprintf(fp,"%d\n",-1);  
+    fprintf(fp,"%d\n",-1);
+  for(i=0;i<ncells+nhalo;i++)
+    fprintf(fp,"%lf\n",q[i*5+2]);
   
   for(i=0;i<ncells+nhalo;i++)
     {

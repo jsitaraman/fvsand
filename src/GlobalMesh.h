@@ -8,7 +8,7 @@
 // MeshBlock class - container and functions for generic unstructured grid partition in 3D
 //
 // Jay Sitaraman
-namespace fvSand {
+namespace FVSAND {
   
 class GlobalMesh
 {

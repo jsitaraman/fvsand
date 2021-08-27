@@ -79,7 +79,9 @@ namespace FVSAND {
 		  auto it = std::find(halomap.begin(), halomap.end(), node2node[j]);
 		  if (it==halomap.end()) {
 		    int nodecount=(*nlocal)+(*nhalo);
-		    halomap.push_back(node2node[j]);        // global id of halo node
+		    halomap.push_back(node2node[j]);
+		    if (myid==0) printf("%ld %d\n",node2node[j],nodecount);
+	//		    halomap[node2node[j]]=nodecount;          // map of global id to halo index
 		    (*nhalo)++;
 		    node2nodelocal.push_back(nodecount);      // connection is to a local ghost;
 		  } else {
@@ -94,15 +96,21 @@ namespace FVSAND {
 	    }
 	}
 
+      char fn[20];
+      sprintf(fn,"halo%d.dat",myid);
+      FILE *fp=fopen(fn,"w");
       int b=(*nlocal);
       for (auto h : halomap)
 	{
+	  fprintf(fp,"%d %ld %d\n",myid,h,b);
 	  local2global.push_back(h);
 	  ncon_local.push_back(ngptr[h+1]-ngptr[h]);
 	  global2local.emplace(h,b);
 	  b++;
 	  //global2local[h.first]=h.second;
 	}
+      fclose(fp);
+      printf("pmap.size()=%ld\n",pmap.size());
 
       MPI_Request *ireq=new MPI_Request [pmap.size()*2];
       MPI_Status *istatus=new MPI_Status [pmap.size()*2];
@@ -117,10 +125,15 @@ namespace FVSAND {
 	{
 	  auto procid=p.first;
 	  auto sendlist=p.second;
-	  buffer[k]=(uint64_t *)malloc(sizeof(uint64_t)*sendlist.size());	  
+	  FILE *fp;
+	  char fname[20];
+	  sprintf(fname,"sndlist%d-%d.dat",myid,procid);
+	  fp=fopen(fname,"w");
+	  for(int m=0;m<sendlist.size();m++)
+	    fprintf(fp,"%ld %d\n",sendlist[m],global2local[sendlist[m]]);
+	  fclose(fp);
+	  buffer[k]=(uint64_t *)malloc(sizeof(uint64_t)*sendlist.size());
 	  for(int b=0;b<sendlist.size();b++) buffer[k][b]=sendlist[b];
-	  // why is this needed, why not use sendlist.data() ?
-	  // MPI spews garbage if I send sendlist.data() 
 	  MPI_Isend(buffer[k],sendlist.size(), MPI_UNSIGNED_LONG, 
 		    procid, 0, MPI_COMM_WORLD, &(ireq[k]));
 	  k++;
@@ -134,35 +147,66 @@ namespace FVSAND {
       for(auto p : pmap)
 	{
 	  auto procid=p.first;
+	  //auto sendlist=p.second;
 	  int ier=MPI_Probe(p.first,0,MPI_COMM_WORLD,&(istatus[pmap.size()+pcount]));
 	  int datasize;
 	  MPI_Get_count(&(istatus[pmap.size()+pcount]),MPI_LONG,&datasize);
+	  printf("myid/datasize=%d %d\n",myid,datasize);
 	  rmap[procid]=std::vector<uint64_t>(datasize,0);
 	  rcvmap[procid]=std::vector<int>(datasize,0);
 	  MPI_Recv(rmap[procid].data(),rmap[procid].size(), MPI_LONG,
 		   procid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	  FILE *fp;
+	  char fname[20];
+	  sprintf(fname,"rcvlist%d-%d.dat",myid,procid);
+	  fp=fopen(fname,"w");
+	  for(int k=0;k<rmap[procid].size();k++)
+	    fprintf(fp,"%ld\n",rmap[procid][k]);
+	  fclose(fp);
+
 	  pcount++;
 	}
       MPI_Waitall(pmap.size(),ireq,istatus);
-      //
-      // wait for all send requests to complete
-      //
+      
+      // for(auto p : pmap)
+      // 	{
+      // 	  auto procid=p.first;
+      // 	  int datasize=p.second.size();
+      // 	  rmap[procid]=std::vector<uint64_t>(datasize);
+      // 	  rcvmap[procid]=std::vector<int>(datasize);
+      // 	  printf("%ld\n",rmap[procid].size());
+      // 	  //MPI_Irecv(rmap[procid].data(),rmap[procid].size(), MPI_UNSIGNED_LONG, 
+      // 	  //	    procid, 0, MPI_COMM_WORLD, &(ireq[k++]));
+      // 	  MPI_Recv(rmap[procid].data(),rmap[procid].size(), MPI_UNSIGNED_LONG,
+      //              procid, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      // 	}
+      printf("k=%d\n",k);
       int err=MPI_Waitall(k,ireq,istatus);
       //
       // free the send buffers now
       //
       for(int k=0;k<pmap.size();k++) free(buffer[k]);
       free(buffer);
+
+      printf("err=%d\n",err);
       //
       // convert the 64 bit global number to a 32 bit local number
       //
+      char fname[20];
+      sprintf(fname,"rclist%d.dat",myid);
+      fp=fopen(fname,"w");
       for(auto &p :rcvmap)
 	{
 	  int procid=p.first;
 	  for(int i=0;i<p.second.size();i++) {
 	    p.second[i]=global2local[rmap[procid][i]];
+	    fprintf(fp,"%d %d %ld\n",p.second[i],rmap[procid][i],local2global[p.second[i]]);
 	  }
 	}
+//      for(auto p: rcvmap)
+//	for(int i=0;i<p.second.size();i++)
+//           fprintf(fp,"%d\n",p.second[i]);
+      fclose(fp);
 
       delete [] ireq;
       delete [] istatus;
@@ -196,6 +240,7 @@ namespace FVSAND {
 	    for(int i=0;i<nfields;i++)
 	      sndPacket[s.first][m++]=q[v*scale+i*stride];
 	   }
+	  printf("%d Sending %d -  %ld data\n",myid,s.first,sndPacket[s.first].size());
 	  MPI_Isend(sndPacket[s.first].data(),
 		    sndPacket[s.first].size(), MPI_DOUBLE,
 		    s.first, 0, comm, &ireq[k++]);
@@ -204,18 +249,17 @@ namespace FVSAND {
       for(auto r : rcvmap)
 	{
 	  rcvPacket[r.first]=std::vector<double>(r.second.size()*nfields,0);
+	  printf("%d receiving %d -  %ld data\n",myid,r.first,rcvPacket[r.first].size());
 	  MPI_Irecv(rcvPacket[r.first].data(),
 		    rcvPacket[r.first].size(), MPI_DOUBLE,
 		    r.first,0,comm,&ireq[k++]);
 	}
 
-      MPI_Waitall(sndmap.size()+rcvmap.size(),ireq,istatus);
-
-      double qnorm=0.0;
-      //FILE *fp;
-      //char fname[20];
-      //sprintf(fname,"recv%d.dat",myid);
-      //fp=fopen(fname,"w");
+      MPI_Waitall(sndmap.size()+rcvmap.size(),ireq,istatus);   
+      FILE *fp;
+      char fname[20];
+      sprintf(fname,"recv%d.dat",myid);
+      fp=fopen(fname,"w");
       for(auto r : rcvmap)
 	{
 	  int m=0;
@@ -224,19 +268,16 @@ namespace FVSAND {
 	  for(int k=0;k<rcvlist.size();k++)
 	    {
 	      int v=rcvlist[k];
-	      //fprintf(fp,"%d ",v);
+	      fprintf(fp,"%d ",v);
 	      for(int i=0;i<nfields;i++)
 		{
-		  double qv=rcvdata[m++];
-		  qnorm+=abs(qv-q[v*scale+i*stride]);
-		  //fprintf(fp,"%f ",q[v*scale+i*stride]);
-		  q[v*scale+i*stride]=qv;
+		  q[v*scale+i*stride]=rcvdata[m++];
+		  fprintf(fp,"%f ",q[v*scale+i*stride]);
 		}
-	      //fprintf(fp,"\n");
+	      fprintf(fp,"\n");
 	    }
 	}
-      //fclose(fp);
-      printf("qnorm=%lf\n",qnorm);
+      fclose(fp);
       delete [] ireq;
       delete [] istatus;
     }
