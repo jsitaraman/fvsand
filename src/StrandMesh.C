@@ -22,19 +22,34 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
   FILE *fp;  
   fp=fopen(surface_file,"r");  
   int nsurfnodes,nsurfcells;
+  int ier;
   
-  fscanf(fp,"%d %d",&nsurfnodes,&nsurfcells);
+  ier=fscanf(fp,"%d %d",&nsurfnodes,&nsurfcells);
+  if (ier==0) {
+   printf("File could not be read \n");
+   exit(0);
+  }
+	
   std::vector<double> xsurf(3*nsurfnodes);
-  for(int i=0;i<nsurfnodes;i++)
-    fscanf(fp,"%lf %lf %lf",&(xsurf[3*i]),&(xsurf[3*i+1]),&(xsurf[3*i+2]));
+  for(int i=0;i<nsurfnodes && ier!=0;i++)
+    ier=fscanf(fp,"%lf %lf %lf",&(xsurf[3*i]),&(xsurf[3*i+1]),&(xsurf[3*i+2]));
+  if (ier==0) {
+   printf("Coordinates could not be read \n");
+   exit(0);
+  }
+
   std::vector<int> tri(3*nsurfcells);
-  for(int i=0;i<nsurfcells;i++)
+  for(int i=0;i<nsurfcells && ier!=0;i++)
     {
-      fscanf(fp,"%d %d %d",&(tri[3*i]),&(tri[3*i+1]),&(tri[3*i+2]));
+      ier=fscanf(fp,"%d %d %d",&(tri[3*i]),&(tri[3*i+1]),&(tri[3*i+2]));
       tri[3*i]--;
       tri[3*i+1]--;
       tri[3*i+2]--;
     }
+  if (ier==0) {
+   printf("Connectivity could not be read \n");
+   exit(0);
+  }
   fclose(fp);
   
   nnodes=nsurfnodes*(nlevels+1);
