@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	if (myid==0) printf("iter:%d  %lf\n",iter,rnorm);
       }
     }
-  //lm->WriteMesh(myid);  
+  lm->WriteMesh(myid);  
   MPI_Finalize();
 }
 

@@ -256,8 +256,10 @@ void LocalMesh::WriteMesh(int label)
     fprintf(fp,"%d\n",1);
   for(i=0;i<nhalo;i++)
     fprintf(fp,"%d\n",-1);
+
+  gpu::pull_from_device<double>(qh,volume,sizeof(double)*(ncells+nhalo));
   for(i=0;i<ncells+nhalo;i++)
-    fprintf(fp,"%lf\n",volume[i]);
+    fprintf(fp,"%lf\n",qh[i]);
 
   gpu::pull_from_device<double>(qh,res,sizeof(double)*nfields_d*(ncells+nhalo));
   for(n=0;n<nfields_d;n++)
