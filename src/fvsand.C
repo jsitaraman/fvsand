@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
   std::vector<double> flovar = { 1.0, 0.2, 0.0, 0.0, 1./1.4};
   lm->InitSolution(flovar.data(),nfields);
 
-  int nsteps=1000;
+  int nsteps=10000;
   int nsave=10;
   double dt=0.0001;
   double rk[4]={0.25,8./15,5./12,3./4};
