@@ -8,9 +8,13 @@ option(FVSAND_ENABLE_CUDA "Enable CUDA support (default: off)" OFF)
 set(FVSAND_CUDA_SM "70" CACHE STRING "CUDA arch option")
 #set(FVSAND_HIP_ARCH "gfx906,gfx908" CACHE STRING "HIP arch option")
 
-SET(CMAKE_C_FLAGS "-fPIC -g -rdynamic")
-SET(CMAKE_CXX_FLAGS "-fPIC -g -rdynamic -O0")
-SET(CMAKE_Fortran_FLAGS "-fbounds-check -fbacktrace -g")
+#SET(CMAKE_C_FLAGS "-fPIC -g -rdynamic")
+#SET(CMAKE_CXX_FLAGS "-fPIC -g -rdynamic -O0")
+#SET(CMAKE_Fortran_FLAGS "-fbounds-check -fbacktrace -g")
+
+SET(CMAKE_C_FLAGS "-fPIC -rdynamic -O2")
+SET(CMAKE_CXX_FLAGS "-fPIC -rdynamic -O2")
+SET(CMAKE_Fortran_FLAGS "-O2")
 
 if (FVSAND_ENABLE_CUDA)
   enable_language(CUDA)

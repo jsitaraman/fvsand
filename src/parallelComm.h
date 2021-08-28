@@ -114,6 +114,7 @@ namespace FVSAND {
 	  //global2local[h.first]=h.second;
 	}
 
+      /*
       char fn[20];
       sprintf(fn,"c2c%d.dat",myid);
       FILE*fp=fopen(fn,"w");
@@ -124,6 +125,7 @@ namespace FVSAND {
 	  fprintf(fp,"\n");
 	}
       fclose(fp);
+      */
 
       MPI_Request *ireq=new MPI_Request [pmap.size()*2];
       MPI_Status *istatus=new MPI_Status [pmap.size()*2];
@@ -261,7 +263,7 @@ namespace FVSAND {
 	    }
 	}
       //fclose(fp);
-      printf("qnorm=%lf\n",qnorm);
+      //printf("qnorm=%lf\n",qnorm);
       delete [] ireq;
       delete [] istatus;
     }

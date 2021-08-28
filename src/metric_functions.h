@@ -201,7 +201,7 @@ void cell_normals_volume(double *normals,
 
 	  norm[0]*=vscal;
 	  norm[1]*=vscal;
-	  norm[0]*=vscal;
+	  norm[2]*=vscal;
 	}
       //printf("%lf %lf\n",volume[idx],vol/3.0);
       volume[idx]=(vol/3.0);

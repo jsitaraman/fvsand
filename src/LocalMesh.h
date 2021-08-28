@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include <map>
+#include "parallelComm.h"
 //
 // MeshBlock class - container and functions for generic unstructured grid partition in 3D
 //
@@ -26,6 +27,9 @@ class LocalMesh
   MPI_Comm mycomm;     // < communicator for this mesh
   int myid;            // < rank in this mesh group
   int ngroup;          // < number of ranks in this group
+     
+  parallelComm pc;     // parallel communicator struct
+
   //
   // host data populated by partitoner 
   //
@@ -35,28 +39,46 @@ class LocalMesh
   std::vector<int> cell2cell;   // < cell2cell connectivity
   std::vector<int> ncon;        // < number of neighbors per cell
   std::vector<uint64_t> local2global;    // local2global numbering including ghost cells
-  std::map<uint64_t, int > global2local;// global2local map including ghost cells 
+  std::map<uint64_t, int > global2local; // global2local map including ghost cells
+  // communication maps
   std::map< int, std::vector<int>> sndmap; // map of send data (procid, local id of owned cells)
   std::map <int, std::vector<int>> rcvmap; // map of recv data (procid, localid of ghost cells)
+  std::vector<int> device2host;            // indices that needs to be pushed to host   (interior)
+  std::vector<int> host2device;            // indices that needs to be pushed to device (ghost)
+  int *device2host_d;                      // same data on the gpu
+  int *host2device_d;                      //
+  double *qbuf;                           // storage space on host to push and pull from device
+  double *qbuf_d;                         // storage space on device
   //
-  // device data
+  // solver data
   //
-  // grid metrics
-  //
-  double *x_d;
-  int *cell2node_d,*ncon_d,*nvcft_d,*nccft_h,*nccft_d,*cell2cell_d;
-  double *center;
-  double *normals;
-  double *volume;
-  // gradient weights
-  double *lsqwts;
+  int nfields_d;                    // number of fields
+  double *x_d;                      // vertex coordinates
+  double *flovar_d,*qinf_d;         // flow variables (primitive and conservative)  
+  
+  int *cell2node_d;                 // cell to node connectivity on device
+  int *nvcft_d;                     // cell to node cumulative frequency table
+  int *nccft_h;                     // cell to cell cumulative frequency table (host)
+  int *nccft_d;                     // cell to cell cumulative frequency table (device)
+  int *ncon_d;                      // number of connections per cell in cell to cell (device)
+  int *cell2cell_d;                 // cell to cell connectivity graph
 
+  double *center;      // cell center  (device)
+  double *normals;     // cell normals (device)
+  double *volume;      // cell volume  (device)
+  double *res_h,*res;  // residual (host and device)
+  // gradient weights
+  double *lsqwts;      // least square weights
+
+  // host/device data
   int nthreads,n_blocks;
-  int block_size{128};
+  int block_size{128};  
+  int istor{0};
   
  public:
 
   // solution fields at n+1,n & n-1
+  double *qh; // scratch storage space on host
   double *q,*qn,*qnn;
   
   LocalMesh() {}; 
@@ -65,8 +87,12 @@ class LocalMesh
 	    int myid,
 	    MPI_Comm comm);
   void WriteMesh(int label);
-  void createGridMetrics();
-  void initSolution(double *, int);
+  void CreateGridMetrics();
+  void InitSolution(double *, int);
+  void Residual(double * qv);
+  void Update(double *qdest, double *qsrc, double fscal);
+  void UpdateFringes(double *, double *);
+  double ResNorm(void);
 };
   
 }

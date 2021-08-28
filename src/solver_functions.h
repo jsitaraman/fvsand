@@ -4,7 +4,7 @@
 #include "roe_flux3d.h"
 
 FVSAND_GPU_GLOBAL
-void init_q(double *q, double *center, double *flovar, int nfields, int istor, int ncells)
+void init_q(double *q0, double *q, double *center, double *flovar, int nfields, int istor, int ncells)
 {
   int scale=(istor==0)?nfields:1;
   int stride=(istor==0)?1:ncells;
@@ -15,11 +15,10 @@ void init_q(double *q, double *center, double *flovar, int nfields, int istor, i
   for(int idx=0;idx<ncells;idx++)
 #endif
     {
-      double q0[5];
       q0[0]=flovar[0];
-      q0[1]=flovar[0]*flovar[1]+(center[3*idx])*0.1;
-      q0[2]=flovar[0]*flovar[2]+(center[3*idx+1]+center[3*idx]*center[3*idx]+center[3*idx+2])*0.1;
-      q0[3]=flovar[0]*flovar[3]+(center[3*idx+2])*0.1;
+      q0[1]=flovar[0]*flovar[1]; //+(center[3*idx])*0.1;
+      q0[2]=flovar[0]*flovar[2]; //+(center[3*idx+1]+center[3*idx]*center[3*idx]+center[3*idx+2])*0.1;
+      q0[3]=flovar[0]*flovar[3]; //+(center[3*idx+2])*0.1;
       q0[4]=flovar[4]/GM1 + 0.5*(q0[1]*q0[1]+q0[2]*q0[2]+q0[3]*q0[3])/q0[0];
       for(int n=0;n<nfields;n++)
 	q[idx*scale+n*stride]=q0[n];
@@ -78,7 +77,7 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 }
 
 FVSAND_GPU_GLOBAL
-void updateFields(double *res, double *q, double fscal, int ndof)
+void updateFields(double *res, double *qdest, double *qsrc, double fscal, int ndof)
 {
 #if defined (FVSAND_HAS_GPU)
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
@@ -87,6 +86,34 @@ void updateFields(double *res, double *q, double fscal, int ndof)
     for(int idx=0;idx<ndof;idx++)
 #endif
       {
-	q[idx]+=(fscal*res[idx]);
+	qdest[idx]=qsrc[idx]+(fscal*res[idx]);
+      }
+}
+
+FVSAND_GPU_GLOBAL
+void updateHost(double *qbuf, double *q, int *d2h, int nupdate)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < nupdate) 
+#else
+    for(int idx=0;idx<nupdate;idx++)
+#endif
+      {
+	qbuf[idx]=q[d2h[idx]];
+      }
+}
+
+FVSAND_GPU_GLOBAL
+void updateDevice(double *q, double *qbuf, int *h2d, int nupdate)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < nupdate) 
+#else
+    for(int idx=0;idx<nupdate;idx++)
+#endif
+      {
+	q[h2d[idx]]=qbuf[idx];
       }
 }
