@@ -10,7 +10,7 @@
 #define FVSAND_GPU_GLOBAL __global__
 #define FVSAND_GPU_HOST __host__
 #define FVSAND_GPU_HOST_DEVICE __host__ __device__
-#define FVSAND_HAS_GPU CUDA
+//#define FVSAND_HAS_GPU CUDA
 namespace FVSAND {
 namespace gpu {
 

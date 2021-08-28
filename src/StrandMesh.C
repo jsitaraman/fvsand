@@ -22,15 +22,15 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
   FILE *fp;  
   fp=fopen(surface_file,"r");  
   int nsurfnodes,nsurfcells;
-  int ier;
-  ier=fscanf(fp,"%d %d",&nsurfnodes,&nsurfcells);
+  
+  fscanf(fp,"%d %d",&nsurfnodes,&nsurfcells);
   std::vector<double> xsurf(3*nsurfnodes);
   for(int i=0;i<nsurfnodes;i++)
-    ier=fscanf(fp,"%lf %lf %lf",&(xsurf[3*i]),&(xsurf[3*i+1]),&(xsurf[3*i+2]));
+    fscanf(fp,"%lf %lf %lf",&(xsurf[3*i]),&(xsurf[3*i+1]),&(xsurf[3*i+2]));
   std::vector<int> tri(3*nsurfcells);
   for(int i=0;i<nsurfcells;i++)
     {
-      ier=fscanf(fp,"%d %d %d",&(tri[3*i]),&(tri[3*i+1]),&(tri[3*i+2]));
+      fscanf(fp,"%d %d %d",&(tri[3*i]),&(tri[3*i+1]),&(tri[3*i+2]));
       tri[3*i]--;
       tri[3*i+1]--;
       tri[3*i+2]--;

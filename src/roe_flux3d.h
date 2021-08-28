@@ -19,7 +19,8 @@ void InterfaceFlux_Inviscid( real & f1, real & f2, real & f3, real & f4, real & 
   real uu,c2,c2i,auu,aupc,aumc,uulft,uurht,upclft,upcrht;
   real umclft,umcrht,dauu,dauus,daupc,daumc,daumcs,rcav,aquu;
   real daupcs,c2ih,ruuav,b1,b2,b3,b4,b5,b6,b7,b8,aj;
-  real plar,eplft,eprht,fssub;
+  real plar,eplft,eprht;
+
   real faceSpeed;
   spec = 0.0;
 
@@ -159,8 +160,8 @@ void InterfaceFlux_Inviscid( real & f1, real & f2, real & f3, real & f4, real & 
       plar  = plft + prht;
       eplft = elft + plft;
       eprht = erht + prht;
-      fssub = rr*r4;
-      fssub = 0.0;
+      //fssub = rr*r4;
+      //fssub = 0.0;
       f1 = aj*(  rlft*uulft +  rrht*uurht           - aq1 );
       f2 = aj*( rulft*uulft + rurht*uurht + r1*plar - aq2 );
       f3 = aj*( rvlft*uulft + rvrht*uurht + r2*plar - aq3 );
@@ -198,7 +199,7 @@ void computeJacobian( real& ql1, real& ql2, real& ql3, real& ql4, real& ql5,
 {
 
 real gam=1.4;
-int imode=1;
+//int imode=1;
 
 
 real gm1;
@@ -207,7 +208,7 @@ real rol,ul,vl,wl,pl,hl;
 real ror,ur,vr,wr,pr,hr;
 real uconl,uconr;
 real ubar,vbar,wbar,hbar,uconbar,cbar,robar;
-real dp,dro,du,dv,dw;
+//real dp,dro,du,dv,dw;
 real eig1,eig2,eig3;
 
 real fact,A,B,term1,term2,del1,del2;
@@ -236,8 +237,10 @@ real deig1_dqr[5],deig2_dqr[5],deig3_dqr[5];
 real dterm1_dql[5],dterm1_dqr[5];
 real dterm2_dql[5],dterm2_dqr[5];
 real imat[5][5];
-real cl,cr,dc_dql[5],dc_dqr[5];
-real t1a,t1b,t2a,t2b,t3a,t3b;
+//real cl,cr,dc_dql[5],dc_dqr[5];
+//real dro,du,dv,dw,dp;
+real dp;
+//real t1a,t1b,t2a,t2b,t3a,t3b;
 
 real lmat1[5][5],rmat1[5][5];
 //------------------------------------------------------------------------------
@@ -256,7 +259,7 @@ real lmat1[5][5],rmat1[5][5];
       wl  = ql4/ql1;
       pl  = gm1*( ql5 - 0.5 * rol * (ul*ul + vl*vl + wl*wl) );
       hl  = (ql5 + pl)/rol;
-      cl  = sqrt(gam*pl/rol);
+      //cl  = sqrt(gam*pl/rol);
         
       ror = qr1;
       ur  = qr2/qr1;
@@ -264,14 +267,14 @@ real lmat1[5][5],rmat1[5][5];
       wr  = qr4/qr1;
       pr  = gm1*( qr5 - 0.5 * ror * (ur*ur + vr*vr + wr*wr) );
       hr  = (qr5 + pr)/ror;
-      cr  = sqrt(gam*pr/ror);
+      //cr  = sqrt(gam*pr/ror);
 
       //-----> primitive state differences
 
-      dro = ror - rol;
-      du  =  ur - ul;
-      dv  =  vr - vl;
-      dw  =  wr - wl;
+      //dro = ror - rol;
+      //du  =  ur - ul;
+      //dv  =  vr - vl;
+      //dw  =  wr - wl;
       dp  =  pr - pl;
 
       //----> face normal velocities
@@ -338,11 +341,11 @@ real lmat1[5][5],rmat1[5][5];
       dh_dql[3] = -(ql5 + pl)*dro_dql[3]/rol/rol + (1.0/rol)*(dq5_dql[3] + dp_dql[3]);
       dh_dql[4] = -(ql5 + pl)*dro_dql[4]/rol/rol + (1.0/rol)*(dq5_dql[4] + dp_dql[4]);
  
-      dc_dql[0] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[0] - (pl/rol/rol)*dro_dql[0] );
-      dc_dql[1] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[1] - (pl/rol/rol)*dro_dql[1] );
-      dc_dql[2] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[2] - (pl/rol/rol)*dro_dql[2] );
-      dc_dql[3] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[3] - (pl/rol/rol)*dro_dql[3] );
-      dc_dql[4] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[4] - (pl/rol/rol)*dro_dql[4] );
+      // dc_dql[0] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[0] - (pl/rol/rol)*dro_dql[0] );
+      // dc_dql[1] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[1] - (pl/rol/rol)*dro_dql[1] );
+      // dc_dql[2] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[2] - (pl/rol/rol)*dro_dql[2] );
+      // dc_dql[3] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[3] - (pl/rol/rol)*dro_dql[3] );
+      // dc_dql[4] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[4] - (pl/rol/rol)*dro_dql[4] );
 
       ducon_dql[0] = -uconl/rol;
       ducon_dql[1] =  nx   /rol;
@@ -407,11 +410,11 @@ real lmat1[5][5],rmat1[5][5];
       dh_dqr[3] = -(qr5 + pr)*dro_dqr[3]/ror/ror + (1.0/ror)*(dq5_dqr[3] + dp_dqr[3]);
       dh_dqr[4] = -(qr5 + pr)*dro_dqr[4]/ror/ror + (1.0/ror)*(dq5_dqr[4] + dp_dqr[4]);
 
-      dc_dqr[0] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[0] - (pr/ror/ror)*dro_dqr[0] );
-      dc_dqr[1] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[1] - (pr/ror/ror)*dro_dqr[1] );
-      dc_dqr[2] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[2] - (pr/ror/ror)*dro_dqr[2] );
-      dc_dqr[3] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[3] - (pr/ror/ror)*dro_dqr[3] );
-      dc_dqr[4] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[4] - (pr/ror/ror)*dro_dqr[4] );
+      //      dc_dqr[0] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[0] - (pr/ror/ror)*dro_dqr[0] );
+      // dc_dqr[1] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[1] - (pr/ror/ror)*dro_dqr[1] );
+      // dc_dqr[2] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[2] - (pr/ror/ror)*dro_dqr[2] );
+      // dc_dqr[3] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[3] - (pr/ror/ror)*dro_dqr[3] );
+      // dc_dqr[4] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[4] - (pr/ror/ror)*dro_dqr[4] );
 
       ducon_dqr[0] = -uconr/ror;
       ducon_dqr[1] =  nx   /ror;

@@ -45,7 +45,7 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 	  double *norm=normals+18*idx+3*(f-nccft[idx]);
 	  int idxn=cell2cell[f];
 	  // first order now
-	  double ql[nfields],qr[nfields];	  
+	  double ql[5],qr[5];	  
 	  for(int n=0;n<nfields;n++)
 	      ql[n]=q[scale*idx+n*stride];
 	  if (idxn > -1) {
@@ -56,7 +56,7 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 	    for(int n=0;n<nfields;n++)
 	      qr[n]=flovar[n];
 	  }
-	  double dres[nfields];
+	  double dres[5];
 	  double gx,gy,gz; // grid speeds
 	  double spec;     // spectral radius
 	  gx=gy=gz=0;

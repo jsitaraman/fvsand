@@ -2,7 +2,7 @@ PROJECT(fvsand)
 ENABLE_LANGUAGE(Fortran C CXX)
 CMAKE_MINIMUM_REQUIRED(VERSION 3.8)
 
-option(FVSAND_ENABLE_CUDA "Enable CUDA support (default: off)" OFF)
+option(FVSAND_ENABLE_CUDA "Enable CUDA support (default: off)" ON)
 
 # CUDA specific options
 set(FVSAND_CUDA_SM "70" CACHE STRING "CUDA arch option")
@@ -58,9 +58,9 @@ if (FVSAND_ENABLE_CUDA)
   set(CMAKE_CUDA_FLAGS ${FVSAND_CUDA_ARCH_FLAGS})
   set_target_properties(fvsand.exe PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON)
-  set_target_property(FVSANDLIB_CPP_SRC fvsand.exe SOURCES)
+  get_target_property(FVSANDLIB_CPP_SRC fvsand.exe SOURCES)
   list(FILTER FVSANDLIB_CPP_SRC INCLUDE REGEX "\\.C")
   set_source_files_properties(${FVSANDLIB_CPP_SRC} PROPERTIES LANGUAGE CUDA)
 endif()
 
-TARGET_LINK_LIBRARIES(fvsand.exe m ${MPI_LIBRARIES} )
+TARGET_LINK_LIBRARIES(fvsand.exe m gfortran ${MPI_LIBRARIES} )

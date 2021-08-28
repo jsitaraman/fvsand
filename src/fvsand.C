@@ -6,10 +6,10 @@ using namespace FVSAND;
 
 int main(int argc, char *argv[])
 {
-  int myid,numprocs,ierr;
-  ierr=MPI_Init(&argc, &argv);
-  ierr=MPI_Comm_rank(MPI_COMM_WORLD,&myid);
-  ierr=MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
+  int myid,numprocs;
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD,&myid);
+  MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
 
   char fname[]="data.tri";
   StrandMesh *sm;
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	if (myid==0) printf("iter:%d  %lf\n",iter,rnorm);
       }
     }
-  lm->WriteMesh(myid);  
+  //lm->WriteMesh(myid);  
   MPI_Finalize();
 }
 

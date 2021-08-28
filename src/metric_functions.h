@@ -1,4 +1,5 @@
 #include<math.h>
+#include<cstdio>
 
 //
 // number of vertices per face for all regular polyhedra and
@@ -140,7 +141,7 @@ void cell_normals_volume(double *normals,
     {
       int m=0;
       int v[8];
-      double xv[8][3];
+      //double xv[8][3];
       for(int j=nvcft[idx];j<nvcft[idx+1];j++)
 	v[m++]=cell2node[j];
       /* 	{ */
@@ -205,6 +206,7 @@ void cell_normals_volume(double *normals,
 	}
       //printf("%lf %lf\n",volume[idx],vol/3.0);
       volume[idx]=(vol/3.0);
+#if !defined (FVSAND_HAS_GPU)
       totalvol+=volume[idx];
       for(int f=0;f<ncon[idx];f++)
 	{
@@ -213,8 +215,11 @@ void cell_normals_volume(double *normals,
 	  normsum[1]+=norm[1];
 	  normsum[2]+=norm[2];
 	}
+#endif
     }
+#if !defined(FVSAND_HAS_GPU)
   printf("normalsum: %lf %lf %lf %lf\n",normsum[0],normsum[1],normsum[2],totalvol);
+#endif
 }    
 
 FVSAND_GPU_GLOBAL
@@ -242,16 +247,20 @@ void check_conservation(double *normals,
 	    int f1;
 	    for(f1=nccft[idxn];f1<nccft[idxn+1];f1++)
 	      if ( cell2cell[f1]==idx) break;
+	    //fprintf(fp,"%lf %lf %lf %lf %lf %lf\n",norm[0],norm[1],norm[2],norm1[0],norm1[1],norm1[2]);
+#if !defined (FVSAND_HAS_GPU)
 	    double *norm=normals+18*idx+3*(f-nccft[idx]);
 	    double *norm1=normals+18*idxn+3*(f1-nccft[idxn]);
-	    //fprintf(fp,"%lf %lf %lf %lf %lf %lf\n",norm[0],norm[1],norm[2],norm1[0],norm1[1],norm1[2]);
 	    conscheck+=(fabs(norm[0]+norm1[0])+
 			fabs(norm[1]+norm1[1])+
 			fabs(norm[2]+norm1[2]));
+#endif	    
 	  }
 	}
     }
+#if !defined (FVSAND_HAS_GPU)
   printf("conscheck=%f\n",conscheck);
+#endif
   //fclose(fp);
 }
   
