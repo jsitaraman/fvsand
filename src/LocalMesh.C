@@ -88,16 +88,6 @@ LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
     }
   for(auto c : cell2nodeg) cell2node.push_back(iflag[c]);
 
-  for(auto s: sndmap) 
-    for (auto v : s.second)
-      device2host.push_back(v);
-  
-  for(auto r: rcvmap) 
-    for (auto v : r.second)
-      host2device.push_back(v);
-
-  device2host_d=gpu::push_to_device<int>(device2host.data(),sizeof(int)*device2host.size());
-  host2device_d=gpu::push_to_device<int>(host2device.data(),sizeof(int)*host2device.size());
 
 }
 
@@ -163,25 +153,47 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  qh=new double [sizeof(double)*(ncells+nhalo)*nfields];
  gpu::pull_from_device<double>(qh,q,sizeof(double)*(ncells+nhalo)*nfields);
 
- int dsize=device2host.size();
- dsize=(dsize < host2device.size())?host2device.size():dsize;
- qbuf=new double [dsize*nfields];
- qbuf_d=gpu::allocate_on_device<double>(sizeof(double)*dsize);
+
+ int scale=(istor==0)?nfields:1;
+ int stride=(istor==0)?1:ncells;
+  
+ for(auto s: sndmap) 
+    for (auto v : s.second)
+      for(int n=0;n<nfields_d;n++)
+	device2host.push_back(v*scale+n*stride);
+  
+  for(auto r: rcvmap) 
+    for (auto v : r.second)
+      for(int n=0;n<nfields;n++)
+	host2device.push_back(v*scale+n*stride);
+
+  device2host_d=gpu::push_to_device<int>(device2host.data(),sizeof(int)*device2host.size());
+  host2device_d=gpu::push_to_device<int>(host2device.data(),sizeof(int)*host2device.size());
+ 
+  int dsize=device2host.size();
+  dsize=(dsize < host2device.size())?host2device.size():dsize;
+  qbuf=new double [dsize];
+  qbuf_d=gpu::allocate_on_device<double>(sizeof(double)*dsize);
 
 }
 
 void LocalMesh::UpdateFringes(double *qh, double *qd)
 {
+  
   nthreads=device2host.size();
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(updateHost,n_blocks,block_size,0,0,
-			 qbuf_d,q,device2host_d,device2host.size());
+			 qbuf_d,qd,device2host_d,device2host.size());
   gpu::pull_from_device<double>(qbuf,qbuf_d,sizeof(double)*device2host.size());
+  
   for(int i=0;i<device2host.size();i++)
     qh[device2host[i]]=qbuf[i];
   
+  //gpu::pull_from_device<double>(qh,qd,sizeof(double)*nfields_d*(ncells+nhalo));
   pc.exchangeDataDouble(qh,nfields_d,(ncells+nhalo),istor,sndmap,rcvmap,mycomm);
+  //gpu::copy_to_device<double>(qd,qh,sizeof(double)*nfields_d*(ncells+nhalo));
 
+  
   for(int i=0;i<host2device.size();i++)
     qbuf[i]=qh[host2device[i]];
 
@@ -190,7 +202,7 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
   nthreads=host2device.size();
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(updateDevice,n_blocks,block_size,0,0,
-			 q,qbuf_d,host2device_d,host2device.size());
+			 qd,qbuf_d,host2device_d,host2device.size());
 }
 				
 				
@@ -201,13 +213,15 @@ void LocalMesh::Residual(double *qv)
   FVSAND_GPU_LAUNCH_FUNC(computeResidual,n_blocks,block_size,0,0,
 			 res, qv, center, normals, volume,
 			 qinf_d, cell2cell_d, nccft_d, nfields_d,istor,ncells);
-  parallelComm pc;
-  pc.exchangeDataDouble(res,nfields_d,(ncells+nhalo),istor,sndmap,rcvmap,mycomm);
+  UpdateFringes(qh,res);
+  //parallelComm pc;
+  //pc.exchangeDataDouble(qh,nfields_d,(ncells+nhalo),istor,sndmap,rcvmap,mycomm);
 
 }
 
 void LocalMesh::Update(double *qdest, double *qsrc, double fscal)
 {
+  
   nthreads=(ncells+nhalo)*nfields_d;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(updateFields,n_blocks,block_size,0,0,

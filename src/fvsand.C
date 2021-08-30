@@ -4,12 +4,44 @@
 #include "LocalMesh.h"
 using namespace FVSAND;
 
+// -----------------------------------------------------------------------------
+#if FVSAND_HAS_GPU
+#include "cuda_runtime.h"
+void listdev( int rank )
+{
+    cudaError_t err;
+    
+    int dev_cnt = 0;
+    cudaSetDevice(rank);
+    err = cudaGetDeviceCount( &dev_cnt );
+    assert( err == cudaSuccess || err == cudaErrorNoDevice );
+    printf( "rank %d, cnt %d\n", rank, dev_cnt );
+    
+    cudaDeviceProp prop;
+    for (int dev = 0; dev < dev_cnt; ++dev) {
+        err = cudaGetDeviceProperties( &prop, dev );
+        assert( err == cudaSuccess );
+        printf( "rank %d, dev %d, prop %s, pci %d, %d, %d\n",
+                rank, dev,
+                prop.name,
+                prop.pciBusID,
+                prop.pciDeviceID,
+                prop.pciDomainID );
+    }
+}
+#endif
+
 int main(int argc, char *argv[])
 {
   int myid,numprocs;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD,&myid);
   MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
+
+#if FVSAND_HAS_GPU
+  cudaSetDevice(myid%numprocs);
+  listdev(myid);
+#endif
 
   char fname[]="data.tri";
   StrandMesh *sm;
