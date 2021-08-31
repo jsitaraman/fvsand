@@ -62,20 +62,27 @@ int main(int argc, char *argv[])
   int nsave=100;
   double dt=0.001;
   int restype=0;  // restype = 0 (cell-based) 1 (face-based)
+  double dt = 0.001; // nonzero for implicit jacobi solver
   double rk[4]={0.25,8./15,5./12,3./4};
 
   for(int iter=0;iter<nsteps;iter++)
     {
-      lm->Residual(lm->q,restype);
-      lm->Update(lm->qn,lm->q,rk[1]*dt);
-      lm->Update(lm->q,lm->q,rk[0]*dt);
+      if(dt){ // implicit 
+        lm->Residual(lm->q,restype);
+	lm->Jacobi(lm->q,XXX);
+        lm->Update(lm->qn,lm->q,rk[1]*dt);
+      } else { // explicit rk solver
+        lm->Residual(lm->q,restype);
+        lm->Update(lm->qn,lm->q,rk[1]*dt);
+        lm->Update(lm->q,lm->q,rk[0]*dt);
 
-      lm->Residual(lm->qn,restype);
-      lm->Update(lm->qn,lm->q,rk[2]*dt);
+        lm->Residual(lm->qn,restype);
+        lm->Update(lm->qn,lm->q,rk[2]*dt);
 
-      lm->Residual(lm->qn,restype);
-      lm->Update(lm->q,lm->q,rk[3]*dt);
-
+        lm->Residual(lm->qn,restype);
+        lm->Update(lm->q,lm->q,rk[3]*dt);  
+      }
+*/
       if (iter %nsave ==0) {
 	double rnorm=lm->ResNorm();
 	if (myid==0) printf("iter:%d  %lf\n",iter,rnorm);
