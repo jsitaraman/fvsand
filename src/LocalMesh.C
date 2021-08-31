@@ -47,6 +47,9 @@ LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
   int m=0;
   //printf("local2global.size()=%d\n",local2global.size());
   //printf("ncells+nhalo=%d\n",ncells+nhalo);
+  //
+  // build local cells and local mesh connectivity
+  //
   for(int i =0; i < ncells+nhalo;i++)
     {
       auto icell=local2global[i];
@@ -88,7 +91,7 @@ LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
     }
   for(auto c : cell2nodeg) cell2node.push_back(iflag[c]);
 
-
+  
 }
 
 void LocalMesh::CreateGridMetrics()
@@ -107,30 +110,77 @@ void LocalMesh::CreateGridMetrics()
   nccft_d=gpu::push_to_device<int>(nccft_h,sizeof(int)*(ncon.size()+1));  
 
   // allocate storage for metrics
-  center=gpu::allocate_on_device<double>(sizeof(double)*3*(ncells+nhalo));
+  center_d=gpu::allocate_on_device<double>(sizeof(double)*3*(ncells+nhalo));
   // allocate larger storage than necessary for normals to avoid
   // unequal stride, 6=max faces for hex and 3 doubles per face
-  normals=gpu::allocate_on_device<double>(sizeof(double)*18*(ncells+nhalo));
-  volume=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo));
+  normals_d=gpu::allocate_on_device<double>(sizeof(double)*18*(ncells+nhalo));
+  volume_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo));
   
-  // compute cell centers
+  // compute cell center_ds
   nthreads=(ncells+nhalo)*3;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(cell_center,n_blocks,block_size,0,0,
-			 center,x_d,nvcft_d,cell2node_d,ncells+nhalo);
+			 center_d,x_d,nvcft_d,cell2node_d,ncells+nhalo);
 
-  // compute cell normals and volume
+  // compute cell normals and volume_d
   
   nthreads=ncells+nhalo;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(cell_normals_volume,n_blocks,block_size,0,0,
-  			 normals,volume,x_d,ncon_d,cell2node_d,nvcft_d,ncells+nhalo);
+  			 normals_d,volume_d,x_d,ncon_d,cell2node_d,nvcft_d,ncells+nhalo);
 
   // check conservation
   nthreads=ncells+nhalo;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(check_conservation,n_blocks,block_size,0,0,
-			 normals,x_d,nccft_d,cell2cell_d,ncells+nhalo);
+			 normals_d,x_d,nccft_d,cell2cell_d,ncells+nhalo);
+}
+
+void LocalMesh::CreateFaces(void)
+{
+  // find cell2face connectivity
+  // for face based residual calculation
+  
+  std::vector<double> facenorm_h;
+  std::vector<int> facetype_h;
+  std::vector<int>iflag(cell2cell.size()+1,1);
+
+  int *cell2face_h=new int [cell2cell.size()];
+
+  int nfaces;
+  for(int idx=0;idx<(ncells+nhalo);idx++)
+    for(int f=nccft_h[idx];f<nccft_h[idx+1];f++)
+      {
+	if (iflag[f]) {
+	  double *norm=normals_d+18*idx+3*(f-nccft_h[idx]);
+	  facenorm_h.push_back(norm[0]);
+	  facenorm_h.push_back(norm[1]);
+	  facenorm_h.push_back(norm[2]);	  
+	  int idxn=cell2cell[f];
+	  if (idxn > -1) {
+	    // make face info 1 based to use negative sign
+	    cell2face_h[f]=nfaces+1;
+	    int f1;
+	    for(f1=nccft_h[idxn];f1<nccft_h[idxn+1] && cell2cell[f1]!=idx;f1++)
+	      cell2face_h[f1]=-cell2face_h[f];
+	    facetype_h.push_back(0);
+	    iflag[f]=iflag[f1]=0;
+	    nfaces++;
+	  }
+	  else {
+	    facetype_h.push_back(idxn);
+	  }
+	}
+      }
+  printf("nfaces=%d\n",nfaces);
+
+  facetype_d=gpu::push_to_device<int>(facetype_h.data(),sizeof(int)*nfaces);
+  cell2face_d=gpu::push_to_device<int>(cell2face_h,sizeof(int)*cell2cell.size());
+  facenorm_d=gpu::push_to_device<double>(facenorm_h.data(),sizeof(double)*nfaces*3);
+  faceq_d=gpu::allocate_on_device<double>(sizeof(double)*nfaces*2*nfields_d);
+  faceflux_d=gpu::allocate_on_device<double>(sizeof(double)*nfaces*nfields_d);
+  
+  delete [] cell2face_h;
 }
 
 void LocalMesh::InitSolution(double *flovar, int nfields)
@@ -138,7 +188,7 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  q=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  qn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  qnn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
- res=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+ res_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  
  flovar_d=gpu::push_to_device<double>(flovar,sizeof(double)*nfields);
  qinf_d=gpu::allocate_on_device<double>(sizeof(double)*nfields);
@@ -148,7 +198,7 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  //nthreads=ncells;
  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
  FVSAND_GPU_LAUNCH_FUNC(init_q,n_blocks,block_size,0,0,
-		        qinf_d,q,center,flovar_d,nfields,istor,(ncells+nhalo));
+		        qinf_d,q,center_d,flovar_d,nfields,istor,(ncells+nhalo));
 
  qh=new double [sizeof(double)*(ncells+nhalo)*nfields];
  gpu::pull_from_device<double>(qh,q,sizeof(double)*(ncells+nhalo)*nfields);
@@ -211,9 +261,9 @@ void LocalMesh::Residual(double *qv)
   nthreads=ncells;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(computeResidual,n_blocks,block_size,0,0,
-			 res, qv, center, normals, volume,
+			 res_d, qv, center_d, normals_d, volume_d,
 			 qinf_d, cell2cell_d, nccft_d, nfields_d,istor,ncells);
-  UpdateFringes(qh,res);
+  UpdateFringes(qh,res_d);
   //parallelComm pc;
   //pc.exchangeDataDouble(qh,nfields_d,(ncells+nhalo),istor,sndmap,rcvmap,mycomm);
 
@@ -225,12 +275,12 @@ void LocalMesh::Update(double *qdest, double *qsrc, double fscal)
   nthreads=(ncells+nhalo)*nfields_d;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(updateFields,n_blocks,block_size,0,0,
-			 res, qdest, qsrc, fscal, (ncells+nhalo)*nfields_d);
+			 res_d, qdest, qsrc, fscal, (ncells+nhalo)*nfields_d);
 }
 
 double LocalMesh::ResNorm()
 {
-  gpu::pull_from_device<double>(qh,res,sizeof(double)*nfields_d*(ncells+nhalo));
+  gpu::pull_from_device<double>(qh,res_d,sizeof(double)*nfields_d*(ncells+nhalo));
   double rnorm[2];
   double rnormTotal[2];
 
@@ -271,11 +321,11 @@ void LocalMesh::WriteMesh(int label)
   for(i=0;i<nhalo;i++)
     fprintf(fp,"%d\n",-1);
 
-  gpu::pull_from_device<double>(qh,volume,sizeof(double)*(ncells+nhalo));
+  gpu::pull_from_device<double>(qh,volume_d,sizeof(double)*(ncells+nhalo));
   for(i=0;i<ncells+nhalo;i++)
     fprintf(fp,"%lf\n",qh[i]);
 
-  gpu::pull_from_device<double>(qh,res,sizeof(double)*nfields_d*(ncells+nhalo));
+  gpu::pull_from_device<double>(qh,res_d,sizeof(double)*nfields_d*(ncells+nhalo));
   for(n=0;n<nfields_d;n++)
     for(i=0;i<ncells+nhalo;i++)
       fprintf(fp,"%lf\n",qh[i*nfields_d+n]);

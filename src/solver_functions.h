@@ -117,3 +117,82 @@ void updateDevice(double *q, double *qbuf, int *h2d, int nupdate)
 	q[h2d[idx]]=qbuf[idx];
       }
 }
+
+
+FVSAND_GPU_GLOBAL
+void fill_faces(double *q, double *face_q, int *nccft,int *cell2face,
+		int nfields, int istor, int ncells)
+{
+  int scale=(istor==0)?nfields:1;
+  int stride=(istor==0)?1:ncells;
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+  for(int idx=0;idx<ncells;idx++)
+#endif
+    {
+      for(int f=nccft[idx];f<nccft[idx+1];f++)
+	{
+	  int faceid=cell2face[f];
+	  int isgn=abs(faceid)/faceid;
+	  int offset=(1-isgn)*nfields/2;
+	  faceid--;
+	  for(int n=0;n<nfields;n++)
+	    face_q[f*nfields+n+offset]=q[scale*idx+n*stride];
+	}      
+    }
+}
+
+void face_flux(double *face_flux,double *face_q, double *face_norm, int *facetype,
+	       int nfields,int nfaces)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < nfaces)
+#else
+  for(int idx=0;idx<nfaces;idx++)
+#endif
+    {
+      double *ql=face_q+(2*idx)*nfields;
+      double *qr=face_q+(2*idx+1)*nfields;
+      double *dres=face_flux+idx*nfields;
+      double *norm=face_norm+idx*3;
+      double gx,gy,gz;
+      gx=gy=gz=0;
+      double spec;
+      int idxn=facetype[idx];
+      InterfaceFlux_Inviscid(dres[0],dres[1],dres[2],dres[3],dres[4],
+			     ql[0],ql[1],ql[2],ql[3],ql[4],
+			     qr[0],qr[1],qr[2],qr[3],qr[4],
+			     norm[0],norm[1],norm[2],
+			     gx,gy,gz,spec,idxn);      
+    }
+}
+
+
+void computeResidualFace(double *res, double *face_flux, double *volume,
+			 int *cell2face, int *nccft, int nfields,
+			 int istor, int ncells)
+{
+  int scale=(istor==0)?nfields:1;
+  int stride=(istor==0)?1:ncells;
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+  for(int idx=0;idx<ncells;idx++)
+#endif
+    {
+      for(int n=0;n<nfields;n++) res[scale*idx+n*stride]=0;      
+      for(int f=nccft[idx];f<nccft[idx+1];f++)
+	{
+	  int faceid=cell2face[f];
+	  int isgn=faceid/faceid;
+	  faceid--;
+	  for(int n=0;n<nfields;n++)
+	    res[scale*idx+n*stride]-=(isgn*face_flux[faceid*nfields+n]);
+	}
+      for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
+    }
+}
