@@ -33,13 +33,14 @@ void listdev( int rank )
 
 int main(int argc, char *argv[])
 {
-  int myid,numprocs;
+  int myid,numprocs,numdevices;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD,&myid);
   MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
 
 #if FVSAND_HAS_GPU
-  cudaSetDevice(myid%numprocs);
+  cudaGetDeviceCount(&numdevices);
+  cudaSetDevice(myid%numdevices);
   listdev(myid);
 #endif
 
@@ -60,19 +61,19 @@ int main(int argc, char *argv[])
   int nsteps=2000;
   int nsave=100;
   double dt=0.001;
+  int restype=0;  // restype = 0 (cell-based) 1 (face-based)
   double rk[4]={0.25,8./15,5./12,3./4};
-  
+
   for(int iter=0;iter<nsteps;iter++)
     {
-      
-      lm->Residual_face(lm->q);
+      lm->Residual(lm->q,restype);
       lm->Update(lm->qn,lm->q,rk[1]*dt);
       lm->Update(lm->q,lm->q,rk[0]*dt);
 
-      lm->Residual_face(lm->qn);
+      lm->Residual(lm->qn,restype);
       lm->Update(lm->qn,lm->q,rk[2]*dt);
 
-      lm->Residual_face(lm->qn);
+      lm->Residual(lm->qn,restype);
       lm->Update(lm->q,lm->q,rk[3]*dt);
 
       if (iter %nsave ==0) {

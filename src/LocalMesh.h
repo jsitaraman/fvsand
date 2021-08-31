@@ -100,7 +100,8 @@ class LocalMesh
   void CreateGridMetrics();
   void CreateFaces();
   void InitSolution(double *, int);
-  void Residual(double * qv);
+  void Residual(double * qv, int);
+  void Residual_cell(double *qv);
   void Residual_face(double *qv);
   void Update(double *qdest, double *qsrc, double fscal);
   void UpdateFringes(double *, double *);

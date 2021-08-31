@@ -259,9 +259,18 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
   FVSAND_GPU_LAUNCH_FUNC(updateDevice,n_blocks,block_size,0,0,
 			 qd,qbuf_d,host2device_d,host2device.size());
 }
+
+
+void LocalMesh::Residual(double *qv,int restype)
+{
+  if (restype==0) {
+    Residual_cell(qv);
+  } else {
+    Residual_face(qv);
+  }
+}
 				
-				
-void LocalMesh::Residual(double *qv)
+void LocalMesh::Residual_cell(double *qv)
 {
   nthreads=ncells;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
