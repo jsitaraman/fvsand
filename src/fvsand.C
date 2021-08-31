@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 
   int nsteps=10000;
   int nsave=1000;
-  double dt=0.001;
+  double dt=0.0001;
   double rk[4]={0.25,8./15,5./12,3./4};
   
   for(int iter=0;iter<nsteps;iter++)

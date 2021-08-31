@@ -143,7 +143,7 @@ void fill_faces(double *q, double *face_q, int *nccft,int *cell2face,
 	}      
     }
 }
-
+FVSAND_GPU_GLOBAL
 void face_flux(double *face_flux,double *face_q, double *face_norm, int *facetype,
 	       int nfields,int nfaces)
 {
@@ -170,7 +170,7 @@ void face_flux(double *face_flux,double *face_q, double *face_norm, int *facetyp
     }
 }
 
-
+FVSAND_GPU_GLOBAL
 void computeResidualFace(double *res, double *face_flux, double *volume,
 			 int *cell2face, int *nccft, int nfields,
 			 int istor, int ncells)
