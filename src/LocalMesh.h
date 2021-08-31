@@ -101,6 +101,7 @@ class LocalMesh
   void CreateFaces();
   void InitSolution(double *, int);
   void Residual(double * qv);
+  void Residual_face(double *qv);
   void Update(double *qdest, double *qsrc, double fscal);
   void UpdateFringes(double *, double *);
   double ResNorm(void);

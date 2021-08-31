@@ -134,6 +134,8 @@ void LocalMesh::CreateGridMetrics()
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(check_conservation,n_blocks,block_size,0,0,
 			 normals_d,x_d,nccft_d,cell2cell_d,ncells+nhalo);
+
+  CreateFaces();
 }
 
 void LocalMesh::CreateFaces(void)
@@ -144,32 +146,33 @@ void LocalMesh::CreateFaces(void)
   std::vector<double> facenorm_h;
   std::vector<int> facetype_h;
   std::vector<int>iflag(cell2cell.size()+1,1);
-
   int *cell2face_h=new int [cell2cell.size()];
+  double *normals_h = new double [(ncells+nhalo)*18];
+  gpu::pull_from_device<double>(normals_h,normals_d,sizeof(double)*(ncells+nhalo)*18);
 
-  int nfaces;
+  nfaces=0;
   for(int idx=0;idx<(ncells+nhalo);idx++)
     for(int f=nccft_h[idx];f<nccft_h[idx+1];f++)
       {
 	if (iflag[f]) {
-	  double *norm=normals_d+18*idx+3*(f-nccft_h[idx]);
+	  double *norm=normals_h+18*idx+3*(f-nccft_h[idx]);
 	  facenorm_h.push_back(norm[0]);
 	  facenorm_h.push_back(norm[1]);
 	  facenorm_h.push_back(norm[2]);	  
+	  cell2face_h[f]=nfaces+1;
 	  int idxn=cell2cell[f];
 	  if (idxn > -1) {
 	    // make face info 1 based to use negative sign
-	    cell2face_h[f]=nfaces+1;
 	    int f1;
-	    for(f1=nccft_h[idxn];f1<nccft_h[idxn+1] && cell2cell[f1]!=idx;f1++)
-	      cell2face_h[f1]=-cell2face_h[f];
+	    for(f1=nccft_h[idxn];f1<nccft_h[idxn+1] && cell2cell[f1]!=idx;f1++);
+	    cell2face_h[f1]=-cell2face_h[f];
 	    facetype_h.push_back(0);
 	    iflag[f]=iflag[f1]=0;
-	    nfaces++;
 	  }
 	  else {
 	    facetype_h.push_back(idxn);
 	  }
+	  nfaces++;
 	}
       }
   printf("nfaces=%d\n",nfaces);
@@ -177,10 +180,9 @@ void LocalMesh::CreateFaces(void)
   facetype_d=gpu::push_to_device<int>(facetype_h.data(),sizeof(int)*nfaces);
   cell2face_d=gpu::push_to_device<int>(cell2face_h,sizeof(int)*cell2cell.size());
   facenorm_d=gpu::push_to_device<double>(facenorm_h.data(),sizeof(double)*nfaces*3);
-  faceq_d=gpu::allocate_on_device<double>(sizeof(double)*nfaces*2*nfields_d);
-  faceflux_d=gpu::allocate_on_device<double>(sizeof(double)*nfaces*nfields_d);
-  
+ 
   delete [] cell2face_h;
+  delete [] normals_h;
 }
 
 void LocalMesh::InitSolution(double *flovar, int nfields)
@@ -225,6 +227,9 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
   qbuf=new double [dsize];
   qbuf_d=gpu::allocate_on_device<double>(sizeof(double)*dsize);
 
+  faceq_d=gpu::allocate_on_device<double>(sizeof(double)*nfaces*2*nfields_d);
+  faceflux_d=gpu::allocate_on_device<double>(sizeof(double)*nfaces*nfields_d);
+ 
 }
 
 void LocalMesh::UpdateFringes(double *qh, double *qd)
@@ -266,6 +271,27 @@ void LocalMesh::Residual(double *qv)
   UpdateFringes(qh,res_d);
   //parallelComm pc;
   //pc.exchangeDataDouble(qh,nfields_d,(ncells+nhalo),istor,sndmap,rcvmap,mycomm);
+
+}
+
+void LocalMesh::Residual_face(double *qv)
+{
+  nthreads=ncells+nhalo;
+  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+  FVSAND_GPU_LAUNCH_FUNC(fill_faces, n_blocks,block_size,0,0,
+			 qv,faceq_d,nccft_d,cell2face_d,nfields_d,istor,ncells+nhalo);
+
+  nthreads=nfaces;
+  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+  FVSAND_GPU_LAUNCH_FUNC(face_flux,n_blocks,block_size,0,0,
+			 faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
+
+  nthreads=ncells;
+  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+  FVSAND_GPU_LAUNCH_FUNC(computeResidualFace,n_blocks,block_size,0,0,
+			 res_d,faceflux_d,volume_d,cell2face_d,nccft_d,
+			 nfields_d,istor,ncells);
+  UpdateFringes(qh,res_d);
 
 }
 

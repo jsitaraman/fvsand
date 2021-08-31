@@ -120,7 +120,7 @@ void updateDevice(double *q, double *qbuf, int *h2d, int nupdate)
 
 
 FVSAND_GPU_GLOBAL
-void fill_faces(double *q, double *face_q, int *nccft,int *cell2face,
+void fill_faces(double *q, double *faceq, int *nccft,int *cell2face,
 		int nfields, int istor, int ncells)
 {
   int scale=(istor==0)?nfields:1;
@@ -137,14 +137,15 @@ void fill_faces(double *q, double *face_q, int *nccft,int *cell2face,
 	  int faceid=cell2face[f];
 	  int isgn=abs(faceid)/faceid;
 	  int offset=(1-isgn)*nfields/2;
-	  faceid--;
+	  faceid=abs(faceid)-1;
 	  for(int n=0;n<nfields;n++)
-	    face_q[f*nfields+n+offset]=q[scale*idx+n*stride];
+	    faceq[2*faceid*nfields+n+offset]=q[scale*idx+n*stride];
 	}      
     }
 }
 FVSAND_GPU_GLOBAL
-void face_flux(double *face_flux,double *face_q, double *face_norm, int *facetype,
+void face_flux(double *faceflux,double *faceq, double *face_norm, double *flovar,
+	       int *facetype,
 	       int nfields,int nfaces)
 {
 #if defined (FVSAND_HAS_GPU)
@@ -154,14 +155,18 @@ void face_flux(double *face_flux,double *face_q, double *face_norm, int *facetyp
   for(int idx=0;idx<nfaces;idx++)
 #endif
     {
-      double *ql=face_q+(2*idx)*nfields;
-      double *qr=face_q+(2*idx+1)*nfields;
-      double *dres=face_flux+idx*nfields;
+      double *ql=faceq+(2*idx)*nfields;
+      double *qr=faceq+(2*idx+1)*nfields;
+      double *dres=faceflux+idx*nfields;
       double *norm=face_norm+idx*3;
       double gx,gy,gz;
       gx=gy=gz=0;
       double spec;
       int idxn=facetype[idx];
+      if (idxn == -3) {
+       for(int n=0;n<nfields;n++)
+          qr[n]=flovar[n];
+      }
       InterfaceFlux_Inviscid(dres[0],dres[1],dres[2],dres[3],dres[4],
 			     ql[0],ql[1],ql[2],ql[3],ql[4],
 			     qr[0],qr[1],qr[2],qr[3],qr[4],
@@ -170,8 +175,11 @@ void face_flux(double *face_flux,double *face_q, double *face_norm, int *facetyp
     }
 }
 
+//res_d,faceflux_d,volume_d,cell2face_d,nccft_d,
+//                         nfields_d,istor,ncells);
+
 FVSAND_GPU_GLOBAL
-void computeResidualFace(double *res, double *face_flux, double *volume,
+void computeResidualFace(double *res, double *faceflux, double *volume,
 			 int *cell2face, int *nccft, int nfields,
 			 int istor, int ncells)
 {
@@ -188,10 +196,10 @@ void computeResidualFace(double *res, double *face_flux, double *volume,
       for(int f=nccft[idx];f<nccft[idx+1];f++)
 	{
 	  int faceid=cell2face[f];
-	  int isgn=faceid/faceid;
-	  faceid--;
+	  int isgn=faceid/abs(faceid);
+	  faceid=abs(faceid)-1;
 	  for(int n=0;n<nfields;n++)
-	    res[scale*idx+n*stride]-=(isgn*face_flux[faceid*nfields+n]);
+	    res[scale*idx+n*stride]-=(isgn*faceflux[faceid*nfields+n]);
 	}
       for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
     }

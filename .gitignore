@@ -2,3 +2,4 @@ build
 *.o
 *.dat
 tecplot.*
+src/TAGS
