@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
       if(dt){ // implicit 
         lm->Residual(lm->q,restype);
 	lm->Jacobi(lm->q,XXX);
-        lm->Update(lm->qn,lm->q,rk[1]*dt);
+        lm->Update(lm->qn,lm->q,dt); // XX is this dt or 1? 
       } else { // explicit rk solver
         lm->Residual(lm->q,restype);
         lm->Update(lm->qn,lm->q,rk[1]*dt);

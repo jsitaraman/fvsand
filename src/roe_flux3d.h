@@ -194,8 +194,8 @@ FVSAND_GPU_DEVICE
 void computeJacobian( real& ql1, real& ql2, real& ql3, real& ql4, real& ql5,
                       real& qr1, real& qr2, real& qr3, real& qr4, real& qr5,
                       real& nxd, real& nyd, real& nzd,
-                      int & nWbfaces, int & TID,
-                      real lmat[5][5], real rmat[5][5], int & rcell)    
+                      int & nWbfaces, int & faceID,
+                      real lmat[5][5], real rmat[5][5])
 {
 
 real gam=1.4;
@@ -204,7 +204,7 @@ real gam=1.4;
 
 real gm1;
 real area,nx,ny,nz;
-real rol,ul,vl,wl,pl,hl;
+real rol,ul,vl,wl,pl,hl,umag2;
 real ror,ur,vr,wr,pr,hr;
 real uconl,uconr;
 real ubar,vbar,wbar,hbar,uconbar,cbar,robar;
@@ -259,6 +259,7 @@ real lmat1[5][5],rmat1[5][5];
       wl  = ql4/ql1;
       pl  = gm1*( ql5 - 0.5 * rol * (ul*ul + vl*vl + wl*wl) );
       hl  = (ql5 + pl)/rol;
+      umag2 = ul*ul+vl*vl+wl*wl; 
       //cl  = sqrt(gam*pl/rol);
         
       ror = qr1;
@@ -694,37 +695,55 @@ for( int i = 0; i < 5 ; i++ )
 //      lmat(:,:) = 0.5*( lmat1(:,:) - lmat(:,:) )
 //      rmat(:,:) = 0.5*( rmat1(:,:) - rmat(:,:) )
     }
- 
- if ( TID < nWbfaces )
+ // Wall boundary check
+ if ( faceID == -2 )
   {
+     for(int n = 0; n<5; n++){	
+	index1 = 0+n;
+	lmat(index1) = 0.0; 
+	index1 = 5*4 + n; 
+	lmat(index1) = 0.0; 
+	for(int m = 0; m<5; m++){
+		index1 = n*5+m; 
+		rmat[index1] = 0.0; 
+	}
+     }
+     lmat[5] = gm1*0.5-umag2*nx;
+     lmat[6] = -gm1*u*nx; 
+     lmat[7] = -gm1*v*nx; 
+     lmat[8] = -gm1*w*nx; 
+     lmat[9] = gm1*nx; 
+
+     lmat[10] = gm1*0.5*umag2*ny; 
+     lmat[11] = -gm1*u*ny;
+     lmat[12] = -gm1*v*ny;
+     lmat[13] = -gm1*w*ny;
+     lmat[14] = gm1*ny;
+
+     lmat[15] = gm1*0.5*umag2*nz; 
+     lmat[16] = -gm1*u*nz;
+     lmat[17] = -gm1*v*nz;
+     lmat[18] = -gm1*w*nz;
+     lmat[19] = gm1*nz;
+
+     /* // Left over from previous code
      FOR2(i,5,j,5)
       {
         lmat[i][j]=0.0;
         rmat[i][j]=0.0;
       }
-
      lmat[1][4] = gm1*nx;
      lmat[2][4] = gm1*ny;
      lmat[3][4] = gm1*nz;
+*/
   }
  else  
   {
-     if ( rcell >= 0 )
-      {
-        FOR2(i,5,j,5)
-        {
-          lmat[i][j] = 0.5*( lmat1[i][j] - lmat[i][j] );
-          rmat[i][j] = 0.5*( rmat1[i][j] - rmat[i][j] );
-        }
-      }
-     else
-      {
-        FOR2(i,5,j,5)
-        {
-         lmat[i][j]=0.0;
-         rmat[i][j]=0.0;
-        }
-      }
+     FOR2(i,5,j,5)
+     {
+       lmat[i][j] = 0.5*( lmat1[i][j] - lmat[i][j] );
+       rmat[i][j] = 0.5*( rmat1[i][j] - rmat[i][j] );
+     }
  }   
 
 

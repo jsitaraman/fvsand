@@ -314,7 +314,8 @@ void LocalMesh::Jacobi(double *q, int nsweep)
   int nsweep = 40; 
   for(int m = 0; m < nsweep; m++){
     FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,XX);   
-    // Udate dq = tilde dq here 
+    // Udate dq = tilde dq here, dq is 'res'?  
+    res_d = dqt; 
   }
 }
 
