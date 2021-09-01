@@ -77,6 +77,79 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 }
 
 FVSAND_GPU_GLOBAL
+void jacobiSweep(double *res, double *q, double *dq, double *dqt, double *center, double *normals,double *volume,
+		 double *flovar, double *faceq, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
+		 int* facetype, XXX)
+{
+  int scale=(istor==0)?nfields:1;
+  int stride=(istor==0)?1:ncells;
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+  for(int idx=0;idx<ncells;idx++)
+#endif
+  {
+	double B[nfields], Btmp[nfields];
+	double D[nfields*nfields];	
+	double Dinv[nfields*nfields];	
+	double Oij[nfields*nfields];	
+        double *ql[nfields]; 
+        double *qr[nfields]; 
+      	double *norm[3]; 
+        double *lmat[nfields*nfields];
+        double *rmat[nfields*nfields];
+	int index1; 
+
+	for(int n = 0; n<nfields; n++) {
+		B[n] = -res[scale*idx+n*stride]; 
+		for(int m = 0; m<nfields; m++) {
+			index1 = n*nfields + m;
+			if(n==m){
+				D[index1] = vol/dt; // Need to feed in value XX
+			}
+			else{
+				D[index1] = 0; 
+			}
+
+		}
+	}
+  
+ 	// Loop over neighbors
+      	for(int f=nccft[idx];f<nccft[idx+1];f++){
+		int faceid=cell2face[f];
+	       	faceid=abs(faceid)-1;
+
+  		ql=faceq+(2*faceid)*nfields;
+		qr=faceq+(2*faceid+1)*nfields;
+		norm=face_norm+faceid*3;
+
+		for(int n = 0; n<nfields; n++){
+		       Btmp[n] =0.0;
+      		       if (facetype[faceid] == -3) qr[n]=flovar[n];
+		}
+
+		//Compute Jacobians 
+		computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
+	                        qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
+         	                norm[0], norm[1], norm [2],
+                  	        int & nWbfaces, int & TID,
+	                        lmat, rmat, int & rcell)
+
+		//Compute Di and Oij dq
+		axb1(rmat,dq,Btmp,1,5); 
+		B = B - Btmp;
+		D = D + lmat;
+	}
+
+	// Compute dqtilde
+	invertmat5(D,1,Dinv)
+	axb1(Dinv,B,dqt,5);  
+
+  }
+}
+	
+FVSAND_GPU_GLOBAL
 void updateFields(double *res, double *qdest, double *qsrc, double fscal, int ndof)
 {
 #if defined (FVSAND_HAS_GPU)
