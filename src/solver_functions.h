@@ -1,6 +1,7 @@
 #define GAMMA 1.4
 #define GM1 0.4
 #define GGM1 0.56
+#include <stdio.h>
 #include "roe_flux3d.h"
 #include "mathops.h"
 
@@ -116,9 +117,9 @@ void jacobiSweep(double *res, double *dq, double *normals,double *volume,
 			else{
 				D[index1] = 0.0; 
 			}
+ if(idx==0) printf("idx 0:i = %i, D = %f\n",index1,D[index1]);
 		}
 	}
-  
  	// Loop over neighbors
       	for(int f=nccft[idx];f<nccft[idx+1];f++){
 		double *norm=normals+18*idx+3*(f-nccft[idx]);
