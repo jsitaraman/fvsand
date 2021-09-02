@@ -117,7 +117,6 @@ void jacobiSweep(double *res, double *dq, double *normals,double *volume,
 			else{
 				D[index1] = 0.0; 
 			}
- if(idx==0) printf("idx 0:i = %i, D = %f\n",index1,D[index1]);
 		}
 	}
  	// Loop over neighbors
@@ -141,11 +140,22 @@ void jacobiSweep(double *res, double *dq, double *normals,double *volume,
          	                norm[0], norm[1], norm [2],
                   	        faceid,lmat, rmat);
 
+		for(int n = 0; n<5; n++){
+		for(int m = 0; m<5; m++){
+			index1 = 5*n+m;
+ if(idx==0) printf("idx 0:n = %i, m = %i, lmat[ind1] = %f,rmat[ind1] = %f\n",n,m,lmat[index1],rmat[index1]); 
+		}
+		}
 		//Compute Di and Oij dq
 		axb1(rmat,dqtemp,Btmp,1,5); 
 		for(int n = 0; n<5; n++){
 			B[n] = B[n] - Btmp[n]; // XXX why doesn't this work?
-			D[n] = D[n] + lmat[n];
+ if(idx==0) printf("idx 0:n = %i, B = %f, Btmp = %f\n",n,B[n],Btmp[n]);
+			for(int m = 0; m<5; m++){
+				index1 = n*5+m; 
+				D[index1] = D[index1] + lmat[index1];
+ if(idx==0) printf("idx 0:n = %i,m = %i, D = %f\n",n,m,D[index1]);
+			}
 		}
 	}
 

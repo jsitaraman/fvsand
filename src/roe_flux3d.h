@@ -1,4 +1,5 @@
 #include<math.h>
+#include<stdio.h>
 #define real double
 #define FOR2(i,n1,j,n2) for(int i = 0 ; i < n1 ; i++) for(int j = 0 ; j < n2 ; j++)
 #define roe_max(a,b) (a>b)?a:b
@@ -440,6 +441,12 @@ real lmat1[5][5],rmat1[5][5];
       cbar = gm1*(hbar - 0.5*(ubar*ubar + vbar*vbar + wbar*wbar));
       cbar = sqrt(cbar);
       uconbar = ubar*nx + vbar*ny + wbar*nz;
+      printf("debug:rol,fact = %f,%f\n",rol,fact);
+      printf("debug:ul,ur = %f,%f\n",ul,ur);
+      printf("debug:vl,vr = %f,%f\n",vl,vr);
+      printf("debug:wl,wr = %f,%f\n",wl,wr);
+      printf("debug:hl,hr = %f,%f\n",hl,hr);
+      printf("debug:n = %f,%f,%f\n",nx,ny,nz);
 
 //!------------------------------------------------------------------------------!
 //!--------------------------> Eigenvalues <-------------------------------------!
@@ -594,7 +601,6 @@ for( int i = 0; i < 5 ; i++ )
         rmat[index1] = 0.0;
         imat[i][j] = 0.0;
        }
-
       for ( int i = 0 ; i < 5 ; i++ )
            imat[i][i] = 1.0;
      
@@ -603,6 +609,8 @@ for( int i = 0; i < 5 ; i++ )
 	 index1 = i*5+j;     
          lmat[index1] = lmat[index1] - eig1*imat[i][j];
          rmat[index1] = rmat[index1] + eig1*imat[i][j];
+if(isnan(lmat[index1])) printf("roe 3:,i = %i, j = %i\n",i,j);
+if(isnan(rmat[index1])) printf("roe 4:,i = %i, j = %i\n",i,j);
        }
 
       #pragma unroll 5
@@ -629,6 +637,11 @@ for( int i = 0; i < 5 ; i++ )
        rmat[index1] = rmat[index1] + ddel1_dqr[i]*hbar + ddel2_dqr[i]*uconbar;
        }
     
+      FOR2(i,5,j,5)
+       { 
+	if(isnan(lmat[index1])) printf("roe 5:,i = %i, j = %i\n",i,j);
+	if(isnan(rmat[index1])) printf("roe 6:,i = %i, j = %i\n",i,j);
+       }
 
       //------> additional terms for exact linearization
 
@@ -647,6 +660,12 @@ for( int i = 0; i < 5 ; i++ )
            lmat[index1] = lmat[index1] + ( qr5 - ql5 )* deig1_dql[j];  rmat[index1] = rmat[index1] + ( qr5 - ql5 )* deig1_dqr[j];
 
          }         
+      FOR2(i,5,j,5)
+       { 
+	if(isnan(lmat[index1])) printf("roe 7:,i = %i, j = %i\n",i,j);
+	if(isnan(rmat[index1])) printf("roe 8:,i = %i, j = %i\n",i,j);
+       }
+
          
          #pragma unroll 5       
          for ( int j = 0 ; j < 5 ; j++ )
@@ -667,6 +686,12 @@ for( int i = 0; i < 5 ; i++ )
             lmat[index1] = lmat[index1] + del1*dhbar_dql[j] + del2*duconbar_dql[j];
             rmat[index1] = rmat[index1] + del1*dhbar_dqr[j] + del2*duconbar_dqr[j];
           }
+      FOR2(i,5,j,5)
+       { 
+	if(isnan(lmat[index1])) printf("roe 09:,i = %i, j = %i\n",i,j);
+	if(isnan(rmat[index1])) printf("roe 10:,i = %i, j = %i\n",i,j);
+       }
+
     //  endif
 
 //      !------------------------------------------------------------------------------!
@@ -763,6 +788,11 @@ for( int i = 0; i < 5 ; i++ )
  }   
 
 
+      FOR2(i,5,j,5)
+       { 
+	if(isnan(lmat[index1])) printf("roe 11:,i = %i, j = %i\n",i,j);
+	if(isnan(rmat[index1])) printf("roe 12:,i = %i, j = %i\n",i,j);
+       }
 
 }
 

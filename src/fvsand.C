@@ -58,10 +58,10 @@ int main(int argc, char *argv[])
   std::vector<double> flovar = { 1.0, 0.2, 0.0, 0.0, 1./1.4};
   lm->InitSolution(flovar.data(),nfields);
 
-  int nsteps=2000;
+  int nsteps=1;
   int nsave=100;
   double dt=0.001;
-  int nsweep = 40; // Jacobi Sweeps
+  int nsweep = 1; // Jacobi Sweeps
   int restype=0;  // restype = 0 (cell-based) 1 (face-based)
   double rk[4]={0.25,8./15,5./12,3./4};
 
