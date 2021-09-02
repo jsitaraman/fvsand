@@ -93,12 +93,8 @@ void jacobiSweep(double *res, double *q, double *dq, double *dqt, double *center
 	double B[nfields], Btmp[nfields];
 	double D[nfields*nfields];	
 	double Dinv[nfields*nfields];	
-	double Oij[nfields*nfields];	
-        double *ql[nfields]; 
-        double *qr[nfields]; 
-      	double *norm[3]; 
-        double *lmat[nfields*nfields];
-        double *rmat[nfields*nfields];
+        double lmat[nfields*nfields];
+        double rmat[nfields*nfields];
 	int index1; 
 
 	for(int n = 0; n<nfields; n++) {
@@ -117,11 +113,12 @@ void jacobiSweep(double *res, double *q, double *dq, double *dqt, double *center
   
  	// Loop over neighbors
       	for(int f=nccft[idx];f<nccft[idx+1];f++){
+		double *norm=normals+18*idx+3*(f-nccft[idx]);
 		int faceid=cell2face[f];
 	       	faceid=abs(faceid)-1;
 
-  		ql=faceq+(2*faceid)*nfields;
-		qr=faceq+(2*faceid+1)*nfields;
+  		double* ql=faceq+(2*faceid)*nfields;
+		double* qr=faceq+(2*faceid+1)*nfields;
 		norm=face_norm+faceid*3;
 
 		for(int n = 0; n<nfields; n++){
@@ -133,8 +130,7 @@ void jacobiSweep(double *res, double *q, double *dq, double *dqt, double *center
 		computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
 	                        qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
          	                norm[0], norm[1], norm [2],
-                  	        int & nWbfaces, int & TID,
-	                        lmat, rmat, int & rcell)
+                  	        faceid,lmat, rmat)
 
 		//Compute Di and Oij dq
 		axb1(rmat,dq,Btmp,1,5); 

@@ -194,8 +194,8 @@ FVSAND_GPU_DEVICE
 void computeJacobian( real& ql1, real& ql2, real& ql3, real& ql4, real& ql5,
                       real& qr1, real& qr2, real& qr3, real& qr4, real& qr5,
                       real& nxd, real& nyd, real& nzd,
-                      int & nWbfaces, int & faceID,
-                      real lmat[5][5], real rmat[5][5])
+                      int & faceID,
+                      real lmat[25], real rmat[25])
 {
 
 real gam=1.4;
@@ -598,28 +598,34 @@ for( int i = 0; i < 5 ; i++ )
            imat[i][i] = 1.0;
      
       FOR2(i,5,j,5)
-       {      
-         lmat[i][j] = lmat[i][j] - eig1*imat[i][j];
-         rmat[i][j] = rmat[i][j] + eig1*imat[i][j];
+       { 
+	 index1 = i*5+j;     
+         lmat[index1] = lmat[index1] - eig1*imat[i][j];
+         rmat[index1] = rmat[index1] + eig1*imat[i][j];
        }
 
       #pragma unroll 5
       for ( int i = 0 ; i < 5 ; i++ )
       {
-       lmat[0][i] = lmat[0][i] + ddel1_dql[i];
-       rmat[0][i] = rmat[0][i] + ddel1_dqr[i];
+       index1 = i;
+       lmat[index1] = lmat[index1] + ddel1_dql[i];
+       rmat[index1] = rmat[index1] + ddel1_dqr[i];
 
-       lmat[1][i] = lmat[1][i] + ddel1_dql[i]*ubar + ddel2_dql[i]*nx;
-       rmat[1][i] = rmat[1][i] + ddel1_dqr[i]*ubar + ddel2_dqr[i]*nx;
+       index1 = 5+i; 
+       lmat[index1] = lmat[index1] + ddel1_dql[i]*ubar + ddel2_dql[i]*nx;
+       rmat[index1] = rmat[index1] + ddel1_dqr[i]*ubar + ddel2_dqr[i]*nx;
 
-       lmat[2][i] = lmat[2][i] + ddel1_dql[i]*vbar + ddel2_dql[i]*ny;
-       rmat[2][i] = rmat[2][i] + ddel1_dqr[i]*vbar + ddel2_dqr[i]*ny;
+       index1 = 10+i; 
+       lmat[index1] = lmat[index1] + ddel1_dql[i]*vbar + ddel2_dql[i]*ny;
+       rmat[index1] = rmat[index1] + ddel1_dqr[i]*vbar + ddel2_dqr[i]*ny;
 
-       lmat[3][i] = lmat[3][i] + ddel1_dql[i]*wbar + ddel2_dql[i]*nz;
-       rmat[3][i] = rmat[3][i] + ddel1_dqr[i]*wbar + ddel2_dqr[i]*nz;
+       index1 = 15+i; 
+       lmat[index1] = lmat[index1] + ddel1_dql[i]*wbar + ddel2_dql[i]*nz;
+       rmat[index1] = rmat[index1] + ddel1_dqr[i]*wbar + ddel2_dqr[i]*nz;
 
-       lmat[4][i] = lmat[4][i] + ddel1_dql[i]*hbar + ddel2_dql[i]*uconbar;
-       rmat[4][i] = rmat[4][i] + ddel1_dqr[i]*hbar + ddel2_dqr[i]*uconbar;
+       index1 = 20+i; 
+       lmat[index1] = lmat[index1] + ddel1_dql[i]*hbar + ddel2_dql[i]*uconbar;
+       rmat[index1] = rmat[index1] + ddel1_dqr[i]*hbar + ddel2_dqr[i]*uconbar;
        }
     
 
@@ -629,28 +635,36 @@ for( int i = 0; i < 5 ; i++ )
         #pragma unroll 5
          for ( int j = 0 ; j < 5 ; j++ )
          {       
-           lmat[0][j] = lmat[0][j] + ( qr1 - ql1 )* deig1_dql[j];  rmat[0][j] = rmat[0][j] + ( qr1 - ql1 )* deig1_dqr[j];
-           lmat[1][j] = lmat[1][j] + ( qr2 - ql2 )* deig1_dql[j];  rmat[1][j] = rmat[1][j] + ( qr2 - ql2 )* deig1_dqr[j];
-           lmat[2][j] = lmat[2][j] + ( qr3 - ql3 )* deig1_dql[j];  rmat[2][j] = rmat[2][j] + ( qr3 - ql3 )* deig1_dqr[j];
-           lmat[3][j] = lmat[3][j] + ( qr4 - ql4 )* deig1_dql[j];  rmat[3][j] = rmat[3][j] + ( qr4 - ql4 )* deig1_dqr[j];
-           lmat[4][j] = lmat[4][j] + ( qr5 - ql5 )* deig1_dql[j];  rmat[4][j] = rmat[4][j] + ( qr5 - ql5 )* deig1_dqr[j];
+           lmat[j] = lmat[j] + ( qr1 - ql1 )* deig1_dql[j];  rmat[j] = rmat[j] + ( qr1 - ql1 )* deig1_dqr[j];
+	   index1 = 5+j; 
+           lmat[index1] = lmat[index1] + ( qr2 - ql2 )* deig1_dql[j];  rmat[index1] = rmat[index1] + ( qr2 - ql2 )* deig1_dqr[j];
+	   index1 = 10+j; 
+           lmat[index1] = lmat[index1] + ( qr3 - ql3 )* deig1_dql[j];  rmat[index1] = rmat[index1] + ( qr3 - ql3 )* deig1_dqr[j];
+	   index1 = 15+j; 
+           lmat[index1] = lmat[index1] + ( qr4 - ql4 )* deig1_dql[j];  rmat[index1] = rmat[index1] + ( qr4 - ql4 )* deig1_dqr[j];
+	   index1 = 20+j; 
+           lmat[index1] = lmat[index1] + ( qr5 - ql5 )* deig1_dql[j];  rmat[index1] = rmat[index1] + ( qr5 - ql5 )* deig1_dqr[j];
 
          }         
          
          #pragma unroll 5       
          for ( int j = 0 ; j < 5 ; j++ )
           {
-            lmat[1][j] = lmat[1][j] + del1*dubar_dql[j];
-            rmat[1][j] = rmat[1][j] + del1*dubar_dqr[j];
+	    index1 = 5+j; 
+    	    lmat[index1] = lmat[index1] + del1*dubar_dql[j];
+            rmat[index1] = rmat[index1] + del1*dubar_dqr[j];
 
-            lmat[2][j] = lmat[2][j] + del1*dvbar_dql[j];
-            rmat[2][j] = rmat[2][j] + del1*dvbar_dqr[j];
+	    index1 = 10+j; 
+    	    lmat[index1] = lmat[index1] + del1*dvbar_dql[j];
+            rmat[index1] = rmat[index1] + del1*dvbar_dqr[j];
 
-            lmat[3][j] = lmat[3][j] + del1*dwbar_dql[j];
-            rmat[3][j] = rmat[3][j] + del1*dwbar_dqr[j];
+	    index1 = 15+j; 
+    	    lmat[index1] = lmat[index1] + del1*dwbar_dql[j];
+            rmat[index1] = rmat[index1] + del1*dwbar_dqr[j];
 
-            lmat[4][j] = lmat[4][j] + del1*dhbar_dql[j] + del2*duconbar_dql[j];
-            rmat[4][j] = rmat[4][j] + del1*dhbar_dqr[j] + del2*duconbar_dqr[j];
+	    index1 = 20+j; 
+            lmat[index1] = lmat[index1] + del1*dhbar_dql[j] + del2*duconbar_dql[j];
+            rmat[index1] = rmat[index1] + del1*dhbar_dqr[j] + del2*duconbar_dqr[j];
           }
     //  endif
 
@@ -741,8 +755,9 @@ for( int i = 0; i < 5 ; i++ )
   {
      FOR2(i,5,j,5)
      {
-       lmat[i][j] = 0.5*( lmat1[i][j] - lmat[i][j] );
-       rmat[i][j] = 0.5*( rmat1[i][j] - rmat[i][j] );
+       index1 = 5*i+j; 
+       lmat[index1] = 0.5*( lmat1[i][j] - lmat[index1] );
+       rmat[index1] = 0.5*( rmat1[i][j] - rmat[index1] );
      }
  }   
 
