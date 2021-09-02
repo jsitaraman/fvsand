@@ -1,2 +1,3 @@
 - put in correct flux jacobian
 - Checking f(ql+dql,qr+dqr) - f(ql,qr) = lmat*dql+rmat*dqr
+- figure out how to use dq in update

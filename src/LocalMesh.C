@@ -191,6 +191,7 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  qn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  qnn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  res_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+ dq_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  
  flovar_d=gpu::push_to_device<double>(flovar,sizeof(double)*nfields);
  qinf_d=gpu::allocate_on_device<double>(sizeof(double)*nfields);
@@ -200,7 +201,7 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  //nthreads=ncells;
  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
  FVSAND_GPU_LAUNCH_FUNC(init_q,n_blocks,block_size,0,0,
-		        qinf_d,q,center_d,flovar_d,nfields,istor,(ncells+nhalo));
+		        qinf_d,q,dq_d,center_d,flovar_d,nfields,istor,(ncells+nhalo));
 
  qh=new double [sizeof(double)*(ncells+nhalo)*nfields];
  gpu::pull_from_device<double>(qh,q,sizeof(double)*(ncells+nhalo)*nfields);
@@ -304,8 +305,9 @@ void LocalMesh::Residual_face(double *qv)
 
 }
 
-void LocalMesh::Jacobi(double *q, int nsweep)
+void LocalMesh::Jacobi(double *q, int nsweep, double dt)
 {
+
   nthreads=ncells+nhalo;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(fill_faces, n_blocks,block_size,0,0,
@@ -313,10 +315,14 @@ void LocalMesh::Jacobi(double *q, int nsweep)
 
   int nsweep = 40; 
   for(int m = 0; m < nsweep; m++){
-    FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,XX);   
-    // Udate dq = tilde dq here, dq is 'res'?  
-    res_d = dqt; 
+    FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,
+   			   res_d, dq_d, normals_d, volume_d,
+			   flovar_d, faceq_d,cell2cell_d,
+			   nccft, nfields, istor, ncells, facetype, dt, nsweep,m);
+			    
   }
+  // Store final dq in res to be used in update routine
+  res_d = dq_d; 
 }
 
 void LocalMesh::Update(double *qdest, double *qsrc, double fscal)

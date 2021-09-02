@@ -4,7 +4,7 @@
 #include "roe_flux3d.h"
 
 FVSAND_GPU_GLOBAL
-void init_q(double *q0, double *q, double *center, double *flovar, int nfields, int istor, int ncells)
+void init_q(double *q0, double *q, double *dq,  double *center, double *flovar, int nfields, int istor, int ncells)
 {
   int scale=(istor==0)?nfields:1;
   int stride=(istor==0)?1:ncells;
@@ -22,6 +22,7 @@ void init_q(double *q0, double *q, double *center, double *flovar, int nfields, 
       q0[4]=flovar[4]/GM1 + 0.5*(q0[1]*q0[1]+q0[2]*q0[2]+q0[3]*q0[3])/q0[0];
       for(int n=0;n<nfields;n++)
 	q[idx*scale+n*stride]=q0[n];
+        dq[idx*scale+n*stride] = 0.0; 
     }
 }
 
@@ -77,9 +78,9 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 }
 
 FVSAND_GPU_GLOBAL
-void jacobiSweep(double *res, double *q, double *dq, double *dqt, double *center, double *normals,double *volume,
+void jacobiSweep(double *res, double *dq, double *center, double *normals,double *volume,
 		 double *flovar, double *faceq, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
-		 int* facetype, XXX)
+		 int* facetype, double dt, int iter)
 {
   int scale=(istor==0)?nfields:1;
   int stride=(istor==0)?1:ncells;
@@ -90,7 +91,8 @@ void jacobiSweep(double *res, double *q, double *dq, double *dqt, double *center
   for(int idx=0;idx<ncells;idx++)
 #endif
   {
-	double B[nfields], Btmp[nfields];
+	double dqtemp[nfields];
+ 	double B[nfields], Btmp[nfields];
 	double D[nfields*nfields];	
 	double Dinv[nfields*nfields];	
         double lmat[nfields*nfields];
@@ -98,16 +100,21 @@ void jacobiSweep(double *res, double *q, double *dq, double *dqt, double *center
 	int index1; 
 
 	for(int n = 0; n<nfields; n++) {
+		if(iter==0){
+			dqtemp[n] = 0.0; 
+		}
+		else{
+			dqtemp[n] = dq[scale*idx+n*stride]; 
+		}
 		B[n] = -res[scale*idx+n*stride]; 
 		for(int m = 0; m<nfields; m++) {
 			index1 = n*nfields + m;
 			if(n==m){
-				D[index1] = vol/dt; // Need to feed in value XX
+				D[index1] = volume[idx]/dt;
 			}
 			else{
-				D[index1] = 0; 
+				D[index1] = 0.0; 
 			}
-
 		}
 	}
   
@@ -133,16 +140,19 @@ void jacobiSweep(double *res, double *q, double *dq, double *dqt, double *center
                   	        faceid,lmat, rmat)
 
 		//Compute Di and Oij dq
-		axb1(rmat,dq,Btmp,1,5); 
+		axb1(rmat,dqtemp,Btmp,1,5); 
 		B = B - Btmp;
 		D = D + lmat;
 	}
 
 	// Compute dqtilde
 	invertmat5(D,1,Dinv)
-	axb1(Dinv,B,dqt,5);  
+	axb1(Dinv,B,dqtemp,5);  
 
-  }
+	for(int n=0;n<nfields,n++){
+		dq[scale*idx+n*stride] = dqtemp[n]; 
+	}
+  } // loop over cells 
 }
 	
 FVSAND_GPU_GLOBAL
