@@ -18,7 +18,7 @@ FVSAND_GPU_DEVICE void invertMat5(double *A, double *f, double *x)
   // decompose A into L and U
   //
   //
-  b11=1./A[0][0];
+  b11=1./A[0];
   u12=A[1]*b11;
   u13=A[2]*b11;
   u14=A[3]*b11;
@@ -68,7 +68,7 @@ void invertMat4(REAL A[4][4],
   REAL b11,b21,b22,b31,b32,b33,b41,b42,b43,b44;
   REAL u12,u13,u14,u23,u24,u34,u44;
   REAL d1,d2,d3,d4;
-  REAL c1,c2,c3,c4;
+//  REAL c1,c2,c3,c4;
   REAL a1,a2,a3,a4;
   //
   // decompose A into L and U

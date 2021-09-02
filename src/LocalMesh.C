@@ -317,7 +317,7 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep)
     FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,
    			   res_d, dq_d, normals_d, volume_d,
 			   flovar_d, faceq_d,facenorm_d,cell2cell_d,cell2face_d,
-			   nccft, nfields, istor, ncells, facetype, dt, nsweep,m);
+			   nccft_d, nfields_d, istor, ncells, facetype_d, dt, m);
 			    
   }
   // Store final dq in res to be used in update routine

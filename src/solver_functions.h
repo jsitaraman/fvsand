@@ -2,6 +2,7 @@
 #define GM1 0.4
 #define GGM1 0.56
 #include "roe_flux3d.h"
+#include "mathops.h"
 
 FVSAND_GPU_GLOBAL
 void init_q(double *q0, double *q, double *dq,  double *center, double *flovar, int nfields, int istor, int ncells)
@@ -79,7 +80,7 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 }
 
 FVSAND_GPU_GLOBAL
-void jacobiSweep(double *res, double *dq, double *center, double *normals,double *volume,
+void jacobiSweep(double *res, double *dq, double *normals,double *volume,
 		 double *flovar, double *faceq, double *face_norm, int *cell2cell, int *cell2face, int *nccft, int nfields, int istor, int ncells, 
 		 int* facetype, double dt, int iter)
 {
@@ -95,7 +96,6 @@ void jacobiSweep(double *res, double *dq, double *center, double *normals,double
 	double dqtemp[5];
  	double B[5], Btmp[5];
 	double D[25]; 
-	double Dinv[25]; 
         double lmat[25]; 
         double rmat[25]; 
 	int index1; 
@@ -142,15 +142,16 @@ void jacobiSweep(double *res, double *dq, double *center, double *normals,double
 
 		//Compute Di and Oij dq
 		axb1(rmat,dqtemp,Btmp,1,5); 
-		B = B - Btmp; // XXX why doesn't this work?
-		D = D + lmat;
+		for(int n = 0; n<5; n++){
+			B[n] = B[n] - Btmp[n]; // XXX why doesn't this work?
+			D[n] = D[n] + lmat[n];
+		}
 	}
 
 	// Compute dqtilde
-	invertmat5(D,1,Dinv)
-	axb1(Dinv,B,dqtemp,5);  
+	invertMat5(D,B,dqtemp); //computes dqtemp = inv(D)*B
 
-	for(int n=0;n<nfields,n++){
+	for(int n=0;n<nfields;n++){
 		dq[scale*idx+n*stride] = dqtemp[n]; 
 	}
   } // loop over cells 
