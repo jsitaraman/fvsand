@@ -20,9 +20,10 @@ void init_q(double *q0, double *q, double *dq,  double *center, double *flovar, 
       q0[2]=flovar[0]*flovar[2]; //+(center[3*idx+1]+center[3*idx]*center[3*idx]+center[3*idx+2])*0.1;
       q0[3]=flovar[0]*flovar[3]; //+(center[3*idx+2])*0.1;
       q0[4]=flovar[4]/GM1 + 0.5*(q0[1]*q0[1]+q0[2]*q0[2]+q0[3]*q0[3])/q0[0];
-      for(int n=0;n<nfields;n++)
+      for(int n=0;n<nfields;n++){
 	q[idx*scale+n*stride]=q0[n];
         dq[idx*scale+n*stride] = 0.0; 
+      }
     }
 }
 
@@ -79,7 +80,7 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 
 FVSAND_GPU_GLOBAL
 void jacobiSweep(double *res, double *dq, double *center, double *normals,double *volume,
-		 double *flovar, double *faceq, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
+		 double *flovar, double *faceq, double *face_norm, int *cell2cell, int *cell2face, int *nccft, int nfields, int istor, int ncells, 
 		 int* facetype, double dt, int iter)
 {
   int scale=(istor==0)?nfields:1;
@@ -91,12 +92,12 @@ void jacobiSweep(double *res, double *dq, double *center, double *normals,double
   for(int idx=0;idx<ncells;idx++)
 #endif
   {
-	double dqtemp[nfields];
- 	double B[nfields], Btmp[nfields];
-	double D[nfields*nfields];	
-	double Dinv[nfields*nfields];	
-        double lmat[nfields*nfields];
-        double rmat[nfields*nfields];
+	double dqtemp[5];
+ 	double B[5], Btmp[5];
+	double D[25]; 
+	double Dinv[25]; 
+        double lmat[25]; 
+        double rmat[25]; 
 	int index1; 
 
 	for(int n = 0; n<nfields; n++) {
@@ -137,11 +138,11 @@ void jacobiSweep(double *res, double *dq, double *center, double *normals,double
 		computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
 	                        qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
          	                norm[0], norm[1], norm [2],
-                  	        faceid,lmat, rmat)
+                  	        faceid,lmat, rmat);
 
 		//Compute Di and Oij dq
 		axb1(rmat,dqtemp,Btmp,1,5); 
-		B = B - Btmp;
+		B = B - Btmp; // XXX why doesn't this work?
 		D = D + lmat;
 	}
 

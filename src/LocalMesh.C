@@ -305,7 +305,7 @@ void LocalMesh::Residual_face(double *qv)
 
 }
 
-void LocalMesh::Jacobi(double *q, int nsweep, double dt)
+void LocalMesh::Jacobi(double *q, double dt, int nsweep)
 {
 
   nthreads=ncells+nhalo;
@@ -313,11 +313,10 @@ void LocalMesh::Jacobi(double *q, int nsweep, double dt)
   FVSAND_GPU_LAUNCH_FUNC(fill_faces, n_blocks,block_size,0,0,
                          q,faceq_d,nccft_d,cell2face_d,nfields_d,istor,ncells+nhalo);
 
-  int nsweep = 40; 
   for(int m = 0; m < nsweep; m++){
     FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,
    			   res_d, dq_d, normals_d, volume_d,
-			   flovar_d, faceq_d,cell2cell_d,
+			   flovar_d, faceq_d,facenorm_d,cell2cell_d,cell2face_d,
 			   nccft, nfields, istor, ncells, facetype, dt, nsweep,m);
 			    
   }

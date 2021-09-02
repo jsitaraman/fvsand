@@ -586,11 +586,12 @@ for( int i = 0; i < 5 ; i++ )
 
 
 //      !------------> common linearization terms
-
+      int index1; 
       FOR2(i,5,j,5)
        {
-        lmat[i][j] = 0.0;
-        rmat[i][j] = 0.0;
+	index1 = 5*i+j; 
+        lmat[index1] = 0.0;
+        rmat[index1] = 0.0;
         imat[i][j] = 0.0;
        }
 
@@ -714,30 +715,30 @@ for( int i = 0; i < 5 ; i++ )
   {
      for(int n = 0; n<5; n++){	
 	index1 = 0+n;
-	lmat(index1) = 0.0; 
+	lmat[index1] = 0.0; 
 	index1 = 5*4 + n; 
-	lmat(index1) = 0.0; 
+	lmat[index1] = 0.0; 
 	for(int m = 0; m<5; m++){
 		index1 = n*5+m; 
 		rmat[index1] = 0.0; 
 	}
      }
      lmat[5] = gm1*0.5-umag2*nx;
-     lmat[6] = -gm1*u*nx; 
-     lmat[7] = -gm1*v*nx; 
-     lmat[8] = -gm1*w*nx; 
+     lmat[6] = -gm1*ul*nx; 
+     lmat[7] = -gm1*vl*nx; 
+     lmat[8] = -gm1*wl*nx; 
      lmat[9] = gm1*nx; 
 
      lmat[10] = gm1*0.5*umag2*ny; 
-     lmat[11] = -gm1*u*ny;
-     lmat[12] = -gm1*v*ny;
-     lmat[13] = -gm1*w*ny;
+     lmat[11] = -gm1*ul*ny;
+     lmat[12] = -gm1*vl*ny;
+     lmat[13] = -gm1*wl*ny;
      lmat[14] = gm1*ny;
 
      lmat[15] = gm1*0.5*umag2*nz; 
-     lmat[16] = -gm1*u*nz;
-     lmat[17] = -gm1*v*nz;
-     lmat[18] = -gm1*w*nz;
+     lmat[16] = -gm1*ul*nz;
+     lmat[17] = -gm1*vl*nz;
+     lmat[18] = -gm1*wl*nz;
      lmat[19] = gm1*nz;
 
      /* // Left over from previous code

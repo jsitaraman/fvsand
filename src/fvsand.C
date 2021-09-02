@@ -61,6 +61,7 @@ int main(int argc, char *argv[])
   int nsteps=2000;
   int nsave=100;
   double dt=0.001;
+  int nsweep = 40; // Jacobi Sweeps
   int restype=0;  // restype = 0 (cell-based) 1 (face-based)
   double rk[4]={0.25,8./15,5./12,3./4};
 
@@ -68,7 +69,7 @@ int main(int argc, char *argv[])
     {
       if(dt){ // implicit 
         lm->Residual(lm->q,restype);
-	lm->Jacobi(lm->q,dt);
+	lm->Jacobi(lm->q,dt,nsweep);
         lm->Update(lm->qn,lm->q,dt); // XX is this dt or 1? 
       } else { // explicit rk solver
         lm->Residual(lm->q,restype);
