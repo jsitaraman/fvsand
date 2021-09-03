@@ -441,11 +441,14 @@ real lmat1[5][5],rmat1[5][5];
       cbar = gm1*(hbar - 0.5*(ubar*ubar + vbar*vbar + wbar*wbar));
       cbar = sqrt(cbar);
       uconbar = ubar*nx + vbar*ny + wbar*nz;
+      printf("debug:ql = %f,%f,%f,%f,%f\n",ql1,ql2,ql3,ql4,ql5);
+      printf("debug:qr = %f,%f,%f,%f,%f\n",qr1,qr2,qr3,qr4,qr5);
       printf("debug:rol,fact = %f,%f\n",rol,fact);
       printf("debug:ul,ur = %f,%f\n",ul,ur);
       printf("debug:vl,vr = %f,%f\n",vl,vr);
       printf("debug:wl,wr = %f,%f\n",wl,wr);
       printf("debug:hl,hr = %f,%f\n",hl,hr);
+      printf("debug:qr5,pr,ror = %f,%f,%f\n",qr5,pr,ror);
       printf("debug:n = %f,%f,%f\n",nx,ny,nz);
 
 //!------------------------------------------------------------------------------!
@@ -609,8 +612,8 @@ for( int i = 0; i < 5 ; i++ )
 	 index1 = i*5+j;     
          lmat[index1] = lmat[index1] - eig1*imat[i][j];
          rmat[index1] = rmat[index1] + eig1*imat[i][j];
-if(isnan(lmat[index1])) printf("roe 3:,i = %i, j = %i\n",i,j);
-if(isnan(rmat[index1])) printf("roe 4:,i = %i, j = %i\n",i,j);
+//if(isnan(lmat[index1])) printf("roe 3:,i = %i, j = %i\n",i,j);
+//if(isnan(rmat[index1])) printf("roe 4:,i = %i, j = %i\n",i,j);
        }
 
       #pragma unroll 5
@@ -639,8 +642,8 @@ if(isnan(rmat[index1])) printf("roe 4:,i = %i, j = %i\n",i,j);
     
       FOR2(i,5,j,5)
        { 
-	if(isnan(lmat[index1])) printf("roe 5:,i = %i, j = %i\n",i,j);
-	if(isnan(rmat[index1])) printf("roe 6:,i = %i, j = %i\n",i,j);
+//	if(isnan(lmat[index1])) printf("roe 5:,i = %i, j = %i\n",i,j);
+//	if(isnan(rmat[index1])) printf("roe 6:,i = %i, j = %i\n",i,j);
        }
 
       //------> additional terms for exact linearization
@@ -662,8 +665,8 @@ if(isnan(rmat[index1])) printf("roe 4:,i = %i, j = %i\n",i,j);
          }         
       FOR2(i,5,j,5)
        { 
-	if(isnan(lmat[index1])) printf("roe 7:,i = %i, j = %i\n",i,j);
-	if(isnan(rmat[index1])) printf("roe 8:,i = %i, j = %i\n",i,j);
+//	if(isnan(lmat[index1])) printf("roe 7:,i = %i, j = %i\n",i,j);
+//	if(isnan(rmat[index1])) printf("roe 8:,i = %i, j = %i\n",i,j);
        }
 
          
@@ -688,8 +691,8 @@ if(isnan(rmat[index1])) printf("roe 4:,i = %i, j = %i\n",i,j);
           }
       FOR2(i,5,j,5)
        { 
-	if(isnan(lmat[index1])) printf("roe 09:,i = %i, j = %i\n",i,j);
-	if(isnan(rmat[index1])) printf("roe 10:,i = %i, j = %i\n",i,j);
+//	if(isnan(lmat[index1])) printf("roe 09:,i = %i, j = %i\n",i,j);
+//	if(isnan(rmat[index1])) printf("roe 10:,i = %i, j = %i\n",i,j);
        }
 
     //  endif
@@ -790,8 +793,8 @@ if(isnan(rmat[index1])) printf("roe 4:,i = %i, j = %i\n",i,j);
 
       FOR2(i,5,j,5)
        { 
-	if(isnan(lmat[index1])) printf("roe 11:,i = %i, j = %i\n",i,j);
-	if(isnan(rmat[index1])) printf("roe 12:,i = %i, j = %i\n",i,j);
+//	if(isnan(lmat[index1])) printf("roe 11:,i = %i, j = %i\n",i,j);
+//	if(isnan(rmat[index1])) printf("roe 12:,i = %i, j = %i\n",i,j);
        }
 
 }

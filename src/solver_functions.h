@@ -81,7 +81,7 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 }
 
 FVSAND_GPU_GLOBAL
-void jacobiSweep(double *res, double *dq, double *normals,double *volume,
+void jacobiSweep(double *q, double *res, double *dq, double *normals,double *volume,
 		 double *flovar, double *faceq, double *face_norm, int *cell2cell, int *cell2face, int *nccft, int nfields, int istor, int ncells, 
 		 int* facetype, double dt, int iter)
 {
@@ -120,6 +120,7 @@ void jacobiSweep(double *res, double *dq, double *normals,double *volume,
 		}
 	}
  	// Loop over neighbors
+	int idxn; 
       	for(int f=nccft[idx];f<nccft[idx+1];f++){
 		double *norm=normals+18*idx+3*(f-nccft[idx]);
 		int faceid=cell2face[f];
@@ -129,11 +130,17 @@ void jacobiSweep(double *res, double *dq, double *normals,double *volume,
 		double* qr=faceq+(2*faceid+1)*nfields;
 		norm=face_norm+faceid*3;
 
+		idxn = facetype[idx]; 
 		for(int n = 0; n<nfields; n++){
 		       Btmp[n] =0.0;
-      		       if (facetype[faceid] == -3) qr[n]=flovar[n];
+		       if(idxn > -1) qr[n]=q[scale*idxn+n*stride];
+      		       if(idxn == -3) qr[n]=flovar[n];
 		}
 
+if(idx==0)      printf("debug solver: ql = %f, %f, %f, %f, %f\n",ql[0], ql[1],  ql[2],  ql[3],  ql[4]); 
+if(idx==0)      printf("debug solver: qr = %f, %f, %f, %f, %f\n",qr[0], qr[1],  qr[2],  qr[3],  qr[4]); 
+if(idx==0)      printf("debug solver: norm = %f, %f, %f\n",norm[0],norm[1],norm[2]);
+if(idx==0)      printf("debug solver: faceID = %i\n",faceid);
 		//Compute Jacobians 
 		computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
 	                        qr[0], qr[1],  qr[2],  qr[3],  qr[4],  

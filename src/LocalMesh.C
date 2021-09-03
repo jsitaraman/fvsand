@@ -315,7 +315,7 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep)
 
   for(int m = 0; m < nsweep; m++){
     FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,
-   			   res_d, dq_d, normals_d, volume_d,
+   			   q, res_d, dq_d, normals_d, volume_d,
 			   flovar_d, faceq_d,facenorm_d,cell2cell_d,cell2face_d,
 			   nccft_d, nfields_d, istor, ncells, facetype_d, dt, m);
 			    
