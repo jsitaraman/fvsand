@@ -196,12 +196,10 @@ void computeJacobian( real& ql1, real& ql2, real& ql3, real& ql4, real& ql5,
                       real& qr1, real& qr2, real& qr3, real& qr4, real& qr5,
                       real& nxd, real& nyd, real& nzd,
                       int & faceID,
-                      real lmat[25], real rmat[25])
+                      real lmat[25], real rmat[25],int idx)
 {
 
 real gam=1.4;
-//int imode=1;
-
 
 real gm1;
 real area,nx,ny,nz;
@@ -245,6 +243,11 @@ real dp;
 
 real lmat1[5][5],rmat1[5][5];
 //------------------------------------------------------------------------------
+
+
+if(idx==0) printf("debug:qr = %f,%f,%f,%f,%f\n",qr1,qr2,qr3,qr4,qr5);
+if(idx==0) printf("debug:ql = %f,%f,%f,%f,%f\n",ql1,ql2,ql3,ql4,ql5);
+
       gm1 = gam - 1.0;
       area = sqrt(nxd*nxd + nyd*nyd + nzd*nzd);
 
@@ -271,6 +274,15 @@ real lmat1[5][5],rmat1[5][5];
       hr  = (qr5 + pr)/ror;
       //cr  = sqrt(gam*pr/ror);
 
+if(idx==0) printf("debug2:qr = %f,%f,%f,%f,%f\n",qr1,qr2,qr3,qr4,qr5);
+if(idx==0) printf("debug2:ql = %f,%f,%f,%f,%f\n",ql1,ql2,ql3,ql4,ql5);
+      if(idx==0) printf("debug2:rol = %f\n",rol);
+      if(idx==0) printf("debug2:ul,ur = %f,%f\n",ul,ur);
+      if(idx==0) printf("debug2:vl,vr = %f,%f\n",vl,vr);
+      if(idx==0) printf("debug2:wl,wr = %f,%f\n",wl,wr);
+      if(idx==0) printf("debug2:hl,hr = %f,%f\n",hl,hr);
+      if(idx==0) printf("debug2:qr5,pr,ror = %f,%f,%f\n",qr5,pr,ror);
+      if(idx==0) printf("debug2:n = %f,%f,%f\n",nx,ny,nz);
       //-----> primitive state differences
 
       //dro = ror - rol;
@@ -441,15 +453,13 @@ real lmat1[5][5],rmat1[5][5];
       cbar = gm1*(hbar - 0.5*(ubar*ubar + vbar*vbar + wbar*wbar));
       cbar = sqrt(cbar);
       uconbar = ubar*nx + vbar*ny + wbar*nz;
-      printf("debug:ql = %f,%f,%f,%f,%f\n",ql1,ql2,ql3,ql4,ql5);
-      printf("debug:qr = %f,%f,%f,%f,%f\n",qr1,qr2,qr3,qr4,qr5);
-      printf("debug:rol,fact = %f,%f\n",rol,fact);
-      printf("debug:ul,ur = %f,%f\n",ul,ur);
-      printf("debug:vl,vr = %f,%f\n",vl,vr);
-      printf("debug:wl,wr = %f,%f\n",wl,wr);
-      printf("debug:hl,hr = %f,%f\n",hl,hr);
-      printf("debug:qr5,pr,ror = %f,%f,%f\n",qr5,pr,ror);
-      printf("debug:n = %f,%f,%f\n",nx,ny,nz);
+      if(idx==0) printf("debug:rol,fact = %f,%f\n",rol,fact);
+      if(idx==0) printf("debug:ul,ur = %f,%f\n",ul,ur);
+      if(idx==0) printf("debug:vl,vr = %f,%f\n",vl,vr);
+      if(idx==0) printf("debug:wl,wr = %f,%f\n",wl,wr);
+      if(idx==0) printf("debug:hl,hr = %f,%f\n",hl,hr);
+      if(idx==0) printf("debug:qr5,pr,ror = %f,%f,%f\n",qr5,pr,ror);
+      if(idx==0) printf("debug:n = %f,%f,%f\n",nx,ny,nz);
 
 //!------------------------------------------------------------------------------!
 //!--------------------------> Eigenvalues <-------------------------------------!
@@ -458,32 +468,10 @@ real lmat1[5][5],rmat1[5][5];
       eig1 = abs(uconbar);
       eig2 = abs(uconbar + cbar);
       eig3 = abs(uconbar - cbar);
-
-//!------------------------------------------------------------------------------!
-//!--------------> approximate linearization section <---------------------------!
-//!------------------------------------------------------------------------------!
-
-/*
-if( imode==1 ) then
-      term1 = -eig1 + 0.5*(eig2 + eig3)
-      term2 = 0.5*(eig2 - eig3)
-      del1  = term1*dp/cbar/cbar + term2*robar*(uconr - uconl)/cbar
-      del2  = term1*(uconr - uconl)*robar + term2*dp/cbar
-
-      ddel1_dql(:) = - term1*dp_dql(:)/cbar/cbar - term2*robar*ducon_dql(:)/cbar
-      ddel1_dqr(:) = + term1*dp_dqr(:)/cbar/cbar + term2*robar*ducon_dqr(:)/cbar
-
-      ddel2_dql(:) = - term1*ducon_dql(:)*robar - term2*dp_dql(:)/cbar
-      ddel2_dqr(:) = + term1*ducon_dqr(:)*robar + term2*dp_dqr(:)/cbar
-
-      goto 111
-     
-endif        
-*/
-
 //!------------------------------------------------------------------------------!
 //!-----------> linearization of Roe averaged state <----------------------------!
 //!------------------------------------------------------------------------------!
+//
 #pragma unroll 5
 for( int i = 0; i < 5 ; i++ )
  {
@@ -612,8 +600,8 @@ for( int i = 0; i < 5 ; i++ )
 	 index1 = i*5+j;     
          lmat[index1] = lmat[index1] - eig1*imat[i][j];
          rmat[index1] = rmat[index1] + eig1*imat[i][j];
-//if(isnan(lmat[index1])) printf("roe 3:,i = %i, j = %i\n",i,j);
-//if(isnan(rmat[index1])) printf("roe 4:,i = %i, j = %i\n",i,j);
+//if(isnan(lmat[index1])) if(idx==0) printf("roe 3:,i = %i, j = %i\n",i,j);
+//if(isnan(rmat[index1])) if(idx==0) printf("roe 4:,i = %i, j = %i\n",i,j);
        }
 
       #pragma unroll 5
@@ -642,8 +630,8 @@ for( int i = 0; i < 5 ; i++ )
     
       FOR2(i,5,j,5)
        { 
-//	if(isnan(lmat[index1])) printf("roe 5:,i = %i, j = %i\n",i,j);
-//	if(isnan(rmat[index1])) printf("roe 6:,i = %i, j = %i\n",i,j);
+//	if(isnan(lmat[index1])) if(idx==0) printf("roe 5:,i = %i, j = %i\n",i,j);
+//	if(isnan(rmat[index1])) if(idx==0) printf("roe 6:,i = %i, j = %i\n",i,j);
        }
 
       //------> additional terms for exact linearization
@@ -665,8 +653,8 @@ for( int i = 0; i < 5 ; i++ )
          }         
       FOR2(i,5,j,5)
        { 
-//	if(isnan(lmat[index1])) printf("roe 7:,i = %i, j = %i\n",i,j);
-//	if(isnan(rmat[index1])) printf("roe 8:,i = %i, j = %i\n",i,j);
+//	if(isnan(lmat[index1])) if(idx==0) printf("roe 7:,i = %i, j = %i\n",i,j);
+//	if(isnan(rmat[index1])) if(idx==0) printf("roe 8:,i = %i, j = %i\n",i,j);
        }
 
          
@@ -691,8 +679,8 @@ for( int i = 0; i < 5 ; i++ )
           }
       FOR2(i,5,j,5)
        { 
-//	if(isnan(lmat[index1])) printf("roe 09:,i = %i, j = %i\n",i,j);
-//	if(isnan(rmat[index1])) printf("roe 10:,i = %i, j = %i\n",i,j);
+//	if(isnan(lmat[index1])) if(idx==0) printf("roe 09:,i = %i, j = %i\n",i,j);
+//	if(isnan(rmat[index1])) if(idx==0) printf("roe 10:,i = %i, j = %i\n",i,j);
        }
 
     //  endif
@@ -768,17 +756,6 @@ for( int i = 0; i < 5 ; i++ )
      lmat[17] = -gm1*vl*nz;
      lmat[18] = -gm1*wl*nz;
      lmat[19] = gm1*nz;
-
-     /* // Left over from previous code
-     FOR2(i,5,j,5)
-      {
-        lmat[i][j]=0.0;
-        rmat[i][j]=0.0;
-      }
-     lmat[1][4] = gm1*nx;
-     lmat[2][4] = gm1*ny;
-     lmat[3][4] = gm1*nz;
-*/
   }
  else  
   {
@@ -789,14 +766,6 @@ for( int i = 0; i < 5 ; i++ )
        rmat[index1] = 0.5*( rmat1[i][j] - rmat[index1] );
      }
  }   
-
-
-      FOR2(i,5,j,5)
-       { 
-//	if(isnan(lmat[index1])) printf("roe 11:,i = %i, j = %i\n",i,j);
-//	if(isnan(rmat[index1])) printf("roe 12:,i = %i, j = %i\n",i,j);
-       }
-
 }
 
 
