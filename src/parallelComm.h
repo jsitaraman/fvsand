@@ -200,14 +200,15 @@ namespace FVSAND {
 			    int nfields,
 			    int ndof,
 			    int istor,
-			    std::map <int, std::vector<int>> sndmap,
-			    std::map <int, std::vector<int>> rcvmap,
+			    const std::map <int, std::vector<int>> &sndmap,
+			    const std::map <int, std::vector<int>> &rcvmap,
 			    MPI_Comm comm)
     {
       std::map<int, std::vector<double>> sndPacket;
       std::map<int, std::vector<double>> rcvPacket;
-      MPI_Request *ireq=new MPI_Request [sndmap.size()+rcvmap.size()];
-      MPI_Status *istatus=new MPI_Status [sndmap.size()+rcvmap.size()];
+			const std::size_t num_requests = sndmap.size() + rcvmap.size();
+      MPI_Request *ireq=new MPI_Request [ num_requests ];
+      MPI_Status *istatus=new MPI_Status [ num_requests ];
       int myid;
       int ierr=MPI_Comm_rank(comm,&myid);
       int scale=(istor==0)?nfields:1;
@@ -236,7 +237,7 @@ namespace FVSAND {
 		    r.first,0,comm,&ireq[k++]);
 	}
 
-      MPI_Waitall(sndmap.size()+rcvmap.size(),ireq,istatus);
+      MPI_Waitall( num_requests ,ireq,istatus);
 
       double qnorm=0.0;
       //FILE *fp;
