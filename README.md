@@ -9,8 +9,9 @@ Finite volume sand box code to be used as mini-app for hackathon.
 - verified single GPU execution
 
 
-To build on scout
+To build on scout:
 
+```
 export CREATE_HOME=/p/app/restricted/create
 export MODULEPATH=${CREATE_HOME}/modulefiles:$MODULEPATH
 module purge
@@ -27,6 +28,6 @@ cmake ../src;
 ccmake .
 swich GPU compilation ON or OFF
 make
-
+```
 
 j.s 08/28/2021
