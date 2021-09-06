@@ -221,7 +221,7 @@ namespace FVSAND {
       int k=0;
 
 			// post receives
-			for(auto r : rcvmap)
+			for(const auto& r : rcvmap)
 			{
 				const int fromRank = r.first;
 				const int size     = r.second.size()*nfields;
@@ -241,7 +241,7 @@ namespace FVSAND {
 			}
 
 			// post sends
-      for(auto s : sndmap)
+      for(const auto& s : sndmap)
 			{
 				const int toRank = s.first;
 				const int size   = s.second.size() * nfields;
@@ -275,24 +275,25 @@ namespace FVSAND {
       //char fname[20];
       //sprintf(fname,"recv%d.dat",myid);
       //fp=fopen(fname,"w");
-      for(auto r : rcvmap)
+      for(const auto& r : rcvmap)
 			{
 				int m=0;
-				auto rcvdata=rcvPacket[r.first];
-				auto rcvlist=r.second;
+				const auto& rcvdata=rcvPacket[r.first];
+				const auto& rcvlist=r.second;
 				for(int k=0;k<rcvlist.size();k++)
-					{
-						int v=rcvlist[k];
-						//fprintf(fp,"%d ",v);
-						for(int i=0;i<nfields;i++)
 				{
-					double qv=rcvdata[m++];
-					qnorm+=abs(qv-q[v*scale+i*stride]);
-					//fprintf(fp,"%f ",q[v*scale+i*stride]);
-					q[v*scale+i*stride]=qv;
-				}
-						//fprintf(fp,"\n");
+					int v=rcvlist[k];
+					//fprintf(fp,"%d ",v);
+					for(int i=0;i<nfields;i++)
+					{
+						double qv=rcvdata[m++];
+						qnorm+=abs(qv-q[v*scale+i*stride]);
+						//fprintf(fp,"%f ",q[v*scale+i*stride]);
+						q[v*scale+i*stride]=qv;
 					}
+							//fprintf(fp,"\n");
+				}
+
 			}
 
       //fclose(fp);
