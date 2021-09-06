@@ -33,15 +33,18 @@ void listdev( int rank )
 
 int main(int argc, char *argv[])
 {
-  int myid,numprocs,numdevices;
+  int myid, mydeviceid, numprocs,numdevices;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD,&myid);
   MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
 
 #if FVSAND_HAS_GPU
   cudaGetDeviceCount(&numdevices);
-  cudaSetDevice(myid%numdevices);
-  listdev(myid);
+  mydeviceid = myid % numdevices;
+  cudaSetDevice(mydeviceid);
+  //listdev(myid);
+
+  printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid);
 #endif
 
   char fname[]="data.tri";
