@@ -2,6 +2,19 @@ PROJECT(fvsand)
 ENABLE_LANGUAGE(Fortran C CXX)
 CMAKE_MINIMUM_REQUIRED(VERSION 3.8)
 
+# If CMAKE_BUILD_TYPE is not specified, default to "Debug"
+if( NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES )
+  
+  message( STATUS "Setting build type to [Debug]" )
+  set( CMAKE_BUILD_TYPE "Debug" CACHE STRING 
+       "Choose the type of build." FORCE )
+
+  # Set the possible values of build type for cmake-gui
+  set_property( CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS 
+                "Debug" "Release" "MinSizeRel" "RelWithDebInfo" )
+
+endif()
+
 option(FVSAND_ENABLE_CUDA "Enable CUDA support (default: off)" ON)
 
 # CUDA specific options
