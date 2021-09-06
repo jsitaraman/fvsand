@@ -1,6 +1,9 @@
-#include<vector>
-#include<map>
-#include<algorithm>
+#include <algorithm>
+#include <cassert>
+#include <map>
+#include <unordered_map>
+#include <vector>
+
 #include "mpi.h"
 
 namespace FVSAND {
@@ -204,8 +207,9 @@ namespace FVSAND {
 			    const std::map <int, std::vector<int>> &rcvmap,
 			    MPI_Comm comm)
     {
-      std::map<int, std::vector<double>> sndPacket;
-      std::map<int, std::vector<double>> rcvPacket;
+      std::unordered_map<int, std::vector<double> > sndPacket;
+      std::unordered_map<int, std::vector<double> > rcvPacket;
+
 			const std::size_t num_requests = sndmap.size() + rcvmap.size();
       MPI_Request *ireq=new MPI_Request [ num_requests ];
       MPI_Status *istatus=new MPI_Status [ num_requests ];
@@ -219,26 +223,49 @@ namespace FVSAND {
 			// post receives
 			for(auto r : rcvmap)
 			{
-				rcvPacket[r.first]=std::vector<double>(r.second.size()*nfields,0);
-				MPI_Irecv(rcvPacket[r.first].data(),
-						rcvPacket[r.first].size(), MPI_DOUBLE,
-						r.first,0,comm,&ireq[k++]);
+				const int fromRank = r.first;
+				const int size     = r.second.size()*nfields;
+				double* rbuffer		 = nullptr;
+				if ( rcvPacket.find( fromRank ) == rcvPacket.end() )
+				{
+					rcvPacket[ fromRank ] = std::vector<double>( size ,0 );
+					rbuffer = rcvPacket[ fromRank ].data();
+				}
+				else
+				{
+					rbuffer = rcvPacket[ fromRank ].data();
+				}
+
+				assert( rbuffer != nullptr );
+				MPI_Irecv( rbuffer, size, MPI_DOUBLE, fromRank, 0, comm, &ireq[k++] );
 			}
 
 			// post sends
       for(auto s : sndmap)
 			{
-				sndPacket[s.first]=std::vector<double>(s.second.size()*nfields);
+				const int toRank = s.first;
+				const int size   = s.second.size() * nfields;
+				double* sbuffer  = nullptr;
+				
+				if ( sndPacket.find(toRank) == sndPacket.end() )
+				{
+					sndPacket[ toRank ]=std::vector<double>( size );
+					sbuffer = sndPacket[ toRank ].data();
+				}
+				else
+				{
+					sbuffer = sndPacket[ toRank ].data();
+				}
+				
+				assert( sbuffer != nullptr );
 				int m=0;
 				for(auto v : s.second)
 				{
 					for(int i=0;i<nfields;i++)
-						sndPacket[s.first][m++]=q[v*scale+i*stride];
+						sbuffer[m++]=q[v*scale+i*stride];
 				}
 
-				MPI_Isend(sndPacket[s.first].data(),
-						sndPacket[s.first].size(), MPI_DOUBLE,
-						s.first, 0, comm, &ireq[k++]);
+				MPI_Isend( sbuffer, size, MPI_DOUBLE, toRank, 0, comm, &ireq[k++] );
 			}
 
       MPI_Waitall( num_requests ,ireq, istatus);
