@@ -216,7 +216,7 @@ namespace FVSAND {
 
       int k=0;
 
-			// post-receives
+			// post receives
 			for(auto r : rcvmap)
 			{
 				rcvPacket[r.first]=std::vector<double>(r.second.size()*nfields,0);
@@ -225,21 +225,23 @@ namespace FVSAND {
 						r.first,0,comm,&ireq[k++]);
 			}
 
+			// post sends
       for(auto s : sndmap)
 			{
 				sndPacket[s.first]=std::vector<double>(s.second.size()*nfields);
 				int m=0;
 				for(auto v : s.second)
-							{
+				{
 					for(int i=0;i<nfields;i++)
 						sndPacket[s.first][m++]=q[v*scale+i*stride];
 				}
+
 				MPI_Isend(sndPacket[s.first].data(),
 						sndPacket[s.first].size(), MPI_DOUBLE,
 						s.first, 0, comm, &ireq[k++]);
 			}
 
-      MPI_Waitall( num_requests ,ireq,istatus);
+      MPI_Waitall( num_requests ,ireq, istatus);
 
       double qnorm=0.0;
       //FILE *fp;
@@ -247,24 +249,25 @@ namespace FVSAND {
       //sprintf(fname,"recv%d.dat",myid);
       //fp=fopen(fname,"w");
       for(auto r : rcvmap)
-	{
-	  int m=0;
-	  auto rcvdata=rcvPacket[r.first];
-	  auto rcvlist=r.second;
-	  for(int k=0;k<rcvlist.size();k++)
-	    {
-	      int v=rcvlist[k];
-	      //fprintf(fp,"%d ",v);
-	      for(int i=0;i<nfields;i++)
-		{
-		  double qv=rcvdata[m++];
-		  qnorm+=abs(qv-q[v*scale+i*stride]);
-		  //fprintf(fp,"%f ",q[v*scale+i*stride]);
-		  q[v*scale+i*stride]=qv;
-		}
-	      //fprintf(fp,"\n");
-	    }
-	}
+			{
+				int m=0;
+				auto rcvdata=rcvPacket[r.first];
+				auto rcvlist=r.second;
+				for(int k=0;k<rcvlist.size();k++)
+					{
+						int v=rcvlist[k];
+						//fprintf(fp,"%d ",v);
+						for(int i=0;i<nfields;i++)
+				{
+					double qv=rcvdata[m++];
+					qnorm+=abs(qv-q[v*scale+i*stride]);
+					//fprintf(fp,"%f ",q[v*scale+i*stride]);
+					q[v*scale+i*stride]=qv;
+				}
+						//fprintf(fp,"\n");
+					}
+			}
+
       //fclose(fp);
       //printf("qnorm=%lf\n",qnorm);
       delete [] ireq;
