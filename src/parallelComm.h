@@ -215,27 +215,29 @@ namespace FVSAND {
       int stride=(istor==0)?1:ndof;
 
       int k=0;
-      for(auto s : sndmap)
-	{
-	  sndPacket[s.first]=std::vector<double>(s.second.size()*nfields);
-	  int m=0;
-	  for(auto v : s.second)
-           {
-	    for(int i=0;i<nfields;i++)
-	      sndPacket[s.first][m++]=q[v*scale+i*stride];
-	   }
-	  MPI_Isend(sndPacket[s.first].data(),
-		    sndPacket[s.first].size(), MPI_DOUBLE,
-		    s.first, 0, comm, &ireq[k++]);
-	}
 
-      for(auto r : rcvmap)
-	{
-	  rcvPacket[r.first]=std::vector<double>(r.second.size()*nfields,0);
-	  MPI_Irecv(rcvPacket[r.first].data(),
-		    rcvPacket[r.first].size(), MPI_DOUBLE,
-		    r.first,0,comm,&ireq[k++]);
-	}
+			// post-receives
+			for(auto r : rcvmap)
+			{
+				rcvPacket[r.first]=std::vector<double>(r.second.size()*nfields,0);
+				MPI_Irecv(rcvPacket[r.first].data(),
+						rcvPacket[r.first].size(), MPI_DOUBLE,
+						r.first,0,comm,&ireq[k++]);
+			}
+
+      for(auto s : sndmap)
+			{
+				sndPacket[s.first]=std::vector<double>(s.second.size()*nfields);
+				int m=0;
+				for(auto v : s.second)
+							{
+					for(int i=0;i<nfields;i++)
+						sndPacket[s.first][m++]=q[v*scale+i*stride];
+				}
+				MPI_Isend(sndPacket[s.first].data(),
+						sndPacket[s.first].size(), MPI_DOUBLE,
+						s.first, 0, comm, &ireq[k++]);
+			}
 
       MPI_Waitall( num_requests ,ireq,istatus);
 
