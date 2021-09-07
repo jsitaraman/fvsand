@@ -205,8 +205,8 @@ namespace FVSAND {
 			    int istor,
 			    const std::map <int, std::vector<int>> &sndmap,
 			    const std::map <int, std::vector<int>> &rcvmap,
-					std::unordered_map<int, std::vector<double> >& sndPacket,
-      		std::unordered_map<int, std::vector<double> >& rcvPacket,
+					std::unordered_map<int, double* >& sndPacket,
+      		std::unordered_map<int, double* >& rcvPacket,
 			    MPI_Comm comm)
     {
 			const std::size_t num_requests = sndmap.size() + rcvmap.size();
@@ -227,12 +227,12 @@ namespace FVSAND {
 				double* rbuffer		 = nullptr;
 				if ( rcvPacket.find( fromRank ) == rcvPacket.end() )
 				{
-					rcvPacket[ fromRank ] = std::vector<double>( size ,0 );
-					rbuffer = rcvPacket[ fromRank ].data();
+					rcvPacket[ fromRank ] = new double[ size ];
+					rbuffer = rcvPacket[ fromRank ];
 				}
 				else
 				{
-					rbuffer = rcvPacket[ fromRank ].data();
+					rbuffer = rcvPacket[ fromRank ];
 				}
 
 				assert( rbuffer != nullptr );
@@ -248,12 +248,12 @@ namespace FVSAND {
 				
 				if ( sndPacket.find(toRank) == sndPacket.end() )
 				{
-					sndPacket[ toRank ]=std::vector<double>( size );
-					sbuffer = sndPacket[ toRank ].data();
+					sndPacket[ toRank ]=new double[ size ];
+					sbuffer = sndPacket[ toRank ];
 				}
 				else
 				{
-					sbuffer = sndPacket[ toRank ].data();
+					sbuffer = sndPacket[ toRank ];
 				}
 				
 				assert( sbuffer != nullptr );

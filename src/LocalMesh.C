@@ -8,6 +8,22 @@
 
 using namespace FVSAND;
 
+LocalMesh::~LocalMesh()
+{
+  for ( auto& s : sndPacket )
+  {
+    delete [] s.second;
+    s.second = nullptr;
+  }
+
+  for ( auto& r : rcvPacket )
+  {
+    delete [] r.second;
+    r.second = nullptr;
+  }
+  
+}
+
 LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
 {
   mycomm=comm;
@@ -248,7 +264,7 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
   pc.exchangeDataDouble(qh,nfields_d,(ncells+nhalo),istor,
                         sndmap,rcvmap, sndPacket, rcvPacket,
                         mycomm);
-                        
+
   //gpu::copy_to_device<double>(qd,qh,sizeof(double)*nfields_d*(ncells+nhalo));
 
   
