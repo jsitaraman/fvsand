@@ -146,9 +146,7 @@ if(idx==0)      printf("debug solver: faceID = %i\n",faceid);
 	                        qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
          	                norm[0], norm[1], norm [2],
                   	        faceid,lmat, rmat,idx);
-		delete(ql);
-		delete(qr); 
-		delete(norm); 
+if(idx==0)      printf("debug solver XXX\n"); 
 
 		for(int n = 0; n<5; n++){
 		for(int m = 0; m<5; m++){

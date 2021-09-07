@@ -245,8 +245,9 @@ real lmat1[5][5],rmat1[5][5];
 //------------------------------------------------------------------------------
 
 
-if(idx==0) printf("debug:qr = %f,%f,%f,%f,%f\n",qr1,qr2,qr3,qr4,qr5);
-if(idx==0) printf("debug:ql = %f,%f,%f,%f,%f\n",ql1,ql2,ql3,ql4,ql5);
+printf("\ndebug: IDX = %i\n===========================\n",idx); 
+printf("debug:qr = %f,%f,%f,%f,%f\n",qr1,qr2,qr3,qr4,qr5);
+printf("debug:ql = %f,%f,%f,%f,%f\n",ql1,ql2,ql3,ql4,ql5);
 
       gm1 = gam - 1.0;
       area = sqrt(nxd*nxd + nyd*nyd + nzd*nzd);
@@ -274,15 +275,6 @@ if(idx==0) printf("debug:ql = %f,%f,%f,%f,%f\n",ql1,ql2,ql3,ql4,ql5);
       hr  = (qr5 + pr)/ror;
       //cr  = sqrt(gam*pr/ror);
 
-if(idx==0) printf("debug2:qr = %f,%f,%f,%f,%f\n",qr1,qr2,qr3,qr4,qr5);
-if(idx==0) printf("debug2:ql = %f,%f,%f,%f,%f\n",ql1,ql2,ql3,ql4,ql5);
-      if(idx==0) printf("debug2:rol = %f\n",rol);
-      if(idx==0) printf("debug2:ul,ur = %f,%f\n",ul,ur);
-      if(idx==0) printf("debug2:vl,vr = %f,%f\n",vl,vr);
-      if(idx==0) printf("debug2:wl,wr = %f,%f\n",wl,wr);
-      if(idx==0) printf("debug2:hl,hr = %f,%f\n",hl,hr);
-      if(idx==0) printf("debug2:qr5,pr,ror = %f,%f,%f\n",qr5,pr,ror);
-      if(idx==0) printf("debug2:n = %f,%f,%f\n",nx,ny,nz);
       //-----> primitive state differences
 
       //dro = ror - rol;
@@ -453,13 +445,13 @@ if(idx==0) printf("debug2:ql = %f,%f,%f,%f,%f\n",ql1,ql2,ql3,ql4,ql5);
       cbar = gm1*(hbar - 0.5*(ubar*ubar + vbar*vbar + wbar*wbar));
       cbar = sqrt(cbar);
       uconbar = ubar*nx + vbar*ny + wbar*nz;
-      if(idx==0) printf("debug:rol,fact = %f,%f\n",rol,fact);
-      if(idx==0) printf("debug:ul,ur = %f,%f\n",ul,ur);
-      if(idx==0) printf("debug:vl,vr = %f,%f\n",vl,vr);
-      if(idx==0) printf("debug:wl,wr = %f,%f\n",wl,wr);
-      if(idx==0) printf("debug:hl,hr = %f,%f\n",hl,hr);
-      if(idx==0) printf("debug:qr5,pr,ror = %f,%f,%f\n",qr5,pr,ror);
-      if(idx==0) printf("debug:n = %f,%f,%f\n",nx,ny,nz);
+      printf("debug:rol,fact = %f,%f\n",rol,fact);
+      printf("debug:ul,ur = %f,%f\n",ul,ur);
+      printf("debug:vl,vr = %f,%f\n",vl,vr);
+      printf("debug:wl,wr = %f,%f\n",wl,wr);
+      printf("debug:hl,hr = %f,%f\n",hl,hr);
+      printf("debug:qr5,pr,ror = %f,%f,%f\n",qr5,pr,ror);
+      printf("debug:n = %f,%f,%f\n",nx,ny,nz);
 
 //!------------------------------------------------------------------------------!
 //!--------------------------> Eigenvalues <-------------------------------------!
@@ -475,6 +467,12 @@ if(idx==0) printf("debug2:ql = %f,%f,%f,%f,%f\n",ql1,ql2,ql3,ql4,ql5);
 #pragma unroll 5
 for( int i = 0; i < 5 ; i++ )
  {
+printf("TEST\n");
+printf("debug 0.%i: here\n",i);
+printf("\tror:%f\n",ror); 
+printf("\tfact:%f\n",fact); 
+printf("\trol:%f\n",rol); 
+printf("\tdfact_dql,dfact_dqr = %f,%f\n",dfact_dql[i],dfact_dqr[i]); 
       dfact_dql[i] = (0.5/fact)*(-ror/rol/rol)*dro_dql[i];
       dfact_dqr[i] = (0.5/fact)*(1.0/rol)*dro_dqr[i];
 
@@ -486,6 +484,7 @@ for( int i = 0; i < 5 ; i++ )
 
       drobar_dql[i] = dro_dql[i]*fact + rol*dfact_dql[i];
       drobar_dqr[i] =                   rol*dfact_dqr[i];
+printf("debug 00.%i: here\n",i);
 
       dubar_dql[i] = du_dql[i]*A + ul*dA_dql[i]               + ur*dB_dql[i];
       dubar_dqr[i] =               ul*dA_dqr[i] + du_dqr[i]*B + ur*dB_dqr[i];
@@ -498,6 +497,7 @@ for( int i = 0; i < 5 ; i++ )
 
       dhbar_dql[i] = dh_dql[i]*A + hl*dA_dql[i]               + hr*dB_dql[i];
       dhbar_dqr[i] =               hl*dA_dqr[i] + dh_dqr[i]*B + hr*dB_dqr[i];
+printf("debug 000.%i: here\n",i);
 
       dcbar_dql[i] = gm1*( dhbar_dql[i] - ubar*dubar_dql[i]     
                                         - vbar*dvbar_dql[i]     
@@ -512,6 +512,7 @@ for( int i = 0; i < 5 ; i++ )
       duconbar_dql[i] = dubar_dql[i]*nx + dvbar_dql[i]*ny + dwbar_dql[i]*nz;
       duconbar_dqr[i] = dubar_dqr[i]*nx + dvbar_dqr[i]*ny + dwbar_dqr[i]*nz;
 
+printf("debug1.%i: here, %f\n",i,uconbar);
 //!------------------------------------------------------------------------------!
 //!------------------> linearization of Eigenvalues <----------------------------!
 //!------------------------------------------------------------------------------!
@@ -548,6 +549,7 @@ for( int i = 0; i < 5 ; i++ )
                 deig3_dql[i] = -( duconbar_dql[i] - dcbar_dql[i] );
                 deig3_dqr[i] = -( duconbar_dqr[i] - dcbar_dqr[i] );
         }
+printf("debug2.%i: here\n",i);
 
 //!------------------------------------------------------------------------------!
       term1 = -eig1 + 0.5*(eig2 + eig3);
@@ -569,6 +571,7 @@ for( int i = 0; i < 5 ; i++ )
       ddel1_dqr[i] = ddel1_dqr[i] + dterm2_dqr[i]*robar*( uconr-uconl )/cbar + term2*drobar_dqr[i]*(uconr-uconl)/cbar 
                                   + term2*robar*ducon_dqr[i]/cbar - dcbar_dqr[i]*term2*robar*(uconr-uconl)/cbar/cbar;
 
+printf("debug3.%i: here\n",i);
       ddel2_dql[i] = dterm1_dql[i]*(uconr-uconl)*robar - term1*ducon_dql[i]*robar + term1*(uconr-uconl)*drobar_dql[i];
       ddel2_dql[i] = ddel2_dql[i] + dterm2_dql[i]*dp/cbar - term2*dp_dql[i]/cbar - dcbar_dql[i]*term2*dp/cbar/cbar;
 
@@ -576,6 +579,7 @@ for( int i = 0; i < 5 ; i++ )
       ddel2_dqr[i] = ddel2_dqr[i] + dterm2_dqr[i]*dp/cbar + term2*dp_dqr[i]/cbar - dcbar_dqr[i]*term2*dp/cbar/cbar;
 }
 
+printf("debug2: here\n");
 //!------------------------------------------------------------------------------!
 //111 continue
 //!------------------------------------------------------------------------------!
@@ -600,8 +604,8 @@ for( int i = 0; i < 5 ; i++ )
 	 index1 = i*5+j;     
          lmat[index1] = lmat[index1] - eig1*imat[i][j];
          rmat[index1] = rmat[index1] + eig1*imat[i][j];
-//if(isnan(lmat[index1])) if(idx==0) printf("roe 3:,i = %i, j = %i\n",i,j);
-//if(isnan(rmat[index1])) if(idx==0) printf("roe 4:,i = %i, j = %i\n",i,j);
+//if(isnan(lmat[index1])) printf("roe 3:,i = %i, j = %i\n",i,j);
+//if(isnan(rmat[index1])) printf("roe 4:,i = %i, j = %i\n",i,j);
        }
 
       #pragma unroll 5
@@ -628,11 +632,7 @@ for( int i = 0; i < 5 ; i++ )
        rmat[index1] = rmat[index1] + ddel1_dqr[i]*hbar + ddel2_dqr[i]*uconbar;
        }
     
-      FOR2(i,5,j,5)
-       { 
-//	if(isnan(lmat[index1])) if(idx==0) printf("roe 5:,i = %i, j = %i\n",i,j);
-//	if(isnan(rmat[index1])) if(idx==0) printf("roe 6:,i = %i, j = %i\n",i,j);
-       }
+printf("debug3: here\n");
 
       //------> additional terms for exact linearization
 
@@ -653,8 +653,8 @@ for( int i = 0; i < 5 ; i++ )
          }         
       FOR2(i,5,j,5)
        { 
-//	if(isnan(lmat[index1])) if(idx==0) printf("roe 7:,i = %i, j = %i\n",i,j);
-//	if(isnan(rmat[index1])) if(idx==0) printf("roe 8:,i = %i, j = %i\n",i,j);
+//	if(isnan(lmat[index1])) printf("roe 7:,i = %i, j = %i\n",i,j);
+//	if(isnan(rmat[index1])) printf("roe 8:,i = %i, j = %i\n",i,j);
        }
 
          
@@ -679,11 +679,12 @@ for( int i = 0; i < 5 ; i++ )
           }
       FOR2(i,5,j,5)
        { 
-//	if(isnan(lmat[index1])) if(idx==0) printf("roe 09:,i = %i, j = %i\n",i,j);
-//	if(isnan(rmat[index1])) if(idx==0) printf("roe 10:,i = %i, j = %i\n",i,j);
+//	if(isnan(lmat[index1])) printf("roe 09:,i = %i, j = %i\n",i,j);
+//	if(isnan(rmat[index1])) printf("roe 10:,i = %i, j = %i\n",i,j);
        }
 
     //  endif
+printf("debug4: here\n");
 
 //      !------------------------------------------------------------------------------!
 //      !-------------------------------------------------------!
@@ -727,6 +728,7 @@ for( int i = 0; i < 5 ; i++ )
 //      rmat(:,:) = 0.5*( rmat1(:,:) - rmat(:,:) )
     }
  // Wall boundary check
+printf("debug5: here\n");
  if ( faceID == -2 )
   {
      for(int n = 0; n<5; n++){	
@@ -766,6 +768,7 @@ for( int i = 0; i < 5 ; i++ )
        rmat[index1] = 0.5*( rmat1[i][j] - rmat[index1] );
      }
  }   
+printf("debug6: here\n");
 }
 
 
