@@ -121,48 +121,52 @@ void jacobiSweep(double *q, double *res, double *dq, double *normals,double *vol
 	}
  	// Loop over neighbors
 	int idxn; 
-      	for(int f=nccft[idx];f<nccft[idx+1];f++){
-		double *norm=normals+18*idx+3*(f-nccft[idx]);
-		int faceid=cell2face[f];
-	        int isgn=abs(faceid)/faceid;
-//        	int offset=(1-isgn)*nfields/2;
-	        faceid=abs(faceid)-1;
-		// ripped this off of computeResid, make sure its correct
-		double* ql = q+(2*faceid*nfields);
-		double* qr = q+(2*faceid*nfields+nfields);				
-
-		idxn = facetype[idx]; 
-		for(int n = 0; n<nfields; n++){
-		       Btmp[n] =0.0;
-		       if(idxn > -1) qr[n]=q[scale*idxn+n*stride];
-      		       if(idxn == -3) qr[n]=flovar[n];
+	printf("Entering loop over neighbors: idx = %i, faces =%i -  %i\n",idx,nccft[idx],nccft[idx+1]);
+        for(int f=nccft[idx];f<nccft[idx+1];f++)
+        {
+	        double *norm=normals+18*idx+3*(f-nccft[idx]);
+          	int idxn=cell2cell[f];
+          	double ql[5],qr[5];
+          	for(int n=0;n<nfields;n++) {
+			ql[n]=q[scale*idx+n*stride];
+		       	Btmp[n] =0.0;
 		}
-if(idx==0)      printf("debug solver: ql = %f, %f, %f, %f, %f\n",ql[0], ql[1],  ql[2],  ql[3],  ql[4]); 
-if(idx==0)      printf("debug solver: qr = %f, %f, %f, %f, %f\n",qr[0], qr[1],  qr[2],  qr[3],  qr[4]); 
-if(idx==0)      printf("debug solver: norm = %f, %f, %f\n",norm[0],norm[1],norm[2]);
-if(idx==0)      printf("debug solver: faceID = %i\n",faceid);
+          	if (idxn > -1) {
+            		for(int n=0;n<nfields;n++) qr[n]=q[scale*idxn+n*stride];
+	        }
+          	if (idxn == -3) {
+            		for(int n=0;n<nfields;n++) qr[n]=flovar[n];
+          	}
+	
+		idxn = facetype[idx]; 
+
 		//Compute Jacobians 
 		computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
 	                        qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
          	                norm[0], norm[1], norm [2],
-                  	        faceid,lmat, rmat,idx);
-if(idx==0)      printf("debug solver XXX\n"); 
+                  	        idxn,lmat, rmat,idx);
 
 		for(int n = 0; n<5; n++){
 		for(int m = 0; m<5; m++){
 			index1 = 5*n+m;
- if(idx==0) printf("idx 0:n = %i, m = %i, lmat[ind1] = %f,rmat[ind1] = %f\n",n,m,lmat[index1],rmat[index1]); 
+if(isnan(lmat[index1])||isnan(rmat[index1])){
+       	printf("idx %i: n = %i, m = %i, lmat[ind1] = %f,rmat[ind1] = %f\n",idx,n,m,lmat[index1],rmat[index1]); 
+
+		printf("debug solver: ql = %f, %f, %f, %f, %f\n",ql[0], ql[1],  ql[2],  ql[3],  ql[4]); 
+      printf("debug solver: qr = %f, %f, %f, %f, %f\n",qr[0], qr[1],  qr[2],  qr[3],  qr[4]); 
+     printf("debug solver: norm = %f, %f, %f\n",norm[0],norm[1],norm[2]);
+}
 		}
 		}
 		//Compute Di and Oij dq
 		axb1(rmat,dqtemp,Btmp,1,5); 
 		for(int n = 0; n<5; n++){
 			B[n] = B[n] - Btmp[n]; 
- if(idx==0) printf("idx 0:n = %i, B = %f, Btmp = %f\n",n,B[n],Btmp[n]);
+ if(idx==11152) printf("idx %i:n = %i, B = %f, Btmp = %f\n",idx,n,B[n],Btmp[n]);
 			for(int m = 0; m<5; m++){
 				index1 = n*5+m; 
 				D[index1] = D[index1] + lmat[index1];
- if(idx==0) printf("idx 0:n = %i,m = %i, D = %f\n",n,m,D[index1]);
+ if(idx==11152) printf("idx %i:n = %i,m = %i, D = %f\n",idx,n,m,D[index1]);
 			}
 		}
 	}
