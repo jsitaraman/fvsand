@@ -44,6 +44,10 @@ class LocalMesh
   // communication maps
   std::map< int, std::vector<int>> sndmap; // map of send data (procid, local id of owned cells)
   std::map <int, std::vector<int>> rcvmap; // map of recv data (procid, localid of ghost cells)
+  
+  std::unordered_map< int, std::vector<double> > sndPacket;
+  std::unordered_map< int, std::vector<double> > rcvPacket;
+  
   std::vector<int> device2host;            // indices that needs to be pushed to host   (interior)
   std::vector<int> host2device;            // indices that needs to be pushed to device (ghost)
 

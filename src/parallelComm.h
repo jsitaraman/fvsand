@@ -205,11 +205,10 @@ namespace FVSAND {
 			    int istor,
 			    const std::map <int, std::vector<int>> &sndmap,
 			    const std::map <int, std::vector<int>> &rcvmap,
+					std::unordered_map<int, std::vector<double> >& sndPacket,
+      		std::unordered_map<int, std::vector<double> >& rcvPacket,
 			    MPI_Comm comm)
     {
-      std::unordered_map<int, std::vector<double> > sndPacket;
-      std::unordered_map<int, std::vector<double> > rcvPacket;
-
 			const std::size_t num_requests = sndmap.size() + rcvmap.size();
       MPI_Request *ireq=new MPI_Request [ num_requests ];
       MPI_Status *istatus=new MPI_Status [ num_requests ];

@@ -245,7 +245,10 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
     qh[device2host[i]]=qbuf[i];
   
   //gpu::pull_from_device<double>(qh,qd,sizeof(double)*nfields_d*(ncells+nhalo));
-  pc.exchangeDataDouble(qh,nfields_d,(ncells+nhalo),istor,sndmap,rcvmap,mycomm);
+  pc.exchangeDataDouble(qh,nfields_d,(ncells+nhalo),istor,
+                        sndmap,rcvmap, sndPacket, rcvPacket,
+                        mycomm);
+                        
   //gpu::copy_to_device<double>(qd,qh,sizeof(double)*nfields_d*(ncells+nhalo));
 
   
