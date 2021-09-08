@@ -145,19 +145,7 @@ void jacobiSweep(double *q, double *res, double *dq, double *normals,double *vol
          	                norm[0], norm[1], norm [2],
                   	        idxn,lmat, rmat,idx);
 
-		for(int n = 0; n<5; n++){
-		for(int m = 0; m<5; m++){
-			index1 = 5*n+m;
-if(isnan(lmat[index1])||isnan(rmat[index1])){
-       	printf("idx %i: n = %i, m = %i, lmat[ind1] = %f,rmat[ind1] = %f\n",idx,n,m,lmat[index1],rmat[index1]); 
-
-		printf("debug solver: ql = %f, %f, %f, %f, %f\n",ql[0], ql[1],  ql[2],  ql[3],  ql[4]); 
-      printf("debug solver: qr = %f, %f, %f, %f, %f\n",qr[0], qr[1],  qr[2],  qr[3],  qr[4]); 
-     printf("debug solver: norm = %f, %f, %f\n",norm[0],norm[1],norm[2]);
-}
-		}
-		}
-		//Compute Di and Oij dq
+		//Compute Di and Oij*dq
 		axb1(rmat,dqtemp,Btmp,1,5); 
 		for(int n = 0; n<5; n++){
 			B[n] = B[n] - Btmp[n]; 
@@ -169,30 +157,9 @@ if(isnan(lmat[index1])||isnan(rmat[index1])){
 	}
 
 	// Compute dqtilde
-	/*
-        for(int n = 0;n<5;n++){
-	for(int m = 0;m<5;m++){
-		index1 = n*5+m;
-	        D[index1] = index1+1; 	
-	}
-	}
-	*/
 	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
-//	invertMat5(D,B,dqtemp); //computes dqtemp = inv(D)*B // THis is totally wrong
-
-	printf("IDX: %i\n",idx); 
-/*        for(int n = 0;n<5;n++){
-	for(int m = 0;m<5;m++){
-		index1 = n*5+m; 
-		printf("\tD[%i] = %f\n",index1,D[index1]); 
-	}}
-	*/
 	
-	for(int n=0;n<nfields;n++){
-		dq[scale*idx+n*stride] = dqtemp[n]; 
-	}
-        for(int n = 0;n<5;n++) printf("\tB[%i] = %f\n",n,B[n]); 
-        for(int n = 0;n<5;n++) printf("\tdq[%i] = %f\n",n,dq[n]); 
+	for(int n=0;n<nfields;n++) dq[scale*idx+n*stride] = dqtemp[n]; 
   } // loop over cells 
 }
 	

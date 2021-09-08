@@ -312,6 +312,7 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep)
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
 
   for(int m = 0; m < nsweep; m++){
+	  printf("Sweep %i\n=================\n",m);
     FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,
    			   q, res_d, dq_d, normals_d, volume_d,
 			   flovar_d, faceq_d,facenorm_d,cell2cell_d,cell2face_d,
