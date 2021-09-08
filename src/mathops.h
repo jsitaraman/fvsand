@@ -1,6 +1,74 @@
 #include <stdio.h>
 //#define UNIT_CHECK
 #define REAL double
+
+FVSAND_GPU_DEVICE void solveAxb5(double *A, double *b, double* x)
+{
+	double s; 
+	int index1, index2;
+       	double L[25], U[25]; 
+	for(int i=0; i<25; i++){
+		L[i] = 0.0; 
+		U[i] = 0.0; 
+	}	
+	// LU Decomp
+	for(int i=0; i<5; i++){
+		// Upper matrix
+		for(int k = i; k<5; k++){
+			s = 0; 
+			for(int j = 0; j<i; j++){
+				index1 = i*5+j;
+				index2 = j*5+k; 
+				s = s + L[index1]*U[index2]; 				
+			}
+			index1 = i*5+k;
+			U[index1] = A[index1]-s; 
+		}
+		// Lower matrix
+		for(int k=i; k<5; k++){
+			if(i==k) {
+				L[i*5+i]=1.0;
+			} 
+			else{
+				s = 0; 
+				for(int j=0;j<i;j++){
+					index1 = k*5+j;
+					index2 = j*5+i; 
+					s = s + L[index1]*U[index2]; 					
+				}
+				index1 = k*5+i; 
+				index2 = i*5+i; 
+				L[index1] = (A[index1]-s)/(U[index2]+1e-15);
+			}
+		}
+	}
+
+	// Forward prop to solve Ly = b
+	double y[5]; 	
+	y[0] = b[0]/(L[0]+1e-15);
+	for(int i=1;i<5;i++){
+		for(int j=0;j<i;j++){
+			index1 = i*5+j;
+			y[i] = y[i]-y[j]*L[index1]; 			
+		}
+		index1 = i*5+i;	        	
+		y[i] = y[i]/L[index1];
+	}
+	
+	// Back prop to solve Ux = y
+	x[4] = b[4]/(U[24]+1e-15);
+	for(int i = 4; i>-1; i--){
+		x[i] = y[i]; 
+		for(int j=4; j>i; j--){
+			index1 = i*5+j; 
+			x[i] = x[i]-x[j]*U[index1]; 
+		}
+		index1 = i*5+i; 
+		x[i] = x[i]/(U[index1]+1e-15); 
+	}
+}
+
+/*
 //
 // perform x = inv (A)*f
 // currently set for 5x5 matrix
@@ -53,6 +121,9 @@ FVSAND_GPU_DEVICE void invertMat5(double *A, double *f, double *x)
   x[1]=d2-u23*x[2]-u24*x[3]-u25*d5;
   x[0]=d1-u12*x[1]-u13*x[2]-u14*x[3]-u15*d5;
 }
+*/
+
+/*
 //
 // perform x = inv (A)*f
 // currently set for 4x4 matrix
@@ -95,6 +166,8 @@ void invertMat4(REAL A[4][4],
   x[1]=d2-u23*x[2]-u24*x[3];
   x[0]=d1-u12*x[1]-u13*x[2]-u14*x[3];
 }  
+*/
+
 //
 // perform b=b+fac*A*(x-x0)
 //
