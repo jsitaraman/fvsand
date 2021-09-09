@@ -196,7 +196,7 @@ void computeJacobian( real& ql1, real& ql2, real& ql3, real& ql4, real& ql5,
                       real& qr1, real& qr2, real& qr3, real& qr4, real& qr5,
                       real& nxd, real& nyd, real& nzd,
                       int & faceID,
-                      real lmat[25], real rmat[25],int idx)
+                      real lmat[25], real rmat[25])
 {
 
 real gam=1.4;
