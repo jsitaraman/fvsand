@@ -98,8 +98,10 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
   int idx = 12230; // arbritrary 
   int f = 2;	  // arbritrary
   for(int n = 0; n<nfields; n++){
-	dql[n] = n*10.0/1001.0;
-	dqr[n] = n*0.0123;
+//	ql[n] = n+1; 
+//	qr[n] = n+2; 
+	dql[n] = .001;
+	dqr[n] = .002;
 	rmatdqr[n] = 0; 
 	lmatdql[n] = 0; 
   }
@@ -120,7 +122,7 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
   for(int n=0;n<5;n++)	  printf("dqr[%i] = %f\n",n,dqr[n]);
   
   //RHS: Compute Jacobians 
-  idxn = facetype[idx];
+//  idxn = facetype[idx];
   printf("idxn = %i\n",idxn);
   computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
                   qr[0], qr[1],  qr[2],  qr[3],  qr[4],
@@ -134,7 +136,7 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
   for(int n=0;n<5;n++) printf("rmatdqr[%i] = %f\n",n,rmatdqr[n]);
   for(int n=0;n<5;n++) printf("lmatdql[%i] = %f\n",n,lmatdql[n]);
 
-  for(int n=0;n<5;n++) rhs[n] = rmatdqr[n]-lmatdql[n];
+  for(int n=0;n<5;n++) rhs[n] = rmatdqr[n]+lmatdql[n];
   
   //LHS: Compute fluxes
   double flux[5], flux2[5],spec;
@@ -162,7 +164,7 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
 	
 
 FVSAND_GPU_GLOBAL
-void jacobiSweep(double *q, double *res, double *dq, double *normals,double *volume,
+void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *normals,double *volume,
 		 double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
 		 int* facetype, double dt, int iter)
 {
@@ -175,7 +177,7 @@ void jacobiSweep(double *q, double *res, double *dq, double *normals,double *vol
   for(int idx=0;idx<ncells;idx++)
 #endif
   {
-	double dqtemp[5];
+	double dqtemp[5],dqn[5];
  	double B[5], Btmp[5];
 	double D[25]; 
         double lmat[25]; 
@@ -185,11 +187,12 @@ void jacobiSweep(double *q, double *res, double *dq, double *normals,double *vol
 	for(int n = 0; n<nfields; n++) {
 		if(iter==0){
 			dqtemp[n] = 0.0; 
+			dqupdate[scale*idx+n*stride] = 0.0; 
 		}
 		else{
 			dqtemp[n] = dq[scale*idx+n*stride]; 
 		}
-		B[n] = -res[scale*idx+n*stride]; 
+		B[n] = res[scale*idx+n*stride]; 
 		for(int m = 0; m<nfields; m++) {
 			index1 = n*nfields + m;
 			if(n==m){
@@ -218,7 +221,7 @@ void jacobiSweep(double *q, double *res, double *dq, double *normals,double *vol
             		for(int n=0;n<nfields;n++) qr[n]=flovar[n];
           	}
 	
-		idxn = facetype[idx]; 
+//		idxn = facetype[idx]; 
 
 		//Compute Jacobians 
 		computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
@@ -226,8 +229,9 @@ void jacobiSweep(double *q, double *res, double *dq, double *normals,double *vol
          	                norm[0], norm[1], norm [2],
                   	        idxn,lmat, rmat);
 
-		//Compute Di and Oij*dq
-		axb1(rmat,dqtemp,Btmp,1,5); 
+		//Compute Di and Oij*dq_neighbor
+		for(int n=0; n<5; n++) dqn[n] = dq[scale*idxn+n*stride];
+		axb1(rmat,dqn,Btmp,1,5); 
 		for(int n = 0; n<5; n++){
 			B[n] = B[n] - Btmp[n]; 
 			for(int m = 0; m<5; m++){
@@ -237,10 +241,9 @@ void jacobiSweep(double *q, double *res, double *dq, double *normals,double *vol
 		}
 	}
 
-	// Compute dqtilde
+	// Compute dqtilde and send back out of kernel
 	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
-	
-	for(int n=0;n<nfields;n++) dq[scale*idx+n*stride] = dqtemp[n]; 
+	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = dqtemp[n]; 
   } // loop over cells 
 }
 	

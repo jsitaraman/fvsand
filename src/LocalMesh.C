@@ -192,6 +192,7 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  qnn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  res_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  dq_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+ dqupdate_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  
  flovar_d=gpu::push_to_device<double>(flovar,sizeof(double)*nfields);
  qinf_d=gpu::allocate_on_device<double>(sizeof(double)*nfields);
@@ -308,19 +309,26 @@ void LocalMesh::Residual_face(double *qv)
 void LocalMesh::Jacobi(double *q, double dt, int nsweep)
 {
 
-  nthreads=ncells+nhalo;
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
 
-  FVSAND_GPU_LAUNCH_FUNC(testComputeJ,n_blocks,block_size,0,0,
-		         q,normals_d,flovar_d, cell2cell_d,nccft_d,nfields_d,istor,ncells,facetype_d);
+//  FVSAND_GPU_LAUNCH_FUNC(testComputeJ,n_blocks,block_size,0,0,
+//		         q,normals_d,flovar_d, cell2cell_d,nccft_d,nfields_d,istor,ncells,facetype_d);
 
   for(int m = 0; m < nsweep; m++){
-	  printf("Sweep %i\n=================\n",m);
+    printf("Sweep %i\n=================\n",m);
+    nthreads=ncells+nhalo;
+    n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+    // compute dqtilde for all cells
     FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,
-   			   q, res_d, dq_d, normals_d, volume_d,
+   			   q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
 			   flovar_d, cell2cell_d,
 			   nccft_d, nfields_d, istor, ncells, facetype_d, dt, m);
-			    
+
+    // update dq = dq + dqtilde for all cells
+    nthreads=(ncells+nhalo)*nfields_d;
+    n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+    FVSAND_GPU_LAUNCH_FUNC(updateFields,n_blocks,block_size,0,0,
+                           dqupdate_d, dq_d, dq_d, 1, (ncells+nhalo)*nfields_d);
+	
   }
   // Store final dq in res to be used in update routine
   res_d = dq_d; 

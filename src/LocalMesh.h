@@ -90,7 +90,7 @@ class LocalMesh
   // solution fields at n+1,n & n-1
   double *qh; // scratch storage space on host
   double *q,*qn,*qnn;
-  double *dq_d; 	// update on device 
+  double *dq_d, *dqupdate_d; 	// update on device 
   
   LocalMesh() {}; 
   ~LocalMesh();
