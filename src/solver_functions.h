@@ -97,15 +97,20 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
   // Setup arbitrary inputs
   int idx = 12230; // arbritrary 
   int f = 2;	  // arbritrary
+
   for(int n = 0; n<nfields; n++){
-//	ql[n] = n+1; 
-//	qr[n] = n+2; 
+//        ql[n]= n+1;
+//        qr[n] = (n+1)*1.1;
 	dql[n] = .001;
 	dqr[n] = .002;
 	rmatdqr[n] = 0; 
 	lmatdql[n] = 0; 
   }
-
+/*  double norm[3];
+  norm[1] = 0.19245;
+  norm[2] = 0.96225;
+  norm[3] = -0.19245;
+*/
   gx=gy=gz=0;
 
   int idxn=cell2cell[f];
@@ -116,10 +121,11 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
 
   
   printf("\nInputs:\n==========\n");
-  for(int n=0;n<5;n++)	  printf("ql[%i] = %f\n",n,ql[n]);
-  for(int n=0;n<5;n++)	  printf("qr[%i] = %f\n",n,qr[n]);
-  for(int n=0;n<5;n++)	  printf("dql[%i] = %f\n",n,dql[n]);
-  for(int n=0;n<5;n++)	  printf("dqr[%i] = %f\n",n,dqr[n]);
+  for(int n=0;n<3;n++)	  printf("norm[%i] = %e\n",n,norm[n]);
+  for(int n=0;n<5;n++)	  printf("ql[%i] = %e\n",n,ql[n]);
+  for(int n=0;n<5;n++)	  printf("qr[%i] = %e\n",n,qr[n]);
+  for(int n=0;n<5;n++)	  printf("dql[%i] = %e\n",n,dql[n]);
+  for(int n=0;n<5;n++)	  printf("dqr[%i] = %e\n",n,dqr[n]);
   
   //RHS: Compute Jacobians 
 //  idxn = facetype[idx];
@@ -131,15 +137,19 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
   axb1(rmat,dqr,rmatdqr,1,5);
   axb1(lmat,dql,lmatdql,1,5);
   printf("\nOutputs:\n==========\n");
-  for(int n=0;n<5;n++) for(int m =0;m<5;m++)	  printf("rmat[%i] = %f\n",n*5+m,rmat[n*5+m]);
-  for(int n=0;n<5;n++) for(int m =0;m<5;m++)	  printf("lmat[%i] = %f\n",n*5+m,lmat[n*5+m]);
-  for(int n=0;n<5;n++) printf("rmatdqr[%i] = %f\n",n,rmatdqr[n]);
-  for(int n=0;n<5;n++) printf("lmatdql[%i] = %f\n",n,lmatdql[n]);
+  for(int n=0;n<5;n++) for(int m =0;m<5;m++)	  printf("rmat[%i] = %e\n",n*5+m,rmat[n*5+m]);
+  for(int n=0;n<5;n++) for(int m =0;m<5;m++)	  printf("lmat[%i] = %e\n",n*5+m,lmat[n*5+m]);
+  for(int n=0;n<5;n++) printf("rmatdqr[%i] = %e\n",n,rmatdqr[n]);
+  for(int n=0;n<5;n++) printf("lmatdql[%i] = %e\n",n,lmatdql[n]);
 
   for(int n=0;n<5;n++) rhs[n] = rmatdqr[n]+lmatdql[n];
   
   //LHS: Compute fluxes
   double flux[5], flux2[5],spec;
+  for(int n =0; n<5;n++) {
+	  flux[n] = 0.0;
+	  flux2[n] = 0.0; 
+  }
   InterfaceFlux_Inviscid(flux[0],flux[1],flux[2],flux[3],flux[4],
                          ql[0],ql[1],ql[2],ql[3],ql[4],
                          qr[0],qr[1],qr[2],qr[3],qr[4],
@@ -155,10 +165,10 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
                          norm[0],norm[1],norm[2],
                          gx,gy,gz,spec,idxn);
   for(int n =0; n<5;n++) lhs[n] = flux2[n]-flux[n];
-  for(int n=0;n<5;n++) printf("flux0[%i] = %f\n",n,flux[n]);
-  for(int n=0;n<5;n++) printf("flux2[%i] = %f\n",n,flux2[n]);
+  for(int n=0;n<5;n++) printf("flux0[%i] = %e\n",n,flux[n]);
+  for(int n=0;n<5;n++) printf("flux2[%i] = %e\n",n,flux2[n]);
 
-  for(int n=0;n<5;n++) printf("DEBUG VERIFY: RHS[%i] = %f, LHS = %f, DIFF = %f\n",n,rhs[n],lhs[n],rhs[n]-lhs[n]);
+  for(int n=0;n<5;n++) printf("DEBUG VERIFY: RHS[%i] = %e, LHS = %e, DIFF = %e\n",n,rhs[n],lhs[n],rhs[n]-lhs[n]);
 
 }
 	

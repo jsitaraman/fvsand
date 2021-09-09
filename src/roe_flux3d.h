@@ -237,9 +237,8 @@ real deig1_dqr[5],deig2_dqr[5],deig3_dqr[5];
 real dterm1_dql[5],dterm1_dqr[5];
 real dterm2_dql[5],dterm2_dqr[5];
 real imat[5][5];
-//real cl,cr,dc_dql[5],dc_dqr[5];
-//real dro,du,dv,dw,dp;
-real dp;
+real cl,cr,dc_dql[5],dc_dqr[5];
+real dro,du,dv,dw,dp;
 //real t1a,t1b,t2a,t2b,t3a,t3b;
 
 real lmat[5][5],rmat[5][5];
@@ -261,7 +260,7 @@ real lmat1[5][5],rmat1[5][5];
       pl  = gm1*( ql5 - 0.5 * rol * (ul*ul + vl*vl + wl*wl) );
       hl  = (ql5 + pl)/rol;
       umag2 = ul*ul+vl*vl+wl*wl; 
-      //cl  = sqrt(gam*pl/rol);
+      cl  = sqrt(gam*pl/rol);
         
       ror = qr1;
       ur  = qr2/qr1;
@@ -269,14 +268,14 @@ real lmat1[5][5],rmat1[5][5];
       wr  = qr4/qr1;
       pr  = gm1*( qr5 - 0.5 * ror * (ur*ur + vr*vr + wr*wr) );
       hr  = (qr5 + pr)/ror;
-      //cr  = sqrt(gam*pr/ror);
+      cr  = sqrt(gam*pr/ror);
 
       //-----> primitive state differences
 
-      //dro = ror - rol;
-      //du  =  ur - ul;
-      //dv  =  vr - vl;
-      //dw  =  wr - wl;
+      dro = ror - rol;
+      du  =  ur - ul;
+      dv  =  vr - vl;
+      dw  =  wr - wl;
       dp  =  pr - pl;
 
       //----> face normal velocities
@@ -294,7 +293,6 @@ real lmat1[5][5],rmat1[5][5];
       dro_dql[3]    = 0.0;
       dro_dql[4]    = 0.0;
 
-
       dro_dql[0] = 1.0;
 
       du_dql[0] =  0.0;
@@ -311,6 +309,7 @@ real lmat1[5][5],rmat1[5][5];
       dv_dql[2] =  0.0;
       dv_dql[3] =  0.0;
       dv_dql[4] =  0.0;
+
       dv_dql[0] = -vl /rol;
       dv_dql[2] =  1.0/rol;
 
@@ -319,7 +318,6 @@ real lmat1[5][5],rmat1[5][5];
       dw_dql[2] =  0.0;
       dw_dql[3] =  0.0;
       dw_dql[4] =  0.0;
-
 
       dw_dql[0] = -wl /rol;
       dw_dql[3] =  1.0/rol;
@@ -335,6 +333,7 @@ real lmat1[5][5],rmat1[5][5];
       dq5_dql[2] = 0.0;
       dq5_dql[3] = 0.0;
       dq5_dql[4] = 0.0;
+
       dq5_dql[4] = 1.0;
 
       dh_dql[0] = -(ql5 + pl)*dro_dql[0]/rol/rol + (1.0/rol)*(dq5_dql[0] + dp_dql[0]);
@@ -343,11 +342,11 @@ real lmat1[5][5],rmat1[5][5];
       dh_dql[3] = -(ql5 + pl)*dro_dql[3]/rol/rol + (1.0/rol)*(dq5_dql[3] + dp_dql[3]);
       dh_dql[4] = -(ql5 + pl)*dro_dql[4]/rol/rol + (1.0/rol)*(dq5_dql[4] + dp_dql[4]);
  
-      // dc_dql[0] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[0] - (pl/rol/rol)*dro_dql[0] );
-      // dc_dql[1] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[1] - (pl/rol/rol)*dro_dql[1] );
-      // dc_dql[2] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[2] - (pl/rol/rol)*dro_dql[2] );
-      // dc_dql[3] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[3] - (pl/rol/rol)*dro_dql[3] );
-      // dc_dql[4] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[4] - (pl/rol/rol)*dro_dql[4] );
+      dc_dql[0] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[0] - (pl/rol/rol)*dro_dql[0] );
+      dc_dql[1] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[1] - (pl/rol/rol)*dro_dql[1] );
+      dc_dql[2] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[2] - (pl/rol/rol)*dro_dql[2] );
+      dc_dql[3] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[3] - (pl/rol/rol)*dro_dql[3] );
+      dc_dql[4] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[4] - (pl/rol/rol)*dro_dql[4] );
 
       ducon_dql[0] = -uconl/rol;
       ducon_dql[1] =  nx   /rol;
@@ -363,6 +362,7 @@ real lmat1[5][5],rmat1[5][5];
       dro_dqr[2]    = 0.0;
       dro_dqr[3]    = 0.0;
       dro_dqr[4]    = 0.0;
+
       dro_dqr[0]    = 1.0;
 
       du_dqr[0] =  0.0;
@@ -370,7 +370,6 @@ real lmat1[5][5],rmat1[5][5];
       du_dqr[2] =  0.0;
       du_dqr[3] =  0.0;
       du_dqr[4] =  0.0;
-
 
       du_dqr[0] = -ur /ror;
       du_dqr[1] =  1.0/ror;
@@ -412,11 +411,11 @@ real lmat1[5][5],rmat1[5][5];
       dh_dqr[3] = -(qr5 + pr)*dro_dqr[3]/ror/ror + (1.0/ror)*(dq5_dqr[3] + dp_dqr[3]);
       dh_dqr[4] = -(qr5 + pr)*dro_dqr[4]/ror/ror + (1.0/ror)*(dq5_dqr[4] + dp_dqr[4]);
 
-      //      dc_dqr[0] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[0] - (pr/ror/ror)*dro_dqr[0] );
-      // dc_dqr[1] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[1] - (pr/ror/ror)*dro_dqr[1] );
-      // dc_dqr[2] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[2] - (pr/ror/ror)*dro_dqr[2] );
-      // dc_dqr[3] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[3] - (pr/ror/ror)*dro_dqr[3] );
-      // dc_dqr[4] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[4] - (pr/ror/ror)*dro_dqr[4] );
+      dc_dqr[0] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[0] - (pr/ror/ror)*dro_dqr[0] );
+      dc_dqr[1] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[1] - (pr/ror/ror)*dro_dqr[1] );
+      dc_dqr[2] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[2] - (pr/ror/ror)*dro_dqr[2] );
+      dc_dqr[3] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[3] - (pr/ror/ror)*dro_dqr[3] );
+      dc_dqr[4] = (0.5*gam/cr)*( (1.0/ror)*dp_dqr[4] - (pr/ror/ror)*dro_dqr[4] );
 
       ducon_dqr[0] = -uconr/ror;
       ducon_dqr[1] =  nx   /ror;
@@ -442,6 +441,7 @@ real lmat1[5][5],rmat1[5][5];
       cbar = sqrt(cbar);
       uconbar = ubar*nx + vbar*ny + wbar*nz;
 
+      printf("cbar = %e\n",cbar); 
 //!------------------------------------------------------------------------------!
 //!--------------------------> Eigenvalues <-------------------------------------!
 //!------------------------------------------------------------------------------!
@@ -592,6 +592,8 @@ for( int i = 0; i < 5 ; i++ )
        {
         lmat[i][j] = 0.0;
         rmat[i][j] = 0.0;
+        lmat1[i][j] = 0.0;
+        rmat1[i][j] = 0.0;
         imat[i][j] = 0.0;
        }
 
@@ -603,6 +605,12 @@ for( int i = 0; i < 5 ; i++ )
          lmat[i][j] = lmat[i][j] - eig1*imat[i][j];
          rmat[i][j] = rmat[i][j] + eig1*imat[i][j];
        }
+
+      FOR2(i,5,j,5)
+      {
+	      if(isnan(lmat[i][j])) printf("NAN lmat 1 %i %i\n",i,j);
+	      if(isnan(rmat[i][j])) printf("NAN rmat 1 %i %i\n",i,j);
+      }
 
       #pragma unroll 5
       for ( int i = 0 ; i < 5 ; i++ )
@@ -624,19 +632,40 @@ for( int i = 0; i < 5 ; i++ )
        }
     
 
+      FOR2(i,5,j,5)
+      {
+	      if(isnan(lmat[i][j])) printf("NAN lmat 2 %i %i\n",i,j);
+	      if(isnan(rmat[i][j])) printf("NAN rmat 2 %i %i\n",i,j);
+      }
+
       //------> additional terms for exact linearization
 
      // if(imode/=1) then
         #pragma unroll 5
          for ( int j = 0 ; j < 5 ; j++ )
          {       
-           lmat[0][j] = lmat[0][j] + ( qr1 - ql1 )* deig1_dql[j];  rmat[0][j] = rmat[0][j] + ( qr1 - ql1 )* deig1_dqr[j];
-           lmat[1][j] = lmat[1][j] + ( qr2 - ql2 )* deig1_dql[j];  rmat[1][j] = rmat[1][j] + ( qr2 - ql2 )* deig1_dqr[j];
-           lmat[2][j] = lmat[2][j] + ( qr3 - ql3 )* deig1_dql[j];  rmat[2][j] = rmat[2][j] + ( qr3 - ql3 )* deig1_dqr[j];
-           lmat[3][j] = lmat[3][j] + ( qr4 - ql4 )* deig1_dql[j];  rmat[3][j] = rmat[3][j] + ( qr4 - ql4 )* deig1_dqr[j];
-           lmat[4][j] = lmat[4][j] + ( qr5 - ql5 )* deig1_dql[j];  rmat[4][j] = rmat[4][j] + ( qr5 - ql5 )* deig1_dqr[j];
+           lmat[0][j] = lmat[0][j] + ( qr1 - ql1 )* deig1_dql[j];  
+	   rmat[0][j] = rmat[0][j] + ( qr1 - ql1 )* deig1_dqr[j];
+
+	   lmat[1][j] = lmat[1][j] + ( qr2 - ql2 )* deig1_dql[j];  
+	   rmat[1][j] = rmat[1][j] + ( qr2 - ql2 )* deig1_dqr[j];
+
+	   lmat[2][j] = lmat[2][j] + ( qr3 - ql3 )* deig1_dql[j];  
+	   rmat[2][j] = rmat[2][j] + ( qr3 - ql3 )* deig1_dqr[j];
+
+	   lmat[3][j] = lmat[3][j] + ( qr4 - ql4 )* deig1_dql[j];  
+	   rmat[3][j] = rmat[3][j] + ( qr4 - ql4 )* deig1_dqr[j];
+
+	   lmat[4][j] = lmat[4][j] + ( qr5 - ql5 )* deig1_dql[j];  
+	   rmat[4][j] = rmat[4][j] + ( qr5 - ql5 )* deig1_dqr[j];
 
          }         
+      FOR2(i,5,j,5)
+      {
+	      if(isnan(lmat[i][j])) printf("NAN lmat 3 %i %i\n",i,j);
+	      if(isnan(rmat[i][j])) printf("NAN rmat 3 %i %i\n",i,j);
+      }
+
          
          #pragma unroll 5       
          for ( int j = 0 ; j < 5 ; j++ )
@@ -653,6 +682,12 @@ for( int i = 0; i < 5 ; i++ )
             lmat[4][j] = lmat[4][j] + del1*dhbar_dql[j] + del2*duconbar_dql[j];
             rmat[4][j] = rmat[4][j] + del1*dhbar_dqr[j] + del2*duconbar_dqr[j];
           }
+      FOR2(i,5,j,5)
+      {
+	      if(isnan(lmat[i][j])) printf("NAN lmat 4 %i %i\n",i,j);
+	      if(isnan(rmat[i][j])) printf("NAN rmat 4 %i %i\n",i,j);
+      }
+
     //  endif
 
 //      !------------------------------------------------------------------------------!
@@ -691,11 +726,18 @@ for( int i = 0; i < 5 ; i++ )
 
       rmat1[4][j] = ( dq5_dqr[j] + dp_dqr[j] )*uconr + (qr5 + pr)*ducon_dqr[j];
 
+    }
 //      !======================================================================
+      FOR2(i,5,j,5)
+      {
+	      lmat[i][j] = 0.5*(lmat1[i][j]-lmat[i][j])*area;
+	      rmat[i][j] = 0.5*(rmat1[i][j]-rmat[i][j])*area;
+      }
 
+//	      printf("\n");
+      
 //      lmat(:,:) = 0.5*( lmat1(:,:) - lmat(:,:) )
 //      rmat(:,:) = 0.5*( rmat1(:,:) - rmat(:,:) )
-    }
  
  if ( faceID == -2 )
   {
