@@ -213,8 +213,8 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 			}
 		}
 	}
+if(idx==0)	for(int n=0; n<5; n++) printf("idx = %i, -res[%i] = %e\n",idx,scale*idx+n*stride,res[scale*idx+n*stride]);
  	// Loop over neighbors
-	int idxn; 
         for(int f=nccft[idx];f<nccft[idx+1];f++)
         {
 	        double *norm=normals+18*idx+3*(f-nccft[idx]);
@@ -231,8 +231,6 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
             		for(int n=0;n<nfields;n++) qr[n]=flovar[n];
           	}
 	
-//		idxn = facetype[idx]; 
-
 		//Compute Jacobians 
 		computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
 	                        qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
@@ -240,8 +238,11 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
                   	        idxn,lmat, rmat);
 
 		//Compute Di and Oij*dq_neighbor
-		for(int n=0; n<5; n++) dqn[n] = dq[scale*idxn+n*stride];
+if(idx==0)		for(int n=0; n<5; n++) dqn[n] = dq[scale*idxn+n*stride];
+if(idx==0)		for(int n=0; n<5; n++) printf("idx = %i, f = %i, dqn[%i] = %e\n",idx,f,n,dqn[n]);
+
 		axb1(rmat,dqn,Btmp,1,5); 
+if(idx==0)		for(int n=0; n<5; n++) printf("idx = %i, f = %i, Btmp[%i] = %e\n",idx,f,n,Btmp[n]);
 		for(int n = 0; n<5; n++){
 			B[n] = B[n] - Btmp[n]; 
 			for(int m = 0; m<5; m++){
@@ -249,10 +250,16 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 				D[index1] = D[index1] + lmat[index1];
 			}
 		}
+if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,f=%i,rmat[%i,%i] = %e\n",idx,f,n,m,rmat[n*5+m]);
+if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,f = %i,lmat[%i,%i] = %e\n",idx,f,n,m,lmat[n*5+m]);
+if(idx==0) printf("\n");
 	}
+if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,D[%i,%i] = %e\n",idx,n,m,D[n*5+m]);
+if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,B[%i] = %e\n",idx,n,B[n]);
 
 	// Compute dqtilde and send back out of kernel
 	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
+if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqupdate[%i] = %e\n",idx,n,dqtemp[n]);
 	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = dqtemp[n]; 
   } // loop over cells 
 }

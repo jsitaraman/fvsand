@@ -310,10 +310,12 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep)
 {
 
 
-  FVSAND_GPU_LAUNCH_FUNC(testComputeJ,n_blocks,block_size,0,0,
+/*  FVSAND_GPU_LAUNCH_FUNC(testComputeJ,n_blocks,block_size,0,0,
 		         q,normals_d,flovar_d, cell2cell_d,nccft_d,nfields_d,istor,ncells,facetype_d);
 
   exit(0);
+  */
+
   for(int m = 0; m < nsweep; m++){
     printf("Sweep %i\n=================\n",m);
     nthreads=ncells+nhalo;
