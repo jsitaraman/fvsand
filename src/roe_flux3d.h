@@ -441,7 +441,6 @@ real lmat1[5][5],rmat1[5][5];
       cbar = sqrt(cbar);
       uconbar = ubar*nx + vbar*ny + wbar*nz;
 
-      printf("cbar = %e\n",cbar); 
 //!------------------------------------------------------------------------------!
 //!--------------------------> Eigenvalues <-------------------------------------!
 //!------------------------------------------------------------------------------!
@@ -552,6 +551,7 @@ for( int i = 0; i < 5 ; i++ )
                 deig3_dqr[i] = -( duconbar_dqr[i] - dcbar_dqr[i] );
         }
 
+//XXX
 //!------------------------------------------------------------------------------!
       term1 = -eig1 + 0.5*(eig2 + eig3);
       term2 = 0.5*(eig2 - eig3);
@@ -584,6 +584,7 @@ for( int i = 0; i < 5 ; i++ )
 //!------------------------------------------------------------------------------!
 //!-----------------------> Roe flux Jacobian <----------------------------------!
 //!------------------------------------------------------------------------------!
+//XXX
 
 
 //      !------------> common linearization terms
@@ -603,14 +604,11 @@ for( int i = 0; i < 5 ; i++ )
       FOR2(i,5,j,5)
        {      
          lmat[i][j] = lmat[i][j] - eig1*imat[i][j];
-         rmat[i][j] = rmat[i][j] + eig1*imat[i][j];
+         rmat[i][j] = rmat[i][j] + eig1*imat[i][j];       
        }
 
-      FOR2(i,5,j,5)
-      {
-	      if(isnan(lmat[i][j])) printf("NAN lmat 1 %i %i\n",i,j);
-	      if(isnan(rmat[i][j])) printf("NAN rmat 1 %i %i\n",i,j);
-      }
+FOR2(i,5,j,5) printf("DEBUG 1: rmat[%i][%i] = %e\n",i,j,rmat[i][j]);
+FOR2(i,5,j,5) printf("DEBUG 1: lmat[%i][%i] = %e\n",i,j,lmat[i][j]);
 
       #pragma unroll 5
       for ( int i = 0 ; i < 5 ; i++ )
@@ -631,13 +629,8 @@ for( int i = 0; i < 5 ; i++ )
        rmat[4][i] = rmat[4][i] + ddel1_dqr[i]*hbar + ddel2_dqr[i]*uconbar;
        }
     
-
-      FOR2(i,5,j,5)
-      {
-	      if(isnan(lmat[i][j])) printf("NAN lmat 2 %i %i\n",i,j);
-	      if(isnan(rmat[i][j])) printf("NAN rmat 2 %i %i\n",i,j);
-      }
-
+FOR2(i,5,j,5) printf("DEBUG 2: rmat[%i][%i] = %e\n",i,j,rmat[i][j]);
+FOR2(i,5,j,5) printf("DEBUG 2: lmat[%i][%i] = %e\n",i,j,lmat[i][j]);
       //------> additional terms for exact linearization
 
      // if(imode/=1) then
@@ -660,13 +653,9 @@ for( int i = 0; i < 5 ; i++ )
 	   rmat[4][j] = rmat[4][j] + ( qr5 - ql5 )* deig1_dqr[j];
 
          }         
-      FOR2(i,5,j,5)
-      {
-	      if(isnan(lmat[i][j])) printf("NAN lmat 3 %i %i\n",i,j);
-	      if(isnan(rmat[i][j])) printf("NAN rmat 3 %i %i\n",i,j);
-      }
-
          
+FOR2(i,5,j,5) printf("DEBUG 3: rmat[%i][%i] = %e\n",i,j,rmat[i][j]);
+FOR2(i,5,j,5) printf("DEBUG 3: lmat[%i][%i] = %e\n",i,j,lmat[i][j]);
          #pragma unroll 5       
          for ( int j = 0 ; j < 5 ; j++ )
           {
@@ -682,11 +671,8 @@ for( int i = 0; i < 5 ; i++ )
             lmat[4][j] = lmat[4][j] + del1*dhbar_dql[j] + del2*duconbar_dql[j];
             rmat[4][j] = rmat[4][j] + del1*dhbar_dqr[j] + del2*duconbar_dqr[j];
           }
-      FOR2(i,5,j,5)
-      {
-	      if(isnan(lmat[i][j])) printf("NAN lmat 4 %i %i\n",i,j);
-	      if(isnan(rmat[i][j])) printf("NAN rmat 4 %i %i\n",i,j);
-      }
+FOR2(i,5,j,5) printf("DEBUG 4: rmat[%i][%i] = %e\n",i,j,rmat[i][j]);
+FOR2(i,5,j,5) printf("DEBUG 4: lmat[%i][%i] = %e\n",i,j,lmat[i][j]);
 
     //  endif
 
@@ -694,7 +680,7 @@ for( int i = 0; i < 5 ; i++ )
 //      !-------------------------------------------------------!
 //      !-----------> Compute native flux Jacobian <------------!
 //      !-------------------------------------------------------!
-
+//XXX
 
     for ( int j = 0 ; j < 5 ; j++ )
     {
@@ -727,6 +713,8 @@ for( int i = 0; i < 5 ; i++ )
       rmat1[4][j] = ( dq5_dqr[j] + dp_dqr[j] )*uconr + (qr5 + pr)*ducon_dqr[j];
 
     }
+FOR2(i,5,j,5) printf("DEBUG 5: rmat1[%i][%i] = %e\n",i,j,rmat1[i][j]);
+FOR2(i,5,j,5) printf("DEBUG 5: lmat1[%i][%i] = %e\n",i,j,lmat1[i][j]);
 //      !======================================================================
       FOR2(i,5,j,5)
       {
@@ -734,13 +722,11 @@ for( int i = 0; i < 5 ; i++ )
 	      rmat[i][j] = 0.5*(rmat1[i][j]-rmat[i][j])*area;
       }
 
-//	      printf("\n");
-      
-//      lmat(:,:) = 0.5*( lmat1(:,:) - lmat(:,:) )
-//      rmat(:,:) = 0.5*( rmat1(:,:) - rmat(:,:) )
- 
+FOR2(i,5,j,5) printf("DEBUG 6: rmat[%i][%i] = %e\n",i,j,rmat[i][j]);
+FOR2(i,5,j,5) printf("DEBUG 6: lmat[%i][%i] = %e\n",i,j,lmat[i][j]);
  if ( faceID == -2 )
   {
+	  // XXX How does Area factor into wall BCs?
      for(int n = 0; n<5; n++){
         lmat[0][n] = 0.0;
         lmat[4][n] = 0.0;
@@ -766,17 +752,19 @@ for( int i = 0; i < 5 ; i++ )
      lmat[3][3] = -gm1*wl*nz;
      lmat[3][4] = gm1*nz;
   }
- else  
+/* else  
   {
      FOR2(i,5,j,5)
      {
        lmat[i][j] = 0.5*( lmat1[i][j] - lmat[i][j] );
        rmat[i][j] = 0.5*( rmat1[i][j] - rmat[i][j] );
      }
- }   
+ }  
+*/
+ // ST Need to transpose the matrix to make it correct for the rest of the code
  FOR2(i,5,j,5)
      {
-	     int index1 = i*5+j;
+	     int index1 = j*5+i;
 	     lmatout[index1] = lmat[i][j];
 	     rmatout[index1] = rmat[i][j];
      }
