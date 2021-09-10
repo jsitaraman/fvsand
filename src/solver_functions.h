@@ -214,6 +214,7 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 		}
 	}
 if(idx==0)	for(int n=0; n<5; n++) printf("idx = %i, -res[%i] = %e\n",idx,scale*idx+n*stride,res[scale*idx+n*stride]);
+if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqtemp0[%i] = %e\n",idx,n,dqtemp[scale*idx+n*stride]);
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
         {
@@ -259,8 +260,9 @@ if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,B[%i] = %e\n",idx,n,B[n])
 
 	// Compute dqtilde and send back out of kernel
 	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
-if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqupdate[%i] = %e\n",idx,n,dqtemp[n]);
+if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqtemp[%i] = %e\n",idx,n,dqtemp[n]);
 	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = dqtemp[n]; 
+if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqupdate[%i] = %e\n",idx,n,dqupdate[scale*idx+n*stride]);
   } // loop over cells 
 }
 	

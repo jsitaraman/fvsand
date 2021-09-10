@@ -326,15 +326,13 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep)
 			   flovar_d, cell2cell_d,
 			   nccft_d, nfields_d, istor, ncells, facetype_d, dt, m);
 
-    // update dq = dq + dqtilde for all cells
-    nthreads=(ncells+nhalo)*nfields_d;
-    n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-    FVSAND_GPU_LAUNCH_FUNC(updateFields,n_blocks,block_size,0,0,
-                           dqupdate_d, dq_d, dq_d, 1, (ncells+nhalo)*nfields_d);
-	
+
+    // update dq = dqtilde for all cells
+    memcpy(dq_d,dqupdate_d,sizeof(double)*(ncells+nhalo)*nfields_d);
   }
+	
   // Store final dq in res to be used in update routine
-  res_d = dq_d; 
+    memcpy(res_d,dq_d, sizeof(double)*(ncells+nhalo)*nfields_d);
 }
 
 void LocalMesh::Update(double *qdest, double *qsrc, double fscal)
