@@ -2,6 +2,9 @@
 #include "mpi.h"
 #include "GlobalMesh.h"
 #include "LocalMesh.h"
+#include "NVTXMacros.h"
+
+#include <sstream> // for std::ostringstream
 using namespace FVSAND;
 
 // -----------------------------------------------------------------------------
@@ -69,21 +72,28 @@ int main(int argc, char *argv[])
 
   for(int iter=0;iter<nsteps;iter++)
     {
-      lm->Residual(lm->q,restype);
-      lm->Update(lm->qn,lm->q,rk[1]*dt);
-      lm->Update(lm->q,lm->q,rk[0]*dt);
+      std::ostringstream timestep_name;
+      timestep_name << "TimeStep-" << iter;
 
-      lm->Residual(lm->qn,restype);
-      lm->Update(lm->qn,lm->q,rk[2]*dt);
+      FVSAND_NVTX_SECTION( timestep_name.str(), 
+        lm->Residual(lm->q,restype);
+        lm->Update(lm->qn,lm->q,rk[1]*dt);
+        lm->Update(lm->q,lm->q,rk[0]*dt);
 
-      lm->Residual(lm->qn,restype);
-      lm->Update(lm->q,lm->q,rk[3]*dt);
+        lm->Residual(lm->qn,restype);
+        lm->Update(lm->qn,lm->q,rk[2]*dt);
+
+        lm->Residual(lm->qn,restype);      
+        lm->Update(lm->q,lm->q,rk[3]*dt);
+      );
 
       if (iter %nsave ==0) {
-	double rnorm=lm->ResNorm();
-	if (myid==0) printf("iter:%d  %lf\n",iter,rnorm);
+	      double rnorm=lm->ResNorm();
+	      if (myid==0) printf("iter:%d  %lf\n",iter,rnorm);
       }
+
     }
+
   lm->WriteMesh(myid);  
   MPI_Finalize();
 }

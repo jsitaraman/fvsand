@@ -2,6 +2,9 @@
 #include <math.h>
 #include "mpi.h"
 #include "GlobalMesh.h"
+
+#include "NVTXMacros.h"
+
 using namespace FVSAND;
 //
 // read a surface mesh
@@ -211,6 +214,8 @@ void StrandMesh::WriteBoundaries(int label)
 }
 void StrandMesh::PartitionSphereMesh(int myid,int numprocs,MPI_Comm comm)
 {
+  FVSAND_NVTX_FUNCTION( "partition" );
+
   double *arange=new double [4];
   int *pmap=new int [ncells];
   int mp1=myid+1;

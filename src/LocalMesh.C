@@ -4,6 +4,8 @@
 #include "fvsand_gpu.h"
 #include "metric_functions.h"
 #include "solver_functions.h"
+#include "NVTXMacros.h"
+
 #include <cstdio>
 
 using namespace FVSAND;
@@ -112,6 +114,8 @@ LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
 
 void LocalMesh::CreateGridMetrics()
 {
+  FVSAND_NVTX_FUNCTION( "grid_metrics" );
+
   x_d=gpu::push_to_device<double>(x.data(),sizeof(double)*x.size());
   cell2node_d=gpu::push_to_device<int>(cell2node.data(),sizeof(int)*cell2node.size());  
   nvcft_d=gpu::push_to_device<int>(nvcft.data(),sizeof(int)*nvcft.size());
@@ -203,10 +207,14 @@ void LocalMesh::CreateFaces(void)
 
 void LocalMesh::InitSolution(double *flovar, int nfields)
 {
- q=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
- qn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
- qnn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
- res_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+ FVSAND_NVTX_FUNCTION( "init_solution" );
+
+ FVSAND_NVTX_SECTION( "memory_allocation",
+  q=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+  qn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+  qnn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+  res_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+ );
  
  flovar_d=gpu::push_to_device<double>(flovar,sizeof(double)*nfields);
  qinf_d=gpu::allocate_on_device<double>(sizeof(double)*nfields);
@@ -282,6 +290,8 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
 
 void LocalMesh::Residual(double *qv,int restype)
 {
+  FVSAND_NVTX_FUNCTION("residual");
+
   if (restype==0) {
     Residual_cell(qv);
   } else {
@@ -325,7 +335,8 @@ void LocalMesh::Residual_face(double *qv)
 
 void LocalMesh::Update(double *qdest, double *qsrc, double fscal)
 {
-  
+  FVSAND_NVTX_FUNCTION( "update" );
+
   nthreads=(ncells+nhalo)*nfields_d;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(updateFields,n_blocks,block_size,0,0,
@@ -334,6 +345,8 @@ void LocalMesh::Update(double *qdest, double *qsrc, double fscal)
 
 double LocalMesh::ResNorm()
 {
+  FVSAND_NVTX_FUNCTION( "ResNorm" );
+
   gpu::pull_from_device<double>(qh,res_d,sizeof(double)*nfields_d*(ncells+nhalo));
   double rnorm[2];
   double rnormTotal[2];
