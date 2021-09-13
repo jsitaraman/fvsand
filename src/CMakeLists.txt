@@ -58,6 +58,7 @@ target_sources(fvsand.exe PRIVATE
   StrandMesh.C
   LocalMesh.C
   utils.c
+  Range.C
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR} /usr/local/include/)
@@ -74,6 +75,10 @@ if (FVSAND_ENABLE_CUDA)
   get_target_property(FVSANDLIB_CPP_SRC fvsand.exe SOURCES)
   list(FILTER FVSANDLIB_CPP_SRC INCLUDE REGEX "\\.C")
   set_source_files_properties(${FVSANDLIB_CPP_SRC} PROPERTIES LANGUAGE CUDA)
+
+  find_package(CUDAToolkit)
+  target_link_libraries(fvsand.exe CUDA::nvToolsExt)
+  
 endif()
 
 TARGET_LINK_LIBRARIES(fvsand.exe m gfortran ${MPI_LIBRARIES} )
