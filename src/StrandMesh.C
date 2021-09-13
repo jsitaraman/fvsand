@@ -23,7 +23,12 @@ extern "C" {
 StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels)
 {
   FILE *fp;  
-  fp=fopen(surface_file,"r");  
+  fp=fopen(surface_file,"r");
+  if ( fp == nullptr ) {
+    printf("Could not open file [%s]\n", surface_file );
+    MPI_Abort( MPI_COMM_WORLD, -1 );
+  }
+
   int nsurfnodes,nsurfcells;
   int ier;
   
