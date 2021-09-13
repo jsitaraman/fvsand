@@ -316,8 +316,13 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep)
   exit(0);
   */
 
+  nthreads=ncells+nhalo;
+  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+  FVSAND_GPU_LAUNCH_FUNC(setValues,n_blocks,block_size,0,0,
+			 dq_d, 0.0, (ncells+nhalo)*nfields_d);
+
   for(int m = 0; m < nsweep; m++){
-    printf("Sweep %i\n=================\n",m);
+    //printf("Sweep %i\n=================\n",m);
     nthreads=ncells+nhalo;
     n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
     // compute dqtilde for all cells
@@ -326,13 +331,18 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep)
 			   flovar_d, cell2cell_d,
 			   nccft_d, nfields_d, istor, ncells, facetype_d, dt, m);
 
-
     // update dq = dqtilde for all cells
-    memcpy(dq_d,dqupdate_d,sizeof(double)*(ncells+nhalo)*nfields_d);
+    //memcpy(dq_d,dqupdate_d,sizeof(double)*(ncells+nhalo)*nfields_d);
+    nthreads=ncells+nhalo;
+    n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+    FVSAND_GPU_LAUNCH_FUNC(copyValues,n_blocks,block_size,0,0,
+			   dq_d, dqupdate_d, (ncells+nhalo)*nfields_d);
+
+    UpdateFringes(qh,dq_d);
   }
 	
-  // Store final dq in res to be used in update routine
-    memcpy(res_d,dq_d, sizeof(double)*(ncells+nhalo)*nfields_d);
+  // // Store final dq in res to be used in update routine
+  //  memcpy(res_d,dq_d, sizeof(double)*(ncells+nhalo)*nfields_d);
 }
 
 void LocalMesh::Update(double *qdest, double *qsrc, double fscal)
@@ -342,6 +352,14 @@ void LocalMesh::Update(double *qdest, double *qsrc, double fscal)
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(updateFields,n_blocks,block_size,0,0,
 			 res_d, qdest, qsrc, fscal, (ncells+nhalo)*nfields_d);
+}
+
+void LocalMesh::UpdateQ(double *qdest, double *qsrc, double fscal)
+{
+  nthreads=(ncells+nhalo)*nfields_d;
+  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+  FVSAND_GPU_LAUNCH_FUNC(updateFields,n_blocks,block_size,0,0,
+			 dq_d, qdest, qsrc, fscal, (ncells+nhalo)*nfields_d);
 }
 
 double LocalMesh::ResNorm()

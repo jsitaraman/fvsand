@@ -12,60 +12,47 @@ FVSAND_GPU_DEVICE void solveAxb5(double *A, double *b, double* x)
 		U[i] = 0.0; 
 	}	
 	// LU Decomp
-	for(int i=0; i<5; i++){
-		// Upper matrix
-		for(int k = i; k<5; k++){
-			s = 0; 
-			for(int j = 0; j<i; j++){
-				index1 = i*5+j;
-				index2 = j*5+k; 
-				s = s + L[index1]*U[index2]; 				
-			}
-			index1 = i*5+k;
-			U[index1] = A[index1]-s; 
-		}
-		// Lower matrix
-		for(int k=i; k<5; k++){
-			if(i==k) {
-				L[i*5+i]=1.0;
-			} 
-			else{
-				s = 0; 
-				for(int j=0;j<i;j++){
-					index1 = k*5+j;
-					index2 = j*5+i; 
-					s = s + L[index1]*U[index2]; 					
-				}
-				index1 = k*5+i; 
-				index2 = i*5+i; 
-				L[index1] = (A[index1]-s)/(U[index2]+1e-15);
-			}
-		}
-	}
+        for (int j=0; j<5; j++) {
+          for (int k=0; k<j; k++) {
+            L[5*j+k] = A[5*j+k];
+          }
+          for (int k=1; k<j; k++) {
+            for (int l=0; l<k; l++) {
+              L[5*j+k] = L[5*j+k] - L[5*j+l]*U[5*l+k];
+            }
+          }
+
+          L[5*j+j] = A[5*j+j];
+          for (int k=0; k<j; k++) {
+            L[5*j+j] = L[5*j+j] - L[5*j+k]*U[5*k+j];
+          }
+          L[5*j+j] = 1.0/L[5*j+j];
+
+          for (int k=j+1; k<5; k++) {
+            U[5*j+k] = A[5*j+k];
+	    for (int l=0; l<j; l++) {
+              U[5*j+k] = U[5*j+k] - L[5*j+l]*U[5*l+k];
+            }
+            U[5*j+k] = U[5*j+k]*L[5*j+j];
+          }
+        }
 
 	// Forward prop to solve Ly = b
 	double y[5]; 	
-	y[0] = b[0]/(L[0]+1e-15);
-	for(int i=1;i<5;i++){
-		for(int j=0;j<i;j++){
-			index1 = i*5+j;
-			y[i] = y[i]-y[j]*L[index1]; 			
-		}
-		index1 = i*5+i;	        	
-		y[i] = y[i]/L[index1];
-	}
-	
-	// Back prop to solve Ux = y
-	x[4] = b[4]/(U[24]+1e-15);
-	for(int i = 4; i>-1; i--){
-		x[i] = y[i]; 
-		for(int j=4; j>i; j--){
-			index1 = i*5+j; 
-			x[i] = x[i]-x[j]*U[index1]; 
-		}
-		index1 = i*5+i; 
-		x[i] = x[i]/(U[index1]+1e-15); 
-	}
+        for (int j=0; j<5; j++) {
+          y[j] = b[j];
+          for (int k=0; k<j; k++) {
+            y[j] = y[j] - L[5*j+k]*y[k];
+          }
+          y[j] = y[j]*L[5*j+j];
+        }
+
+	for (int j=4; j>-1; j--) {
+          x[j] = y[j];
+          for (int k=j+1; k<5; k++) {
+            x[j] = x[j] - U[5*j+k]*x[k];
+          }
+        }
 }
 
 /*

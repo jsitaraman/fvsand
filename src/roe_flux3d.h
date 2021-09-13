@@ -730,6 +730,11 @@ for( int i = 0; i < 5 ; i++ )
      lmat[3][2] = -gm1*vl*nz;
      lmat[3][3] = -gm1*wl*nz;
      lmat[3][4] = gm1*nz;
+     FOR2(i,5,j,5)
+     {
+       lmat[i][j] = lmat[i][j]*area;
+       rmat[i][j] = rmat[i][j]*area;
+     }
   }
  else  
   {

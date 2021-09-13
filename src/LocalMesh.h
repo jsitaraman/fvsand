@@ -106,6 +106,7 @@ class LocalMesh
   void Residual_face(double *qv);
   void Jacobi(double *qv, double, int);
   void Update(double *qdest, double *qsrc, double fscal);
+  void UpdateQ(double *qdest, double *qsrc, double fscal);
   void UpdateFringes(double *, double *);
   double ResNorm(void);
 };

@@ -195,26 +195,20 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 	int index1; 
 
 	for(int n = 0; n<nfields; n++) {
-		if(iter==0){
-			dqtemp[n] = 0.0; 
-			dqupdate[scale*idx+n*stride] = 0.0; 
-		}
-		else{
-			dqtemp[n] = dq[scale*idx+n*stride]; 
-		}
+		dqtemp[n] = dq[scale*idx+n*stride]; 
 		B[n] = res[scale*idx+n*stride]; 
 		for(int m = 0; m<nfields; m++) {
 			index1 = n*nfields + m;
 			if(n==m){
-				D[index1] = volume[idx]/dt;
+				D[index1] = 1.0/dt;
 			}
 			else{
 				D[index1] = 0.0; 
 			}
 		}
 	}
-if(idx==0)	for(int n=0; n<5; n++) printf("idx = %i, -res[%i] = %e\n",idx,scale*idx+n*stride,res[scale*idx+n*stride]);
-if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqtemp0[%i] = %e\n",idx,n,dqtemp[scale*idx+n*stride]);
+//if(idx==0)	for(int n=0; n<5; n++) printf("idx = %i, -res[%i] = %e\n",idx,scale*idx+n*stride,res[scale*idx+n*stride]);
+//if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqtemp0[%i] = %e\n",idx,n,dqtemp[scale*idx+n*stride]);
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
         {
@@ -238,12 +232,26 @@ if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqtemp0[%i] = %e\n",idx,n
          	                norm[0], norm[1], norm [2],
                   	        idxn,lmat, rmat);
 
+		for(int n = 0; n<nfields; n++){
+			for(int m = 0; m<nfields; m++){
+				index1 = n*nfields + m; 
+				lmat[index1] /= volume[idx];
+				rmat[index1] /= volume[idx];
+			}
+		}
 		//Compute Di and Oij*dq_neighbor
-if(idx==0)		for(int n=0; n<5; n++) dqn[n] = dq[scale*idxn+n*stride];
-if(idx==0)		for(int n=0; n<5; n++) printf("idx = %i, f = %i, dqn[%i] = %e\n",idx,f,n,dqn[n]);
+		for(int n=0; n<5; n++) {
+          	        if (idxn > -1) {
+                          dqn[n] = dq[scale*idxn+n*stride];
+                        }
+                        else {
+                          dqn[n] = 0.0;
+                        }
+                }
+//if(idx==0)		for(int n=0; n<5; n++) printf("idxn = %i, f = %i, dqn[%i] = %e\n",scale*idxn+n*stride,f,n,dqn[n]);
 
 		axb1(rmat,dqn,Btmp,1,5); 
-if(idx==0)		for(int n=0; n<5; n++) printf("idx = %i, f = %i, Btmp[%i] = %e\n",idx,f,n,Btmp[n]);
+//if(idx==0)		for(int n=0; n<5; n++) printf("idx = %i, f = %i, Btmp[%i] = %e\n",idx,f,n,Btmp[n]);
 		for(int n = 0; n<5; n++){
 			B[n] = B[n] - Btmp[n]; 
 			for(int m = 0; m<5; m++){
@@ -251,19 +259,47 @@ if(idx==0)		for(int n=0; n<5; n++) printf("idx = %i, f = %i, Btmp[%i] = %e\n",id
 				D[index1] = D[index1] + lmat[index1];
 			}
 		}
-if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,f=%i,rmat[%i,%i] = %e\n",idx,f,n,m,rmat[n*5+m]);
-if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,f = %i,lmat[%i,%i] = %e\n",idx,f,n,m,lmat[n*5+m]);
-if(idx==0) printf("\n");
+//if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,f=%i,rmat[%i,%i] = %e\n",idx,f,n,m,rmat[n*5+m]);
+//if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,f = %i,lmat[%i,%i] = %e\n",idx,f,n,m,lmat[n*5+m]);
+//if(idx==0) printf("\n");
 	}
-if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,D[%i,%i] = %e\n",idx,n,m,D[n*5+m]);
-if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,B[%i] = %e\n",idx,n,B[n]);
+//if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,D[%i,%i] = %e\n",idx,n,m,D[n*5+m]);
+//if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,B[%i] = %e\n",idx,n,B[n]);
 
 	// Compute dqtilde and send back out of kernel
 	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
-if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqtemp[%i] = %e\n",idx,n,dqtemp[n]);
+//if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqtemp[%i] = %e\n",idx,n,dqtemp[n]);
 	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = dqtemp[n]; 
-if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqupdate[%i] = %e\n",idx,n,dqupdate[scale*idx+n*stride]);
+//if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqupdate[%i] = %e\n",idx,n,dqupdate[scale*idx+n*stride]);
   } // loop over cells 
+}
+
+FVSAND_GPU_GLOBAL
+void setValues(double *qdest, double qsrc, int ndof)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ndof) 
+#else
+    for(int idx=0;idx<ndof;idx++)
+#endif
+      {
+	qdest[idx]=qsrc;
+      }
+}
+
+FVSAND_GPU_GLOBAL
+void copyValues(double *qdest, double *qsrc, int ndof)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ndof) 
+#else
+    for(int idx=0;idx<ndof;idx++)
+#endif
+      {
+	qdest[idx]=qsrc[idx];
+      }
 }
 	
 FVSAND_GPU_GLOBAL
