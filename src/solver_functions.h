@@ -176,7 +176,7 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
 FVSAND_GPU_GLOBAL
 void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *normals,double *volume,
 		 double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
-		 int* facetype, double dt, int iter)
+		 int* facetype, double dt)
 {
   int scale=(istor==0)?nfields:1;
   int stride=(istor==0)?1:ncells;
@@ -207,8 +207,6 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 			}
 		}
 	}
-//if(idx==0)	for(int n=0; n<5; n++) printf("idx = %i, -res[%i] = %e\n",idx,scale*idx+n*stride,res[scale*idx+n*stride]);
-//if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqtemp0[%i] = %e\n",idx,n,dqtemp[scale*idx+n*stride]);
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
         {
@@ -239,6 +237,7 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 				rmat[index1] /= volume[idx];
 			}
 		}
+
 		//Compute Di and Oij*dq_neighbor
 		for(int n=0; n<5; n++) {
           	        if (idxn > -1) {
@@ -248,10 +247,7 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
                           dqn[n] = 0.0;
                         }
                 }
-//if(idx==0)		for(int n=0; n<5; n++) printf("idxn = %i, f = %i, dqn[%i] = %e\n",scale*idxn+n*stride,f,n,dqn[n]);
-
 		axb1(rmat,dqn,Btmp,1,5); 
-//if(idx==0)		for(int n=0; n<5; n++) printf("idx = %i, f = %i, Btmp[%i] = %e\n",idx,f,n,Btmp[n]);
 		for(int n = 0; n<5; n++){
 			B[n] = B[n] - Btmp[n]; 
 			for(int m = 0; m<5; m++){
@@ -259,18 +255,80 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 				D[index1] = D[index1] + lmat[index1];
 			}
 		}
-//if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,f=%i,rmat[%i,%i] = %e\n",idx,f,n,m,rmat[n*5+m]);
-//if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,f = %i,lmat[%i,%i] = %e\n",idx,f,n,m,lmat[n*5+m]);
-//if(idx==0) printf("\n");
 	}
-//if(idx==0)	for(int n=0;n<nfields;n++) for(int m=0;m<nfields;m++) printf("idx = %i,D[%i,%i] = %e\n",idx,n,m,D[n*5+m]);
-//if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,B[%i] = %e\n",idx,n,B[n]);
 
 	// Compute dqtilde and send back out of kernel
 	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
-//if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqtemp[%i] = %e\n",idx,n,dqtemp[n]);
 	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = dqtemp[n]; 
-//if(idx==0)	for(int n=0;n<nfields;n++) printf("idx = %i,dqupdate[%i] = %e\n",idx,n,dqupdate[scale*idx+n*stride]);
+  } // loop over cells 
+}
+
+
+FVSAND_GPU_GLOBAL
+void fillJacobians(double *q, double *normals,double *volume,
+		  double *rmatall, double *lmatall, double* Dall,
+		 double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
+		 int* facetype, double dt)
+{
+}
+
+FVSAND_GPU_GLOBAL
+void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *normals,double *volume,
+		  double *rmatall, double *lmatall, double* Dall,
+		 double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
+		 int* facetype, double dt)
+{
+  int scale=(istor==0)?nfields:1;
+  int stride=(istor==0)?1:ncells;
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+  for(int idx=0;idx<ncells;idx++)
+#endif
+  {
+	double dqtemp[5],dqn[5];
+ 	double B[5], Btmp[5];
+	double rmat[25], lmat[25], D[25];
+	int index1; 
+
+	for(int n = 0; n<nfields; n++) {
+		dqtemp[n] = dq[scale*idx+n*stride]; 
+		B[n] = res[scale*idx+n*stride];
+	}
+ 	// Loop over neighbors
+        for(int f=nccft[idx];f<nccft[idx+1];f++)
+        {
+	        double *norm=normals+18*idx+3*(f-nccft[idx]);
+          	int idxn=cell2cell[f];
+	        for(int n = 0; n<nfields; n++){
+		        for(int m = 0; m<nfields; m++){
+				lmat[n*nfields+m] = lmatall[XXX];
+				rmat[n*nfields+m] = rmatall[XXX]; 
+			}
+		}	
+
+		//Get neighbor dq and compute O_ij*dq_j
+		for(int n=0; n<5; n++) {
+          	        if (idxn > -1) {
+                          dqn[n] = dq[scale*idxn+n*stride];
+                        }
+                        else {
+                          dqn[n] = 0.0;
+                        }
+                }
+		axb1(rmat,dqn,Btmp,1,5); 
+		for(int n = 0; n<5; n++) B[n] = B[n] - Btmp[n]; 
+	}
+
+	// Compute dqtilde and send back out of kernel
+	for(int n=0;n<nfields;n++) { 
+		for(int m=0;m<nfields;m++) {
+			D[n*5+m] = Dall[idx*25+n*5+m];
+		}
+	}
+	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
+	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = dqtemp[n]; 
   } // loop over cells 
 }
 
