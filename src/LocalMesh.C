@@ -316,7 +316,7 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep)
   exit(0);
   */
 
-  nthreads=ncells+nhalo;
+  nthreads=(ncells+nhalo)*nfields_d;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(setValues,n_blocks,block_size,0,0,
 			 dq_d, 0.0, (ncells+nhalo)*nfields_d);
@@ -333,7 +333,7 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep)
 
     // update dq = dqtilde for all cells
     //memcpy(dq_d,dqupdate_d,sizeof(double)*(ncells+nhalo)*nfields_d);
-    nthreads=ncells+nhalo;
+    nthreads=(ncells+nhalo)*nfields_d;
     n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
     FVSAND_GPU_LAUNCH_FUNC(copyValues,n_blocks,block_size,0,0,
 			   dq_d, dqupdate_d, (ncells+nhalo)*nfields_d);
