@@ -58,16 +58,17 @@ int main(int argc, char *argv[])
   std::vector<double> flovar = { 1.0, 0.2, 0.0, 0.0, 1./1.4};
   lm->InitSolution(flovar.data(),nfields);
 
-  int nsteps=100;
-  int nsave=1;
-  double dt=0.05;
+  int nsteps=2000;
+  int nsave=100;
+  int implicit=0;
+  double dt=0.001;
   int nsweep = 5; // Jacobi Sweeps
   int restype=0;  // restype = 0 (cell-based) 1 (face-based)
   double rk[4]={0.25,8./15,5./12,3./4};
 
   for(int iter=0;iter<nsteps;iter++)
     {
-      if(dt){ // implicit 
+      if( implicit ){ // implicit 
         lm->Residual(lm->q,restype); // computes res_d
 	lm->Jacobi(lm->q,dt,nsweep); // runs sweeps and replaces res_d with dqtilde
         lm->UpdateQ(lm->q,lm->q,1); // adds dqtilde (in res_d) to q XX is this dt or 1?
