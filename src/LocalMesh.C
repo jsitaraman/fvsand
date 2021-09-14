@@ -309,7 +309,7 @@ void LocalMesh::Residual_face(double *qv)
 
 }
 
-void LocalMesh::Jacobi(double *q, double dt, int nsweep)
+void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 {
 
 
@@ -325,7 +325,6 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep)
 			 dq_d, 0.0, (ncells+nhalo)*nfields_d);
 
   //compute and store Jacobians;
-  int istoreJac = 1; 
   if(istoreJac){
 	    FVSAND_GPU_LAUNCH_FUNC(fillJacobians,n_blocks,block_size,0,0,
    				   q, normals_d, volume_d,

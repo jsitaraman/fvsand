@@ -107,7 +107,7 @@ class LocalMesh
   void Residual(double * qv, int);
   void Residual_cell(double *qv);
   void Residual_face(double *qv);
-  void Jacobi(double *qv, double, int);
+  void Jacobi(double *qv, double, int, int);
   void Update(double *qdest, double *qsrc, double fscal);
   void UpdateQ(double *qdest, double *qsrc, double fscal);
   void UpdateFringes(double *, double *);
