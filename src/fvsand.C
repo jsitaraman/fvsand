@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
   std::vector<double> flovar = { 1.0, 0.2, 0.0, 0.0, 1./1.4};
   lm->InitSolution(flovar.data(),nfields);
 
-  int nsteps=100;
+  int nsteps=20;
   int nsave=1;
   double dt=0.05;
   int nsweep = 5; // Jacobi Sweeps

@@ -263,18 +263,78 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
   } // loop over cells 
 }
 
-
 FVSAND_GPU_GLOBAL
 void fillJacobians(double *q, double *normals,double *volume,
-		  double *rmatall, double *lmatall, double* Dall,
+		  double *rmatall, double* Dall,
 		 double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
 		 int* facetype, double dt)
 {
+  int scale=(istor==0)?nfields:1;
+  int stride=(istor==0)?1:ncells;
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+  for(int idx=0;idx<ncells;idx++)
+#endif
+  {
+	double lmat[25], rmat[25];
+	int index1;
+	for(int n = 0; n<nfields; n++) {
+                for(int m = 0; m<nfields; m++) {
+                        index1 = 25*idx + n*nfields + m;
+                        if(n==m){
+                                Dall[index1] = 1.0/dt;
+                        }
+                        else{
+                                Dall[index1] = 0.0;
+                        }
+                }
+        }
+        // Loop over neighbors
+        for(int f=nccft[idx];f<nccft[idx+1];f++)
+        {
+                double *norm=normals+18*idx+3*(f-nccft[idx]);
+                int idxn=cell2cell[f];
+                double ql[5],qr[5];
+                for(int n=0;n<nfields;n++) {
+                        ql[n]=q[scale*idx+n*stride];
+                }
+                if (idxn > -1) {
+                        for(int n=0;n<nfields;n++) qr[n]=q[scale*idxn+n*stride];
+                }
+                if (idxn == -3) {
+                        for(int n=0;n<nfields;n++) qr[n]=flovar[n];
+                }
+
+                //Compute Jacobians 
+                computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
+                                qr[0], qr[1],  qr[2],  qr[3],  qr[4],
+                                norm[0], norm[1], norm [2],
+                                idxn, lmat, rmat);
+
+                for(int n = 0; n<nfields; n++){
+                        for(int m = 0; m<nfields; m++){
+                                index1 = n*nfields + m;
+                                lmat[index1] /= volume[idx];
+                                rmat[index1] /= volume[idx];
+                        }
+                }
+
+		//Fill storage matrices for lmat and rmat
+                for(int n = 0; n<nfields; n++){
+                        for(int m = 0; m<nfields; m++){
+				rmatall[f*25+n*nfields+m] = rmat[n*nfields+m];
+                                Dall[25*idx+n*nfields+m] = Dall[25*idx+n*nfields+m] + lmat[n*nfields+m];
+			}
+		}
+      	}
+  }
 }
 
 FVSAND_GPU_GLOBAL
 void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *normals,double *volume,
-		  double *rmatall, double *lmatall, double* Dall,
+		  double *rmatall, double* Dall,
 		 double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
 		 int* facetype, double dt)
 {
@@ -289,7 +349,7 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *
   {
 	double dqtemp[5],dqn[5];
  	double B[5], Btmp[5];
-	double rmat[25], lmat[25], D[25];
+	double rmat[25], D[25];
 	int index1; 
 
 	for(int n = 0; n<nfields; n++) {
@@ -303,8 +363,8 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *
           	int idxn=cell2cell[f];
 	        for(int n = 0; n<nfields; n++){
 		        for(int m = 0; m<nfields; m++){
-				lmat[n*nfields+m] = lmatall[XXX];
-				rmat[n*nfields+m] = rmatall[XXX]; 
+				index1 = n*nfields+m;
+				rmat[index1] = rmatall[25*f+index1]; 
 			}
 		}	
 

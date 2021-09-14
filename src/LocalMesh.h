@@ -70,6 +70,9 @@ class LocalMesh
   double *volume_d;      // cell volume  (device)
   double *res_d;         // residual (host and device)
 
+  // jacobian quantities
+  double *rmatall_d, *Dall_d; 
+
   // face quantities
   int *cell2face_d;
   int *facetype_d;
