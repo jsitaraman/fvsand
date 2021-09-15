@@ -60,9 +60,9 @@ int main(int argc, char *argv[])
 
   int nsteps=2000;
   int nsave=100;
-  int implicit=0;
-  double dt=0.001;
-  int nsweep = 5; // Jacobi Sweeps
+  int implicit=1;
+  double dt=0.03;
+  int nsweep = 2; // Jacobi Sweeps
   int restype=0;  // restype = 0 (cell-based) 1 (face-based)
   double rk[4]={0.25,8./15,5./12,3./4};
 
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
       }
       if (iter %nsave ==0) {
 	double rnorm=lm->ResNorm();
-	if (myid==0) printf("iter:%d  %lf\n",iter,rnorm);
+	if (myid==0) printf("iter:%d  %e\n",iter,rnorm);
       }
     }
   lm->WriteMesh(myid);  
