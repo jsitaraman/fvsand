@@ -44,6 +44,11 @@ int main(int argc, char *argv[])
   listdev(myid);
 #endif
 
+  //CPU timing
+  clock_t cpu_startTime, cpu_endTime; 
+  double cpu_ElapseTime = 0; 
+  cpu_startTime = clock(); 
+
   char fname[]="data.tri";
   StrandMesh *sm;
   sm=new StrandMesh(fname,0.01,1.1,30);
@@ -62,7 +67,7 @@ int main(int argc, char *argv[])
   int nsave=1;
   double dt=0.05;
   int nsweep = 5; // Jacobi Sweeps
-  int istoreJac = 1; 
+  int istoreJac = 0; 
   int restype=0;  // restype = 0 (cell-based) 1 (face-based)
   double rk[4]={0.25,8./15,5./12,3./4};
 
@@ -89,6 +94,10 @@ int main(int argc, char *argv[])
       }
     }
   lm->WriteMesh(myid);  
+
+  cpu_endTime = clock(); 
+  cpu_ElapseTime = ((cpu_endTime - cpu_startTime)/CLOCKS_PER_SEC);
+  printf("Elapsed Time = %e seconds \n",cpu_ElapseTime); 
   MPI_Finalize();
 }
 
