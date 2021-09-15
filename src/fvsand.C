@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
   lm->WriteMesh(myid);  
 
   cpu_endTime = clock(); 
-  cpu_ElapseTime = ((cpu_endTime - cpu_startTime)/CLOCKS_PER_SEC);
+  cpu_ElapseTime = ((double) (cpu_endTime - cpu_startTime)/CLOCKS_PER_SEC);
   printf("Elapsed Time = %e seconds \n",cpu_ElapseTime); 
   MPI_Finalize();
 }

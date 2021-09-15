@@ -109,6 +109,9 @@ void LocalMesh::CreateGridMetrics()
     nccft_h[i+1]=nccft_h[i]+ncon[i];  
   nccft_d=gpu::push_to_device<int>(nccft_h,sizeof(int)*(ncon.size()+1));  
 
+  Dall_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*25);
+  rmatall_d=gpu::allocate_on_device<double>(sizeof(double)*nccft_h[ncells+nhalo]*25);
+
   // allocate storage for metrics
   center_d=gpu::allocate_on_device<double>(sizeof(double)*3*(ncells+nhalo));
   // allocate larger storage than necessary for normals to avoid
@@ -194,9 +197,6 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  dq_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  dqupdate_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  
- Dall_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields*nfields);
- rmatall_d=gpu::allocate_on_device<double>(sizeof(double)*nccft_d[ncells+nhalo]*nfields*nfields);
-
  flovar_d=gpu::push_to_device<double>(flovar,sizeof(double)*nfields);
  qinf_d=gpu::allocate_on_device<double>(sizeof(double)*nfields);
  
