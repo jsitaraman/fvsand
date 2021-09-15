@@ -5,7 +5,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.8)
 option(FVSAND_ENABLE_CUDA "Enable CUDA support (default: off)" ON)
 
 # CUDA specific options
-set(FVSAND_CUDA_SM "70" CACHE STRING "CUDA arch option")
+set(FVSAND_CUDA_SM "60" CACHE STRING "CUDA arch option")
 #set(FVSAND_HIP_ARCH "gfx906,gfx908" CACHE STRING "HIP arch option")
 
 #SET(CMAKE_C_FLAGS "-fPIC -g -rdynamic")
@@ -45,6 +45,7 @@ target_sources(fvsand.exe PRIVATE
   StrandMesh.C
   LocalMesh.C
   utils.c
+  timer.C
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR} /usr/local/include/)
