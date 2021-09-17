@@ -44,62 +44,66 @@ class LocalMesh
   // communication maps
   std::map< int, std::vector<int>> sndmap; // map of send data (procid, local id of owned cells)
   std::map <int, std::vector<int>> rcvmap; // map of recv data (procid, localid of ghost cells)
-  
-  std::unordered_map< int, double* > sndPacket;
-  std::unordered_map< int, double* > rcvPacket;
-
   std::vector<int> device2host;            // indices that needs to be pushed to host   (interior)
   std::vector<int> host2device;            // indices that needs to be pushed to device (ghost)
 
-  int *device2host_d;                      // same data on the gpu
-  int *host2device_d;                      //
-  double *qbuf;                           // storage space on host to push and pull from device
-  double *qbuf_d;                         // storage space on device
+  int *device2host_d{nullptr};               // same data on the gpu
+  int *host2device_d{nullptr};               //
+  double *qbuf{nullptr};                     // storage space on host to push and pull from device
+  double *qbuf2{nullptr};                    // storage space on host to push and pull from device
+  double *qbuf_d{nullptr};                   // storage space on device
+  double *qbuf_d2{nullptr};                  // storage space on device
   //
   // solver data
   //
-  int nfields_d;                    // number of fields
-  double *x_d;                      // vertex coordinates
-  double *flovar_d,*qinf_d;         // flow variables (primitive and conservative)  
+  int nfields_d;                          // number of fields
+  double *x_d{nullptr};                      // vertex coordinates
+  double *flovar_d{nullptr},*qinf_d{nullptr};   // flow variables (primitive and conservative)  
   
-  int *cell2node_d;                 // cell to node connectivity on device
-  int *nvcft_d;                     // cell to node cumulative frequency table
-  int *nccft_h;                     // cell to cell cumulative frequency table (host)
-  int *nccft_d;                     // cell to cell cumulative frequency table (device)
-  int *ncon_d;                      // number of connections per cell in cell to cell (device)
-  int *cell2cell_d;                 // cell to cell connectivity graph
+  int *cell2node_d{nullptr};           // cell to node connectivity on device
+  int *nvcft_d{nullptr};               // cell to node cumulative frequency table
+  int *nccft_h{nullptr};               // cell to cell cumulative frequency table (host)
+  int *nccft_d{nullptr};               // cell to cell cumulative frequency table (device)
+  int *ncon_d{nullptr};                // number of connections per cell in cell to cell (device)
+  int *cell2cell_d{nullptr};           // cell to cell connectivity graph
 
-  double *center_d;      // cell center  (device)
-  double *normals_d;     // cell normals (device)
-  double *volume_d;      // cell volume  (device)
-  double *res_d;         // residual (host and device)
+  double *center_d{nullptr};      // cell center  (device)
+  double *normals_d{nullptr};     // cell normals (device)
+  double *volume_d{nullptr};      // cell volume  (device)
+  double *res_d{nullptr};         // residual (host and device)
 
   // jacobian quantities
-  double *rmatall_d, *Dall_d; 
+  double *rmatall_d{nullptr}, *Dall_d{nullptr}; 
 
   // face quantities
-  int *cell2face_d;
-  int *facetype_d;
-  double *facenorm_d;
-  double *faceq_d;
-  double *faceflux_d;
+  int *cell2face_d{nullptr};
+  int *facetype_d{nullptr};
+  double *facenorm_d{nullptr};
+  double *faceq_d{nullptr};
+  double *faceflux_d{nullptr};
 
   // gradient weights
-  double *lsqwts;      // least square weights
+  double *lsqwts{nullptr};      // least square weights
 
   // host/device data
   int nthreads,n_blocks;
-  int block_size{1024};  
+  int block_size{128};  
   int istor{0};
+
+  MPI_Request *ireq{nullptr};
+  MPI_Status *istatus{nullptr};
   
  public:
 
   // solution fields at n+1,n & n-1
-  double *qh; // scratch storage space on host
-  double *q,*qn,*qnn;
-  double *dq_d, *dqupdate_d; 	// update on device 
+  double *qh{nullptr}; // scratch storage space on host
+  double *q{nullptr};
+  double *qn{nullptr};
+  double *qnn{nullptr};
+  double *dq_d{nullptr};
+  double *dqupdate_d{nullptr}; 	// update on device 
   
-  LocalMesh() = delete; 
+  LocalMesh() {}; 
   ~LocalMesh();
   LocalMesh(GlobalMesh *g,
 	    int myid,
@@ -115,6 +119,7 @@ class LocalMesh
   void Update(double *qdest, double *qsrc, double fscal);
   void UpdateQ(double *qdest, double *qsrc, double fscal);
   void UpdateFringes(double *, double *);
+  void UpdateFringes(double *);
   double ResNorm(void);
 };
   

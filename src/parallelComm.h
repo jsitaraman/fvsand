@@ -1,9 +1,6 @@
-#include <algorithm>
-#include <cassert>
-#include <map>
-#include <unordered_map>
-#include <vector>
-
+#include<vector>
+#include<map>
+#include<algorithm>
 #include "mpi.h"
 
 namespace FVSAND {
@@ -203,102 +200,114 @@ namespace FVSAND {
 			    int nfields,
 			    int ndof,
 			    int istor,
-			    const std::map <int, std::vector<int>> &sndmap,
-			    const std::map <int, std::vector<int>> &rcvmap,
-					std::unordered_map<int, double* >& sndPacket,
-      		std::unordered_map<int, double* >& rcvPacket,
+			    std::map <int, std::vector<int>> sndmap,
+			    std::map <int, std::vector<int>> rcvmap,
 			    MPI_Comm comm)
     {
-			const std::size_t num_requests = sndmap.size() + rcvmap.size();
-      MPI_Request *ireq=new MPI_Request [ num_requests ];
-      MPI_Status *istatus=new MPI_Status [ num_requests ];
+      std::map<int, std::vector<double>> sndPacket;
+      std::map<int, std::vector<double>> rcvPacket;
+      MPI_Request *ireq=new MPI_Request [sndmap.size()+rcvmap.size()];
+      MPI_Status *istatus=new MPI_Status [sndmap.size()+rcvmap.size()];
       int myid;
       int ierr=MPI_Comm_rank(comm,&myid);
       int scale=(istor==0)?nfields:1;
       int stride=(istor==0)?1:ndof;
 
       int k=0;
+      for(auto s : sndmap)
+	{
+	  sndPacket[s.first]=std::vector<double>(s.second.size()*nfields);
+	  int m=0;
+	  for(auto v : s.second)
+           {
+	    for(int i=0;i<nfields;i++)
+	      sndPacket[s.first][m++]=q[v*scale+i*stride];
+	   }
+	  MPI_Isend(sndPacket[s.first].data(),
+		    sndPacket[s.first].size(), MPI_DOUBLE,
+		    s.first, 0, comm, &ireq[k++]);
+	}
 
-			// post receives
-			for(const auto& r : rcvmap)
-			{
-				const int fromRank = r.first;
-				const int size     = r.second.size()*nfields;
-				double* rbuffer		 = nullptr;
-				if ( rcvPacket.find( fromRank ) == rcvPacket.end() )
-				{
-					rcvPacket[ fromRank ] = new double[ size ];
-					rbuffer = rcvPacket[ fromRank ];
-				}
-				else
-				{
-					rbuffer = rcvPacket[ fromRank ];
-				}
+      for(auto r : rcvmap)
+	{
+	  rcvPacket[r.first]=std::vector<double>(r.second.size()*nfields,0);
+	  MPI_Irecv(rcvPacket[r.first].data(),
+		    rcvPacket[r.first].size(), MPI_DOUBLE,
+		    r.first,0,comm,&ireq[k++]);
+	}
 
-				assert( rbuffer != nullptr );
-				MPI_Irecv( rbuffer, size, MPI_DOUBLE, fromRank, 0, comm, &ireq[k++] );
-			}
-
-			// post sends
-      for(const auto& s : sndmap)
-			{
-				const int toRank = s.first;
-				const int size   = s.second.size() * nfields;
-				double* sbuffer  = nullptr;
-				
-				if ( sndPacket.find(toRank) == sndPacket.end() )
-				{
-					sndPacket[ toRank ]=new double[ size ];
-					sbuffer = sndPacket[ toRank ];
-				}
-				else
-				{
-					sbuffer = sndPacket[ toRank ];
-				}
-				
-				assert( sbuffer != nullptr );
-				int m=0;
-				for(auto v : s.second)
-				{
-					for(int i=0;i<nfields;i++)
-						sbuffer[m++]=q[v*scale+i*stride];
-				}
-
-				MPI_Isend( sbuffer, size, MPI_DOUBLE, toRank, 0, comm, &ireq[k++] );
-			}
-
-      MPI_Waitall( num_requests ,ireq, istatus);
+      MPI_Waitall(sndmap.size()+rcvmap.size(),ireq,istatus);
 
       double qnorm=0.0;
       //FILE *fp;
       //char fname[20];
       //sprintf(fname,"recv%d.dat",myid);
       //fp=fopen(fname,"w");
-      for(const auto& r : rcvmap)
-			{
-				int m=0;
-				const auto& rcvdata=rcvPacket[r.first];
-				const auto& rcvlist=r.second;
-				for(int k=0;k<rcvlist.size();k++)
-				{
-					int v=rcvlist[k];
-					//fprintf(fp,"%d ",v);
-					for(int i=0;i<nfields;i++)
-					{
-						double qv=rcvdata[m++];
-						qnorm+=abs(qv-q[v*scale+i*stride]);
-						//fprintf(fp,"%f ",q[v*scale+i*stride]);
-						q[v*scale+i*stride]=qv;
-					}
-							//fprintf(fp,"\n");
-				}
-
-			}
-
+      for(auto r : rcvmap)
+	{
+	  int m=0;
+	  auto rcvdata=rcvPacket[r.first];
+	  auto rcvlist=r.second;
+	  for(int k=0;k<rcvlist.size();k++)
+	    {
+	      int v=rcvlist[k];
+	      //fprintf(fp,"%d ",v);
+	      for(int i=0;i<nfields;i++)
+		{
+		  double qv=rcvdata[m++];
+		  qnorm+=abs(qv-q[v*scale+i*stride]);
+		  //fprintf(fp,"%f ",q[v*scale+i*stride]);
+		  q[v*scale+i*stride]=qv;
+		}
+	      //fprintf(fp,"\n");
+	    }
+	}
       //fclose(fp);
       //printf("qnorm=%lf\n",qnorm);
       delete [] ireq;
       delete [] istatus;
     }
+
+    void postRecvs_direct(double *qbuf, int nfields, 
+			  std::map <int, std::vector<int>> rcvmap,
+			  MPI_Request *ireq,
+			  MPI_Comm comm,
+			  int *k)
+    {
+      int offset=0;
+      int rcount=*k;
+      for(auto r:rcvmap)
+	{
+	  MPI_Irecv(qbuf+offset,
+		    r.second.size()*nfields, MPI_DOUBLE,
+		    r.first,0,comm,&ireq[rcount++]);
+	  offset+=r.second.size()*nfields;
+	}
+      *k=rcount;
+    }
+    
+    
+    void postSends_direct(double *qbuf, int nfields, 
+			  std::map <int, std::vector<int>> sndmap,
+			  MPI_Request *ireq,
+			  MPI_Comm comm,
+			  int *k)
+    {
+      int offset=0;
+      int scount=*k;
+      for(auto s:sndmap)
+	{
+	  MPI_Isend(qbuf+offset,
+		    s.second.size()*nfields, MPI_DOUBLE,
+		    s.first,0,comm,&ireq[scount++]);
+	  offset+=s.second.size()*nfields;
+	}
+      *k=scount;
+    }
+
+    void finish_comm(int nrequests, MPI_Request *ireq, MPI_Status *istatus)
+    {
+      MPI_Waitall(nrequests,ireq,istatus);
+    }
   };
-}
+};

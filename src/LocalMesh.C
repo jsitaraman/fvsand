@@ -5,25 +5,57 @@
 #include "metric_functions.h"
 #include "solver_functions.h"
 #include "NVTXMacros.h"
-
 #include <cstdio>
 
 using namespace FVSAND;
 
 LocalMesh::~LocalMesh()
 {
-  for ( auto& s : sndPacket )
-  {
-    delete [] s.second;
-    s.second = nullptr;
-  }
-
-  for ( auto& r : rcvPacket )
-  {
-    delete [] r.second;
-    r.second = nullptr;
-  }
-  
+  // release memory in the order they are declared
+  // in LocalMesh.h
+  FVSAND_FREE_DEVICE(device2host_d);
+  FVSAND_FREE_DEVICE(host2device_d);
+  //
+  if (qbuf) delete [] qbuf;
+  if (qbuf2) delete [] qbuf2;  
+  FVSAND_FREE_DEVICE(qbuf_d);
+  FVSAND_FREE_DEVICE(qbuf_d2);
+  //
+  FVSAND_FREE_DEVICE(x_d);
+  FVSAND_FREE_DEVICE(flovar_d);
+  FVSAND_FREE_DEVICE(qinf_d);
+  //
+  FVSAND_FREE_DEVICE(cell2node_d);
+  FVSAND_FREE_DEVICE(nvcft_d);
+  if (nccft_h) delete [] nccft_h;
+  FVSAND_FREE_DEVICE(nccft_d);
+  FVSAND_FREE_DEVICE(ncon_d);
+  //
+  FVSAND_FREE_DEVICE(cell2cell_d);
+  FVSAND_FREE_DEVICE(center_d);
+  FVSAND_FREE_DEVICE(normals_d);
+  FVSAND_FREE_DEVICE(volume_d);
+  FVSAND_FREE_DEVICE(res_d);
+  //
+  FVSAND_FREE_DEVICE(rmatall_d);
+  FVSAND_FREE_DEVICE(Dall_d);
+  //
+  FVSAND_FREE_DEVICE(cell2face_d);
+  FVSAND_FREE_DEVICE(facetype_d);
+  FVSAND_FREE_DEVICE(facenorm_d);
+  FVSAND_FREE_DEVICE(faceq_d);
+  FVSAND_FREE_DEVICE(faceflux_d);
+  FVSAND_FREE_DEVICE(lsqwts);
+  //
+  if (ireq) delete [] ireq;
+  if (istatus) delete [] istatus;
+  //
+  if (qh) delete [] qh;
+  FVSAND_FREE_DEVICE(q);
+  FVSAND_FREE_DEVICE(qn);
+  FVSAND_FREE_DEVICE(qnn);
+  FVSAND_FREE_DEVICE(dq_d);
+  FVSAND_FREE_DEVICE(dqupdate_d);  
 }
 
 LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
@@ -252,8 +284,13 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
   int dsize=device2host.size();
   dsize=(dsize < host2device.size())?host2device.size():dsize;
   qbuf=new double [dsize];
+  qbuf2=new double [dsize];
   qbuf_d=gpu::allocate_on_device<double>(sizeof(double)*dsize);
+  qbuf_d2=gpu::allocate_on_device<double>(sizeof(double)*dsize);
 
+  ireq=new MPI_Request [sndmap.size()+rcvmap.size()];
+  istatus=new MPI_Status [sndmap.size()+rcvmap.size()];
+  
   faceq_d=gpu::allocate_on_device<double>(sizeof(double)*nfaces*2*nfields_d);
   faceflux_d=gpu::allocate_on_device<double>(sizeof(double)*nfaces*nfields_d);
  
@@ -275,10 +312,7 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
     qh[device2host[i]]=qbuf[i];
   
   //gpu::pull_from_device<double>(qh,qd,sizeof(double)*nfields_d*(ncells+nhalo));
-  pc.exchangeDataDouble(qh,nfields_d,(ncells+nhalo),istor,
-                        sndmap,rcvmap, sndPacket, rcvPacket,
-                        mycomm);
-
+  pc.exchangeDataDouble(qh,nfields_d,(ncells+nhalo),istor,sndmap,rcvmap,mycomm);
   //gpu::copy_to_device<double>(qd,qh,sizeof(double)*nfields_d*(ncells+nhalo));
   
   for(int i=0;i<host2device.size();i++)
@@ -293,10 +327,39 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
 }
 
 
+void LocalMesh::UpdateFringes(double *qd)
+{
+    nthreads=device2host.size();
+    if(nthreads == 0) return;
+    n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+    FVSAND_GPU_LAUNCH_FUNC(updateHost,n_blocks,block_size,0,0,
+			   qbuf_d,qd,device2host_d,device2host.size());
+
+    
+
+    // separate sends and receives so that we can overlap comm and calculation
+    // in the residual and iteration loops.
+    int reqcount=0;
+    pc.postRecvs_direct(qbuf2,nfields_d,rcvmap,ireq,mycomm,&reqcount);
+    // with cuda-aware this pull is not required
+    // but it doesn't work now
+    gpu::pull_from_device<double>(qbuf,qbuf_d,sizeof(double)*device2host.size());
+    pc.postSends_direct(qbuf,nfields_d,sndmap,ireq,mycomm,&reqcount);
+    pc.finish_comm(reqcount,ireq,istatus);
+    // same as above
+    // not doing cuda-aware now
+    gpu::copy_to_device(qbuf_d2,qbuf2,sizeof(double)*host2device.size());
+    
+    nthreads=host2device.size();
+    n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+    FVSAND_GPU_LAUNCH_FUNC(updateDevice,n_blocks,block_size,0,0,
+			   qd,qbuf_d2,host2device_d,host2device.size());
+}
+    
+
 void LocalMesh::Residual(double *qv,int restype)
 {
   FVSAND_NVTX_FUNCTION("residual");
-
   if (restype==0) {
     Residual_cell(qv);
   } else {
@@ -312,7 +375,8 @@ void LocalMesh::Residual_cell(double *qv)
 			 res_d, qv, center_d, normals_d, volume_d,
 			 qinf_d, cell2cell_d, nccft_d, nfields_d,istor,ncells);
 
-  UpdateFringes(qh,res_d);
+  //UpdateFringes(qh,res_d);
+  UpdateFringes(res_d);
   //parallelComm pc;
   //pc.exchangeDataDouble(qh,nfields_d,(ncells+nhalo),istor,sndmap,rcvmap,mycomm);
 
@@ -335,34 +399,29 @@ void LocalMesh::Residual_face(double *qv)
   FVSAND_GPU_LAUNCH_FUNC(computeResidualFace,n_blocks,block_size,0,0,
 			 res_d,faceflux_d,volume_d,cell2face_d,nccft_d,
 			 nfields_d,istor,ncells);
-  UpdateFringes(qh,res_d);
+  //UpdateFringes(qh,res_d);
+  UpdateFringes(res_d);
 
 }
 
 void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 {
-
-
 /*  FVSAND_GPU_LAUNCH_FUNC(testComputeJ,n_blocks,block_size,0,0,
-		         q,normals_d,flovar_d, cell2cell_d,nccft_d,nfields_d,istor,ncells,facetype_d);
-
-  exit(0);
+    q,normals_d,flovar_d, cell2cell_d,nccft_d,nfields_d,istor,ncells,facetype_d);
+    exit(0);
   */
-
   nthreads=(ncells+nhalo)*nfields_d;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(setValues,n_blocks,block_size,0,0,
 			 dq_d, 0.0, (ncells+nhalo)*nfields_d);
-
   //compute and store Jacobians;
   if(istoreJac){
-	    FVSAND_GPU_LAUNCH_FUNC(fillJacobians,n_blocks,block_size,0,0,
-   				   q, normals_d, volume_d,
-				   rmatall_d, Dall_d,
-				   flovar_d, cell2cell_d,
-				   nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+    FVSAND_GPU_LAUNCH_FUNC(fillJacobians,n_blocks,block_size,0,0,
+			   q, normals_d, volume_d,
+			   rmatall_d, Dall_d,
+			   flovar_d, cell2cell_d,
+			   nccft_d, nfields_d, istor, ncells, facetype_d, dt);
   }
-
   // Jacobi Sweeps
   for(int m = 0; m < nsweep; m++){
     //printf("Sweep %i\n=================\n",m);
@@ -371,17 +430,17 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 
     // compute dqtilde for all cells
     if(istoreJac){
-	    FVSAND_GPU_LAUNCH_FUNC(jacobiSweep2,n_blocks,block_size,0,0,
-   				   q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
-				   rmatall_d, Dall_d,
-				   flovar_d, cell2cell_d,
-				   nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+      FVSAND_GPU_LAUNCH_FUNC(jacobiSweep2,n_blocks,block_size,0,0,
+			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+			     rmatall_d, Dall_d,
+			     flovar_d, cell2cell_d,
+			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
     }
     else{
-	    FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,
-   				   q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
-				   flovar_d, cell2cell_d,
-				   nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+      FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,
+			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+			     flovar_d, cell2cell_d,
+			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
     }
     // update dq = dqtilde for all cells
     nthreads=(ncells+nhalo)*nfields_d;
@@ -390,14 +449,14 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 			   dq_d, dqupdate_d, (ncells+nhalo)*nfields_d);
 
     // Store final dq in res to be used in update routine
-    UpdateFringes(qh,dq_d);
+    UpdateFringes(dq_d);
+    //UpdateFringes(qh,dq_d);
   }
 }
 
 void LocalMesh::Update(double *qdest, double *qsrc, double fscal)
 {
   FVSAND_NVTX_FUNCTION( "update" );
-
   nthreads=(ncells+nhalo)*nfields_d;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(updateFields,n_blocks,block_size,0,0,
@@ -461,7 +520,7 @@ void LocalMesh::WriteMesh(int label)
   for(i=0;i<ncells+nhalo;i++)
     fprintf(fp,"%lf\n",qh[i]);
 
-  gpu::pull_from_device<double>(qh,res_d,sizeof(double)*nfields_d*(ncells+nhalo));
+  gpu::pull_from_device<double>(qh,q,sizeof(double)*nfields_d*(ncells+nhalo));
   for(n=0;n<nfields_d;n++)
     for(i=0;i<ncells+nhalo;i++)
       fprintf(fp,"%lf\n",qh[i*nfields_d+n]);

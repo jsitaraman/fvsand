@@ -25,7 +25,7 @@ namespace gpu {
 #define FVSAND_GPU_CHECK_ERROR(call)  (call)
 #endif
 
-#define FVSAND_FREE_DEVICE(dptr) FVSAND::gpu::deallocate_device(&dptr)
+#define FVSAND_FREE_DEVICE(dptr) { if (dptr) FVSAND::gpu::deallocate_device(&dptr);};
 
 }
 }
