@@ -2,6 +2,11 @@
 #include "mpi.h"
 #include "GlobalMesh.h"
 #include "LocalMesh.h"
+#include "fvsand_gpu.h"
+#include "timer.h"
+#include <typeinfo>
+#include <bitset>
+#include <string>
 using namespace FVSAND;
 
 // -----------------------------------------------------------------------------
@@ -21,12 +26,19 @@ void listdev( int rank )
     for (int dev = 0; dev < dev_cnt; ++dev) {
         err = cudaGetDeviceProperties( &prop, dev );
         assert( err == cudaSuccess );
-        printf( "rank %d, dev %d, prop %s, pci %d, %d, %d\n",
-                rank, dev,
-                prop.name,
-                prop.pciBusID,
-                prop.pciDeviceID,
-                prop.pciDomainID );
+
+        // printf( "rank %d, dev %d, prop %s, pci %d, %d, %d\n",
+        //         rank, dev,
+        //         prop.name,
+        //         prop.pciBusID,
+        //         prop.pciDeviceID,
+        //         prop.pciDomainID );
+
+        // dylan: for NVLINK systems multiple GPUs will appear on the
+        // same PCIe bus. A unique identifier for the GPU is the UUID,
+        // which we can just print the first 8 bytes from.
+        printf( "rank %d, dev %d, prop %s [%X]\n",
+                rank, dev, prop.name, ((unsigned long long*)prop.uuid.bytes)[0]);
     }
 }
 #endif
@@ -37,17 +49,14 @@ int main(int argc, char *argv[])
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD,&myid);
   MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
-
+  
+  Timer stopwatch;
+  
 #if FVSAND_HAS_GPU
-  cudaGetDeviceCount(&numdevices);
-  cudaSetDevice(myid%numdevices);
+  FVSAND_GPU_CHECK_ERROR(cudaGetDeviceCount(&numdevices));
+  FVSAND_GPU_CHECK_ERROR(cudaSetDevice(myid%numdevices));
   listdev(myid);
 #endif
-
-  //CPU timing
-  clock_t cpu_startTime, cpu_endTime; 
-  double cpu_ElapseTime = 0; 
-  cpu_startTime = clock(); 
 
   char fname[]="data.tri";
   StrandMesh *sm;
@@ -66,38 +75,44 @@ int main(int argc, char *argv[])
   int nsteps=2000;
   int nsave=100;
   double dt=0.03;
-  int nsweep = 2; // Jacobi Sweeps (=0 means explict)
-  int istoreJac = 1; 
-  int restype=0;  // restype = 0 (cell-based) 1 (face-based)
+  int nsweep = 2;   // Jacobi Sweeps (=0 means explict)
+  int istoreJac =0; // Jacobian storage or not 
+  int restype=0;    // restype = 0 (cell-based) 1 (face-based)
   double rk[4]={0.25,8./15,5./12,3./4};
+
+  stopwatch.tick();
 
   for(int iter=0;iter<nsteps;iter++)
     {
       if(nsweep){ // implicit 
-        lm->Residual(lm->q,restype); // computes res_d
+        lm->Residual(lm->q,restype);           // computes res_d
 	lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with dqtilde
-        lm->UpdateQ(lm->q,lm->q,1); // adds dqtilde (in res_d) to q XX is this dt or 1?
-      } else { // explicit rk solver
-        lm->Residual(lm->q,restype);
-        lm->Update(lm->qn,lm->q,rk[1]*dt);
-        lm->Update(lm->q,lm->q,rk[0]*dt);
-
-        lm->Residual(lm->qn,restype);
-        lm->Update(lm->qn,lm->q,rk[2]*dt);
-
-        lm->Residual(lm->qn,restype);
-        lm->Update(lm->q,lm->q,rk[3]*dt);  
+        lm->UpdateQ(lm->q,lm->q,1);            // adds dqtilde (in res_d) to q XX is this dt or 1?
+      } else {
+	lm->Residual(lm->q,restype);
+	lm->Update(lm->qn,lm->q,rk[1]*dt);
+	lm->Update(lm->q,lm->q,rk[0]*dt);
+	
+	lm->Residual(lm->qn,restype);
+	lm->Update(lm->qn,lm->q,rk[2]*dt);
+	
+	lm->Residual(lm->qn,restype);
+	lm->Update(lm->q,lm->q,rk[3]*dt);
       }
-      if (iter %nsave ==0) {
+      if ((iter+1)%nsave ==0 || iter==0) {
 	double rnorm=lm->ResNorm();
-	if (myid==0) printf("iter:%d  %e\n",iter,rnorm);
+        if (myid==0) printf("iter:%6d  %16.8e\n",iter+1,rnorm);
       }
     }
+  
+  double elapsed = stopwatch.tock();
+  if (myid == 0) {
+   printf("# ----------------------------------\n");
+   printf("# Elapsed time: %13.4f s\n", elapsed);
+   printf("# ----------------------------------\n");
+  }
   lm->WriteMesh(myid);  
 
-  cpu_endTime = clock(); 
-  cpu_ElapseTime = ((double) (cpu_endTime - cpu_startTime)/CLOCKS_PER_SEC);
-  printf("Elapsed Time = %e seconds \n",cpu_ElapseTime); 
   MPI_Finalize();
 }
 
