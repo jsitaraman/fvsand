@@ -39,6 +39,20 @@ inline const char* gpuGetErrorString(gpuError_t err) { return cudaGetErrorString
 #define FVSAND_GPU_LAUNCH_FUNC(func, blocks, threads, sharedmem, stream, ...) \
     func<<<blocks, threads, sharedmem, stream>>>(__VA_ARGS__);
 
+constexpr int FVSAND_BLOCK_SIZE = 1024;
+#define FVSAND_GPU_KERNEL_LAUNCH(func, N, ... )                               \
+{                                                                             \
+  constexpr int SHARED_MEM  = 0;                                              \
+  constexpr int CUDA_STREAM = 0;                                              \
+  const int n_blocks = ( N + FVSAND_BLOCK_SIZE-1 ) / FVSAND_BLOCK_SIZE ;      \
+  FVSAND_GPU_LAUNCH_FUNC( func                                                \
+                        , n_blocks                                            \
+                        , FVSAND_BLOCK_SIZE                                   \
+                        , SHARED_MEM                                          \
+                        , CUDA_STREAM                                         \
+                        , __VA_ARGS__ );                                      \
+}
+  
 template <typename T>
 inline T* allocate_on_device(const size_t size)
 {
