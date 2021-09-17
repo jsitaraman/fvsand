@@ -174,8 +174,11 @@ void LocalMesh::CreateGridMetrics()
   // compute cell center_ds
   nthreads=(ncells+nhalo)*3;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
+  // TODO (George) why is this not working ?
+  //FVSAND_GPU_KERNEL_LAUNCH(cell_center,((ncells+nhalo)*3),
+  //		           center_d,x_d,nvcft_d,cell2node_d,ncells+nhalo);
   FVSAND_GPU_LAUNCH_FUNC(cell_center,n_blocks,block_size,0,0,
-			 center_d,x_d,nvcft_d,cell2node_d,ncells+nhalo);
+  			 center_d,x_d,nvcft_d,cell2node_d,ncells+nhalo);
 
   // compute cell normals and volume_d
   
@@ -295,7 +298,8 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
   faceflux_d=gpu::allocate_on_device<double>(sizeof(double)*nfaces*nfields_d);
  
 }
-
+// Old inefficient update fringes, just preserved here for
+// posterity
 void LocalMesh::UpdateFringes(double *qh, double *qd)
 {
   
@@ -326,7 +330,8 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
 			 qd,qbuf_d,host2device_d,host2device.size());
 }
 
-
+// New update with persistent buffers and minimum copies
+// doesn't work CUDA-Aware -- debug this
 void LocalMesh::UpdateFringes(double *qd)
 {
     nthreads=device2host.size();
@@ -339,9 +344,10 @@ void LocalMesh::UpdateFringes(double *qd)
 
     // separate sends and receives so that we can overlap comm and calculation
     // in the residual and iteration loops.
+    // TODO (george) use qbuf2_d and qbuf_d instead of qbuf2 and qbuf for cuda-aware
     int reqcount=0;
     pc.postRecvs_direct(qbuf2,nfields_d,rcvmap,ireq,mycomm,&reqcount);
-    // with cuda-aware this pull is not required
+    // TODO (george) with cuda-aware this pull is not required
     // but it doesn't work now
     gpu::pull_from_device<double>(qbuf,qbuf_d,sizeof(double)*device2host.size());
     pc.postSends_direct(qbuf,nfields_d,sndmap,ireq,mycomm,&reqcount);
@@ -375,10 +381,7 @@ void LocalMesh::Residual_cell(double *qv)
 			 res_d, qv, center_d, normals_d, volume_d,
 			 qinf_d, cell2cell_d, nccft_d, nfields_d,istor,ncells);
 
-  //UpdateFringes(qh,res_d);
   UpdateFringes(res_d);
-  //parallelComm pc;
-  //pc.exchangeDataDouble(qh,nfields_d,(ncells+nhalo),istor,sndmap,rcvmap,mycomm);
 
 }
 
@@ -399,7 +402,6 @@ void LocalMesh::Residual_face(double *qv)
   FVSAND_GPU_LAUNCH_FUNC(computeResidualFace,n_blocks,block_size,0,0,
 			 res_d,faceflux_d,volume_d,cell2face_d,nccft_d,
 			 nfields_d,istor,ncells);
-  //UpdateFringes(qh,res_d);
   UpdateFringes(res_d);
 
 }
@@ -410,6 +412,7 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
     q,normals_d,flovar_d, cell2cell_d,nccft_d,nfields_d,istor,ncells,facetype_d);
     exit(0);
   */
+  FVSAND_NVTX_FUNCTION("Jacobi");
   nthreads=(ncells+nhalo)*nfields_d;
   n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
   FVSAND_GPU_LAUNCH_FUNC(setValues,n_blocks,block_size,0,0,
@@ -450,7 +453,6 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 
     // Store final dq in res to be used in update routine
     UpdateFringes(dq_d);
-    //UpdateFringes(qh,dq_d);
   }
 }
 
