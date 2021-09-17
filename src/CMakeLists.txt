@@ -2,6 +2,19 @@ PROJECT(fvsand)
 ENABLE_LANGUAGE(Fortran C CXX)
 CMAKE_MINIMUM_REQUIRED(VERSION 3.8)
 
+# If CMAKE_BUILD_TYPE is not specified, default to "Debug"
+if( NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES )
+  
+  message( STATUS "Setting build type to [Debug]" )
+  set( CMAKE_BUILD_TYPE "Debug" CACHE STRING 
+       "Choose the type of build." FORCE )
+
+  # Set the possible values of build type for cmake-gui
+  set_property( CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS 
+                "Debug" "Release" "MinSizeRel" "RelWithDebInfo" )
+
+endif()
+
 option(FVSAND_ENABLE_CUDA "Enable CUDA support (default: off)" ON)
 
 # CUDA specific options
@@ -46,6 +59,7 @@ target_sources(fvsand.exe PRIVATE
   LocalMesh.C
   utils.c
   timer.C
+  Range.C
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR} /usr/local/include/)
@@ -62,6 +76,10 @@ if (FVSAND_ENABLE_CUDA)
   get_target_property(FVSANDLIB_CPP_SRC fvsand.exe SOURCES)
   list(FILTER FVSANDLIB_CPP_SRC INCLUDE REGEX "\\.C")
   set_source_files_properties(${FVSANDLIB_CPP_SRC} PROPERTIES LANGUAGE CUDA)
+
+  find_package(CUDAToolkit)
+  target_link_libraries(fvsand.exe CUDA::nvToolsExt)
+  
 endif()
 
 TARGET_LINK_LIBRARIES(fvsand.exe m gfortran ${MPI_LIBRARIES} )

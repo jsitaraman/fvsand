@@ -7,6 +7,8 @@
 #include <typeinfo>
 #include <bitset>
 #include <string>
+#include "NVTXMacros.h"
+#include <sstream> // for std::ostringstream
 using namespace FVSAND;
 
 // -----------------------------------------------------------------------------
@@ -45,7 +47,7 @@ void listdev( int rank )
 
 int main(int argc, char *argv[])
 {
-  int myid,numprocs,numdevices;
+  int myid, mydeviceid, numprocs,numdevices;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD,&myid);
   MPI_Comm_size(MPI_COMM_WORLD,&numprocs);
@@ -54,8 +56,10 @@ int main(int argc, char *argv[])
   
 #if FVSAND_HAS_GPU
   FVSAND_GPU_CHECK_ERROR(cudaGetDeviceCount(&numdevices));
-  FVSAND_GPU_CHECK_ERROR(cudaSetDevice(myid%numdevices));
+  mydeviceid = myid % numdevices;
+  FVSAND_GPU_CHECK_ERROR(cudaSetDevice(mydeviceid));
   listdev(myid);
+  //printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid);
 #endif
 
   char fname[]="data.tri";
@@ -84,25 +88,33 @@ int main(int argc, char *argv[])
 
   for(int iter=0;iter<nsteps;iter++)
     {
+      std::ostringstream timestep_name;
+      timestep_name << "TimeStep-" << iter;
       if(nsweep){ // implicit 
-        lm->Residual(lm->q,restype);           // computes res_d
-	lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with dqtilde
-        lm->UpdateQ(lm->q,lm->q,1);            // adds dqtilde (in res_d) to q XX is this dt or 1?
-      } else {
-	lm->Residual(lm->q,restype);
-	lm->Update(lm->qn,lm->q,rk[1]*dt);
-	lm->Update(lm->q,lm->q,rk[0]*dt);
-	
-	lm->Residual(lm->qn,restype);
-	lm->Update(lm->qn,lm->q,rk[2]*dt);
-	
-	lm->Residual(lm->qn,restype);
-	lm->Update(lm->q,lm->q,rk[3]*dt);
-      }
-      if ((iter+1)%nsave ==0 || iter==0) {
+	//FVSAND_NVTX_SECTION(timestep_name.str(),
+         lm->Residual(lm->q,restype);           // computes res_d
+   	 lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with dqtilde
+         lm->UpdateQ(lm->q,lm->q,1);            // adds dqtilde (in res_d) to q XX is this dt or 1?
+//	);
+      }else {
+      FVSAND_NVTX_SECTION( timestep_name.str(), 
+        lm->Residual(lm->q,restype);
+        lm->Update(lm->qn,lm->q,rk[1]*dt);
+        lm->Update(lm->q,lm->q,rk[0]*dt);
+
+        lm->Residual(lm->qn,restype);
+        lm->Update(lm->qn,lm->q,rk[2]*dt);
+
+        lm->Residual(lm->qn,restype);      
+        lm->Update(lm->q,lm->q,rk[3]*dt);
+      );
+     }
+
+     if ((iter+1)%nsave ==0 || iter==0) {
 	double rnorm=lm->ResNorm();
         if (myid==0) printf("iter:%6d  %16.8e\n",iter+1,rnorm);
       }
+
     }
   
   double elapsed = stopwatch.tock();
@@ -111,6 +123,7 @@ int main(int argc, char *argv[])
    printf("# Elapsed time: %13.4f s\n", elapsed);
    printf("# ----------------------------------\n");
   }
+
   lm->WriteMesh(myid);  
 
   MPI_Finalize();
