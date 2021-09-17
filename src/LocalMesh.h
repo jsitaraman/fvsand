@@ -70,6 +70,9 @@ class LocalMesh
   double *volume_d;      // cell volume  (device)
   double *res_d;         // residual (host and device)
 
+  // jacobian quantities
+  double *rmatall_d, *Dall_d; 
+
   // face quantities
   int *cell2face_d;
   int *facetype_d;
@@ -104,7 +107,7 @@ class LocalMesh
   void Residual(double * qv, int);
   void Residual_cell(double *qv);
   void Residual_face(double *qv);
-  void Jacobi(double *qv, double, int);
+  void Jacobi(double *qv, double, int, int);
   void Update(double *qdest, double *qsrc, double fscal);
   void UpdateQ(double *qdest, double *qsrc, double fscal);
   void UpdateFringes(double *, double *);

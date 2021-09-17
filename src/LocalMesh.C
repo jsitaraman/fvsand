@@ -109,6 +109,9 @@ void LocalMesh::CreateGridMetrics()
     nccft_h[i+1]=nccft_h[i]+ncon[i];  
   nccft_d=gpu::push_to_device<int>(nccft_h,sizeof(int)*(ncon.size()+1));  
 
+  Dall_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*25);
+  rmatall_d=gpu::allocate_on_device<double>(sizeof(double)*nccft_h[ncells+nhalo]*25);
+
   // allocate storage for metrics
   center_d=gpu::allocate_on_device<double>(sizeof(double)*3*(ncells+nhalo));
   // allocate larger storage than necessary for normals to avoid
@@ -306,7 +309,7 @@ void LocalMesh::Residual_face(double *qv)
 
 }
 
-void LocalMesh::Jacobi(double *q, double dt, int nsweep)
+void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 {
 
 
@@ -321,28 +324,44 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep)
   FVSAND_GPU_LAUNCH_FUNC(setValues,n_blocks,block_size,0,0,
 			 dq_d, 0.0, (ncells+nhalo)*nfields_d);
 
+  //compute and store Jacobians;
+  if(istoreJac){
+	    FVSAND_GPU_LAUNCH_FUNC(fillJacobians,n_blocks,block_size,0,0,
+   				   q, normals_d, volume_d,
+				   rmatall_d, Dall_d,
+				   flovar_d, cell2cell_d,
+				   nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+  }
+
+  // Jacobi Sweeps
   for(int m = 0; m < nsweep; m++){
     //printf("Sweep %i\n=================\n",m);
     nthreads=ncells+nhalo;
     n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-    // compute dqtilde for all cells
-    FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,
-   			   q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
-			   flovar_d, cell2cell_d,
-			   nccft_d, nfields_d, istor, ncells, facetype_d, dt, m);
 
+    // compute dqtilde for all cells
+    if(istoreJac){
+	    FVSAND_GPU_LAUNCH_FUNC(jacobiSweep2,n_blocks,block_size,0,0,
+   				   q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+				   rmatall_d, Dall_d,
+				   flovar_d, cell2cell_d,
+				   nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+    }
+    else{
+	    FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,
+   				   q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+				   flovar_d, cell2cell_d,
+				   nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+    }
     // update dq = dqtilde for all cells
-    //memcpy(dq_d,dqupdate_d,sizeof(double)*(ncells+nhalo)*nfields_d);
     nthreads=(ncells+nhalo)*nfields_d;
     n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
     FVSAND_GPU_LAUNCH_FUNC(copyValues,n_blocks,block_size,0,0,
 			   dq_d, dqupdate_d, (ncells+nhalo)*nfields_d);
 
+    // Store final dq in res to be used in update routine
     UpdateFringes(qh,dq_d);
   }
-	
-  // // Store final dq in res to be used in update routine
-  //  memcpy(res_d,dq_d, sizeof(double)*(ncells+nhalo)*nfields_d);
 }
 
 void LocalMesh::Update(double *qdest, double *qsrc, double fscal)

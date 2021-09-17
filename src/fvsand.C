@@ -44,6 +44,11 @@ int main(int argc, char *argv[])
   listdev(myid);
 #endif
 
+  //CPU timing
+  clock_t cpu_startTime, cpu_endTime; 
+  double cpu_ElapseTime = 0; 
+  cpu_startTime = clock(); 
+
   char fname[]="data.tri";
   StrandMesh *sm;
   sm=new StrandMesh(fname,0.01,1.1,30);
@@ -60,17 +65,17 @@ int main(int argc, char *argv[])
 
   int nsteps=2000;
   int nsave=100;
-  int implicit=1;
   double dt=0.03;
-  int nsweep = 2; // Jacobi Sweeps
+  int nsweep = 2; // Jacobi Sweeps (=0 means explict)
+  int istoreJac = 1; 
   int restype=0;  // restype = 0 (cell-based) 1 (face-based)
   double rk[4]={0.25,8./15,5./12,3./4};
 
   for(int iter=0;iter<nsteps;iter++)
     {
-      if( implicit ){ // implicit 
+      if(nsweep){ // implicit 
         lm->Residual(lm->q,restype); // computes res_d
-	lm->Jacobi(lm->q,dt,nsweep); // runs sweeps and replaces res_d with dqtilde
+	lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with dqtilde
         lm->UpdateQ(lm->q,lm->q,1); // adds dqtilde (in res_d) to q XX is this dt or 1?
       } else { // explicit rk solver
         lm->Residual(lm->q,restype);
@@ -89,6 +94,10 @@ int main(int argc, char *argv[])
       }
     }
   lm->WriteMesh(myid);  
+
+  cpu_endTime = clock(); 
+  cpu_ElapseTime = ((double) (cpu_endTime - cpu_startTime)/CLOCKS_PER_SEC);
+  printf("Elapsed Time = %e seconds \n",cpu_ElapseTime); 
   MPI_Finalize();
 }
 
