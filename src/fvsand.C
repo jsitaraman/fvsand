@@ -62,6 +62,13 @@ int main(int argc, char *argv[])
   //printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid);
 #endif
 
+  char fnamecart[]="cart.dat";
+  CartesianMesh *cm;
+  cm= new CartesianMesh(fnamecart);
+  cm->WriteMesh(myid);
+  MPI_Finalize();
+  exit(0);
+
   char fname[]="data.tri";
   StrandMesh *sm;
   sm=new StrandMesh(fname,0.01,1.1,30);

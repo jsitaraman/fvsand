@@ -25,9 +25,9 @@ set(FVSAND_CUDA_SM "60" CACHE STRING "CUDA arch option")
 #SET(CMAKE_CXX_FLAGS "-fPIC -g -rdynamic -O0")
 #SET(CMAKE_Fortran_FLAGS "-fbounds-check -fbacktrace -g")
 
-SET(CMAKE_C_FLAGS "-fPIC -rdynamic -O2")
-SET(CMAKE_CXX_FLAGS "-fPIC -rdynamic -O2")
-SET(CMAKE_Fortran_FLAGS "-O2")
+SET(CMAKE_C_FLAGS "-g -fPIC -rdynamic ")
+SET(CMAKE_CXX_FLAGS "-g -fPIC -rdynamic ")
+SET(CMAKE_Fortran_FLAGS "-g -fdefault-real-8")
 
 if (FVSAND_ENABLE_CUDA)
   enable_language(CUDA)
@@ -52,10 +52,11 @@ target_sources(fvsand.exe PRIVATE
   # Fortran sources
   boundaryface_interface.f90
   partSphere.f90
-
+  clust.f
   # CXX sources
   fvsand.C
   StrandMesh.C
+  CartesianMesh.C
   LocalMesh.C
   utils.c
   timer.C
