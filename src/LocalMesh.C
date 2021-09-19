@@ -172,26 +172,18 @@ void LocalMesh::CreateGridMetrics()
   volume_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo));
   
   // compute cell center_ds
-  nthreads=(ncells+nhalo)*3;
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  // TODO (George) why is this not working ?
-  //FVSAND_GPU_KERNEL_LAUNCH(cell_center,((ncells+nhalo)*3),
-  //		           center_d,x_d,nvcft_d,cell2node_d,ncells+nhalo);
-  FVSAND_GPU_LAUNCH_FUNC(cell_center,n_blocks,block_size,0,0,
-  			 center_d,x_d,nvcft_d,cell2node_d,ncells+nhalo);
+
+  const int N = ncells + nhalo;
+  FVSAND_GPU_KERNEL_LAUNCH( cell_center, N, center_d, x_d, nvcft_d, 
+                            cell2node_d, N );
 
   // compute cell normals and volume_d
-  
-  nthreads=ncells+nhalo;
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  FVSAND_GPU_LAUNCH_FUNC(cell_normals_volume,n_blocks,block_size,0,0,
-  			 normals_d,volume_d,x_d,ncon_d,cell2node_d,nvcft_d,ncells+nhalo);
+  FVSAND_GPU_KERNEL_LAUNCH( cell_normals_volume, N, normals_d, volume_d, x_d, 
+                            ncon_d, cell2node_d, nvcft_d, N );
 
   // check conservation
-  nthreads=ncells+nhalo;
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  FVSAND_GPU_LAUNCH_FUNC(check_conservation,n_blocks,block_size,0,0,
-			 normals_d,x_d,nccft_d,cell2cell_d,ncells+nhalo);
+  FVSAND_GPU_KERNEL_LAUNCH( check_conservation, N, normals_d, x_d, nccft_d, 
+                            cell2cell_d, N );
 
   CreateFaces();
 }
