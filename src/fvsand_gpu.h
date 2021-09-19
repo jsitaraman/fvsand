@@ -30,14 +30,12 @@ namespace gpu {
 #define FVSAND_GPU_KERNEL_LAUNCH(func, N, ... )                               \
 {                                                                             \
   constexpr int FVSAND_BLOCK_SIZE = 1024;                                     \
-  constexpr int SHARED_MEM  = 0;                                              \
-  constexpr int CUDA_STREAM = 0;                                              \
-  const int n_blocks = ( N + FVSAND_BLOCK_SIZE-1 ) / FVSAND_BLOCK_SIZE ;      \
+  const int __n_blocks = ( N + FVSAND_BLOCK_SIZE-1 ) / FVSAND_BLOCK_SIZE ;    \
   FVSAND_GPU_LAUNCH_FUNC( func                                                \
-                        , n_blocks                                            \
+                        , __n_blocks                                          \
                         , FVSAND_BLOCK_SIZE                                   \
-                        , SHARED_MEM                                          \
-                        , CUDA_STREAM                                         \
+                        , 0  /* SHARED_MEM */                                 \
+                        , 0  /* CUDA_STREAM */                                \
                         , __VA_ARGS__ );                                      \
 }
 
