@@ -53,6 +53,8 @@ target_sources(fvsand.exe PRIVATE
   boundaryface_interface.f90
   partSphere.f90
   clust.f
+  findfact.f90
+  divide1D.f90
   # CXX sources
   fvsand.C
   StrandMesh.C

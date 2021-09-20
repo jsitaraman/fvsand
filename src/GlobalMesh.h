@@ -71,7 +71,7 @@ class StrandMesh : public GlobalMesh
 class CartesianMesh : public GlobalMesh
 {
   public:
-  CartesianMesh(char *cart_file);
+  CartesianMesh(char *cart_file, int numprocs);
   void WriteMesh(int label);
   void WriteBoundaries(int label);
   void PartitionCartesianMesh(int, int, MPI_Comm);

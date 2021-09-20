@@ -370,7 +370,25 @@ subroutine get_exposed_faces_prizms(ndc6,nprizm)
   deallocate(iflag)
 
 end subroutine get_exposed_faces_prizms
-  
+
+subroutine get_exposed_faces_hexs(ndc8,nhexa)
+  use boundary_interface
+  implicit none
+  integer, intent(in) :: nhexa
+  integer, intent(in) :: ndc8(8*nhexa)
+  integer, allocatable :: ndc4(:,:),ndc5(:,:),ndc6(:,:),iflag(:)
+  integer :: nnode,ntetra,npyra,nprizm
+  nnode=maxval(ndc8)+1
+  allocate(iflag(nnode))
+  iflag=1
+  ntetra=0
+  npyra=0
+  nprizm=0
+  call findnewboundaryface(cell2cell,faceInfo,iflag,ntrifaces,nquadfaces,&
+                           ndc4,ndc5,ndc6,ndc8, &
+                           nnode,ntetra,npyra,nprizm,nhexa)
+  deallocate(iflag)
+end subroutine get_exposed_faces_hexs
   
 subroutine get_face_count(ntriout,nquadout)
   use boundary_interface

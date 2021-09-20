@@ -18,10 +18,10 @@ c
       dimension cntrlpt(*),arclen(*),ds(*),out(*)
       dimension arcdist(ndim)
 c
-      write(6,*) 'ncluster=',ncluster
-      write(6,*) 'cntrlpt=',cntrlpt(1:ncluster)
-      write(6,*) 'arclen=',arclen(1:ncluster)
-      write(6,*) 'ds=',ds(1:ncluster)
+c      write(6,*) 'ncluster=',ncluster
+c      write(6,*) 'cntrlpt=',cntrlpt(1:ncluster)
+c      write(6,*) 'arclen=',arclen(1:ncluster)
+c      write(6,*) 'ds=',ds(1:ncluster)
       do 10 n=1,ncluster-1
          node0 = cntrlpt(n)
          node1 = cntrlpt(n+1)

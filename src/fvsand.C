@@ -64,8 +64,9 @@ int main(int argc, char *argv[])
 
   char fnamecart[]="cart.dat";
   CartesianMesh *cm;
-  cm= new CartesianMesh(fnamecart);
+  cm= new CartesianMesh(fnamecart,numprocs);
   cm->WriteMesh(myid);
+  /*
   MPI_Finalize();
   exit(0);
 
@@ -74,19 +75,19 @@ int main(int argc, char *argv[])
   sm=new StrandMesh(fname,0.01,1.1,30);
   sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);
   //sm->WriteMesh(myid);
-
+  */
   LocalMesh *lm;
-  lm= new LocalMesh(sm,myid,MPI_COMM_WORLD);
+  lm= new LocalMesh(cm,myid,MPI_COMM_WORLD);
   lm->CreateGridMetrics();
 
   int nfields=5;
   std::vector<double> flovar = { 1.0, 0.2, 0.0, 0.0, 1./1.4};
   lm->InitSolution(flovar.data(),nfields);
 
-  int nsteps=2000;
-  int nsave=100;
-  double dt=0.03;
-  int nsweep = 2;   // Jacobi Sweeps (=0 means explict)
+  int nsteps=10;
+  int nsave=1;
+  double dt=0.0001;
+  int nsweep = 0;   // Jacobi Sweeps (=0 means explict)
   int istoreJac =0; // Jacobian storage or not 
   int restype=0;    // restype = 0 (cell-based) 1 (face-based)
   double rk[4]={0.25,8./15,5./12,3./4};
