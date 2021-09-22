@@ -7,8 +7,8 @@ Vx=0.2			       # x-velocity
 Vy=0.0			       # y-velocity					    
 Vz=0.0			       # z-velocity					    
 pressure=0.7142857142857143    # pressure					    
-nsteps=2000		       # number of steps					    
-nsave=100		       # frequency to show residual 			    
+nsteps=100		       # number of steps					    
+nsave=10		       # frequency to show residual 			    
 dt=0.02			       # dt						    
 nsweep=2		       # number of jacobi sweeps (=0 means explicit rk3)	    
 istoreJac=0		       # store jacoabians or not				    
