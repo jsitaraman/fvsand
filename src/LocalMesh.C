@@ -425,10 +425,11 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
     }
     // update dq = dqtilde for all cells
+    
     nthreads=(ncells+nhalo)*nfields_d;
     FVSAND_GPU_KERNEL_LAUNCH(copyValues,nthreads,
 			   dq_d, dqupdate_d, nthreads);
-
+   
     // Store final dq in res to be used in update routine
     UpdateFringes(dq_d);
   }
