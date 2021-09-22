@@ -174,7 +174,7 @@ void LocalMesh::CreateGridMetrics()
   // compute cell center_ds
 
   const int N = ncells + nhalo;
-  FVSAND_GPU_KERNEL_LAUNCH( cell_center, N, center_d, x_d, nvcft_d, 
+  FVSAND_GPU_KERNEL_LAUNCH( cell_center, (N*3), center_d, x_d, nvcft_d, 
                             cell2node_d, N );
 
   // compute cell normals and volume_d
