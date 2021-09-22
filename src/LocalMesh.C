@@ -5,6 +5,7 @@
 #include "metric_functions.h"
 #include "solver_functions.h"
 #include "NVTXMacros.h"
+#include "timer.h"
 #include <cstdio>
 
 using namespace FVSAND;
@@ -60,13 +61,14 @@ LocalMesh::~LocalMesh()
 
 LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
 {
+  Timer stopwatch;
   mycomm=comm;
   int ierr=MPI_Comm_rank(comm,&myid);
   ierr=MPI_Comm_size(comm,&ngroup);
   parallelComm pc;
   
   // create communication patterns and ghost cells
-  
+  stopwatch.tick(); 
   pc.createCommPatterns(myid,
 			g->procmap,
 			g->cell2cell,
@@ -79,8 +81,9 @@ LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
 			local2global,
 			global2local,
 			sndmap,
-			rcvmap,
-			mycomm);
+			rcvmap,mycomm);
+  double elapsed=stopwatch.tock();
+  printf("Comm Patterns time %e\n",elapsed);
   //printf("ncells/nhalo=%d %d\n",ncells,nhalo);
   //
   // mine out the vertices of all the local cells

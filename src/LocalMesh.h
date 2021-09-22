@@ -40,10 +40,10 @@ class LocalMesh
   
   std::vector<int> ncon;        // < number of neighbors per cell
   std::vector<uint64_t> local2global;    // local2global numbering including ghost cells
-  std::map<uint64_t, int > global2local; // global2local map including ghost cells
+  std::unordered_map<uint64_t, int > global2local; // global2local map including ghost cells
   // communication maps
-  std::map< int, std::vector<int>> sndmap; // map of send data (procid, local id of owned cells)
-  std::map <int, std::vector<int>> rcvmap; // map of recv data (procid, localid of ghost cells)
+  std::unordered_map< int, std::vector<int>> sndmap; // map of send data (procid, local id of owned cells)
+  std::unordered_map <int, std::vector<int>> rcvmap; // map of recv data (procid, localid of ghost cells)
   std::vector<int> device2host;            // indices that needs to be pushed to host   (interior)
   std::vector<int> host2device;            // indices that needs to be pushed to device (ghost)
 

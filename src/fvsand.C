@@ -9,6 +9,7 @@
 #include <string>
 #include "NVTXMacros.h"
 #include <sstream> // for std::ostringstream
+#include "inputParser.h"
 using namespace FVSAND;
 
 // -----------------------------------------------------------------------------
@@ -61,28 +62,41 @@ int main(int argc, char *argv[])
   listdev(myid);
   //printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid);
 #endif
-
+  // default parameters
   char fname[]="data.tri";
-  StrandMesh *sm;
-  sm=new StrandMesh(fname,0.01,1.1,30);
-  sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);
-  //sm->WriteMesh(myid);
-
-  LocalMesh *lm;
-  lm= new LocalMesh(sm,myid,MPI_COMM_WORLD);
-  lm->CreateGridMetrics();
-
+  double dsmin=0.01;
+  double stretch=1.1;
+  int nlevels=30;
   int nfields=5;
   std::vector<double> flovar = { 1.0, 0.2, 0.0, 0.0, 1./1.4};
-  lm->InitSolution(flovar.data(),nfields);
-
   int nsteps=2000;
   int nsave=100;
   double dt=0.03;
   int nsweep = 2;   // Jacobi Sweeps (=0 means explict)
   int istoreJac =0; // Jacobian storage or not 
   int restype=0;    // restype = 0 (cell-based) 1 (face-based)
+  printf("inputfile=%s\n",argv[1]);
+  parseInputs(argv[1],fname,&dsmin,&stretch,&nlevels,
+	      flovar,&nsteps,&nsave,&dt,&nsweep,
+	      &istoreJac,&restype);
+  
+  // runge-kutta tableue
   double rk[4]={0.25,8./15,5./12,3./4};
+
+  // create strand mesh
+  StrandMesh *sm;
+  sm=new StrandMesh(fname,dsmin,stretch,nlevels);
+  sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);
+  //sm->WriteMesh(myid);
+
+  // create local mesh partitions
+  // and compute grid metrics
+  LocalMesh *lm;
+  lm= new LocalMesh(sm,myid,MPI_COMM_WORLD);
+  lm->CreateGridMetrics();
+
+  // initialize solution
+  lm->InitSolution(flovar.data(),nfields);
 
   stopwatch.tick();
 

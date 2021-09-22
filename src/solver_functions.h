@@ -349,7 +349,7 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *
   {
 	double dqtemp[5],dqn[5];
  	double B[5], Btmp[5];
-	double rmat[25], D[25];
+	//double rmat[25], D[25];
 	int index1; 
 
 	for(int n = 0; n<nfields; n++) {
@@ -361,12 +361,14 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *
         {
 	        double *norm=normals+18*idx+3*(f-nccft[idx]);
           	int idxn=cell2cell[f];
+		/*
 	        for(int n = 0; n<nfields; n++){
 		        for(int m = 0; m<nfields; m++){
 				index1 = n*nfields+m;
 				rmat[index1] = rmatall[25*f+index1]; 
 			}
-		}	
+		}*/	
+		double *rmat = rmatall + 25*f; 
 
 		//Get neighbor dq and compute O_ij*dq_j
 		for(int n=0; n<5; n++) {
@@ -382,11 +384,13 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *
 	}
 
 	// Compute dqtilde and send back out of kernel
+	/*
 	for(int n=0;n<nfields;n++) { 
 		for(int m=0;m<nfields;m++) {
 			D[n*5+m] = Dall[idx*25+n*5+m];
 		}
-	}
+	}*/
+	double *D = Dall + idx*25;
 	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
 	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = dqtemp[n]; 
   } // loop over cells 
