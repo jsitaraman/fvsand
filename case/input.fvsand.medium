@@ -1,0 +1,15 @@
+meshfile=medium.tri           # mesh file name
+dsmin=0.01                    # surface spacing
+stretch=1.2                   # stretch ratio
+nlevels=50                    # number of levels
+density=1.0                   # density
+Vx=0.2                        # x-velocity
+Vy=0.0                        # y-velocity
+Vz=0.0                        # z-velocity
+pressure=0.7142857142857143   # pressure
+nsteps=2000                   # number of steps
+nsave=100                     # frequency to show residual 
+dt=0.03                       # dt
+nsweep=2                      # number of jacobi sweeps (=0 means explicit rk3)
+istoreJac=0                   # store jacoabians or not
+restype=0                     # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
