@@ -144,6 +144,8 @@ int main(int argc, char *argv[])
   lm->WriteMesh(myid);  
 
   MPI_Finalize();
+
+  return 0;
 }
 
 
