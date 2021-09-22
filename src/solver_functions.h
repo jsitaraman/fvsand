@@ -14,19 +14,19 @@ void init_q(double *q0, double *q, double *dq,  double *center, double *flovar, 
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < ncells) 
 #else
-  for(int idx=0;idx<ncells;idx++)
+    for(int idx=0;idx<ncells;idx++)
 #endif
-    {
-      q0[0]=flovar[0];
-      q0[1]=flovar[0]*flovar[1]; //+(center[3*idx])*0.1;
-      q0[2]=flovar[0]*flovar[2]; //+(center[3*idx+1]+center[3*idx]*center[3*idx]+center[3*idx+2])*0.1;
-      q0[3]=flovar[0]*flovar[3]; //+(center[3*idx+2])*0.1;
-      q0[4]=flovar[4]/GM1 + 0.5*(q0[1]*q0[1]+q0[2]*q0[2]+q0[3]*q0[3])/q0[0];
-      for(int n=0;n<nfields;n++){
-	q[idx*scale+n*stride]=q0[n];
-        dq[idx*scale+n*stride] = 0.0; 
+      {
+	q0[0]=flovar[0];
+	q0[1]=flovar[0]*flovar[1]; //+(center[3*idx])*0.1;
+	q0[2]=flovar[0]*flovar[2]; //+(center[3*idx+1]+center[3*idx]*center[3*idx]+center[3*idx+2])*0.1;
+	q0[3]=flovar[0]*flovar[3]; //+(center[3*idx+2])*0.1;
+	q0[4]=flovar[4]/GM1 + 0.5*(q0[1]*q0[1]+q0[2]*q0[2]+q0[3]*q0[3])/q0[0];
+	for(int n=0;n<nfields;n++){
+	  q[idx*scale+n*stride]=q0[n];
+	  dq[idx*scale+n*stride] = 0.0; 
+	}
       }
-    }
 }
 
 
@@ -40,50 +40,50 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < ncells) 
 #else
-  for(int idx=0;idx<ncells;idx++)
+    for(int idx=0;idx<ncells;idx++)
 #endif
-    {
-      for(int n=0;n<nfields;n++) res[scale*idx+n*stride]=0;
-      for(int f=nccft[idx];f<nccft[idx+1];f++)
-	{
-	  double *norm=normals+18*idx+3*(f-nccft[idx]);
-	  int idxn=cell2cell[f];
-	  // first order now
-	  double ql[5],qr[5];	  
-	  for(int n=0;n<nfields;n++)
+      {
+	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]=0;
+	for(int f=nccft[idx];f<nccft[idx+1];f++)
+	  {
+	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    int idxn=cell2cell[f];
+	    // first order now
+	    double ql[5],qr[5];	  
+	    for(int n=0;n<nfields;n++)
 	      ql[n]=q[scale*idx+n*stride];
-	  if (idxn > -1) {
-	    for(int n=0;n<nfields;n++)
-	      qr[n]=q[scale*idxn+n*stride];
-	  }
-	  if (idxn == -3) {
-	    for(int n=0;n<nfields;n++)
-	      qr[n]=flovar[n];
-	  }
-	  double dres[5];
-	  double gx,gy,gz; // grid speeds
-	  double spec;     // spectral radius
-	  gx=gy=gz=0;
+	    if (idxn > -1) {
+	      for(int n=0;n<nfields;n++)
+		qr[n]=q[scale*idxn+n*stride];
+	    }
+	    if (idxn == -3) {
+	      for(int n=0;n<nfields;n++)
+		qr[n]=flovar[n];
+	    }
+	    double dres[5];
+	    double gx,gy,gz; // grid speeds
+	    double spec;     // spectral radius
+	    gx=gy=gz=0;
 	  
-	  InterfaceFlux_Inviscid(dres[0],dres[1],dres[2],dres[3],dres[4],
-				 ql[0],ql[1],ql[2],ql[3],ql[4],
-				 qr[0],qr[1],qr[2],qr[3],qr[4],
-				 norm[0],norm[1],norm[2],
-				 gx,gy,gz,spec,idxn);
-	  for(int n=0;n<nfields;n++)
-	    res[scale*idx+n*stride]-=dres[n];
+	    InterfaceFlux_Inviscid(dres[0],dres[1],dres[2],dres[3],dres[4],
+				   ql[0],ql[1],ql[2],ql[3],ql[4],
+				   qr[0],qr[1],qr[2],qr[3],qr[4],
+				   norm[0],norm[1],norm[2],
+				   gx,gy,gz,spec,idxn);
+	    for(int n=0;n<nfields;n++)
+	      res[scale*idx+n*stride]-=dres[n];
 
-	}
-      // divide by cell volume, this will have to move outside for
-      // deforming grids
-      for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
-    }
+	  }
+	// divide by cell volume, this will have to move outside for
+	// deforming grids
+	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
+      }
 }
 
 // Verify compute Jacobian routine is working correctly
 // Make sure that F{qr+dqr,ql+dql) - F{qr,ql} = dql*lmat + dqr*rmat
 FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
-		 double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells,int* facetype)
+				    double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells,int* facetype)
 {
   double lmat[25], rmat[25];
   double dql[5],dqr[5],lmatdql[5], rmatdqr[5];
@@ -99,18 +99,18 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
   int f = 2;	  // arbritrary
 
   for(int n = 0; n<nfields; n++){
-//        ql[n]= n+1;
-//        qr[n] = (n+1)*1.1;
-	dql[n] = .001;
-	dqr[n] = .002;
-	rmatdqr[n] = 0; 
-	lmatdql[n] = 0; 
+    //        ql[n]= n+1;
+    //        qr[n] = (n+1)*1.1;
+    dql[n] = .001;
+    dqr[n] = .002;
+    rmatdqr[n] = 0; 
+    lmatdql[n] = 0; 
   }
-/*  double norm[3];
-  norm[1] = 0.19245;
-  norm[2] = 0.96225;
-  norm[3] = -0.19245;
-*/
+  /*  double norm[3];
+      norm[1] = 0.19245;
+      norm[2] = 0.96225;
+      norm[3] = -0.19245;
+  */
   gx=gy=gz=0;
 
   int idxn=cell2cell[f];
@@ -128,12 +128,12 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
   for(int n=0;n<5;n++)	  printf("dqr[%i] = %e\n",n,dqr[n]);
   
   //RHS: Compute Jacobians 
-//  idxn = facetype[idx];
+  //  idxn = facetype[idx];
   printf("idxn = %i\n",idxn);
   computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
                   qr[0], qr[1],  qr[2],  qr[3],  qr[4],
                   norm[0], norm[1], norm [2],
-                  idxn,lmat, rmat);
+                  idxn,lmat, rmat,1.0);
   axb1(rmat,dqr,rmatdqr,1,5);
   axb1(lmat,dql,lmatdql,1,5);
   printf("\nOutputs:\n==========\n");
@@ -147,8 +147,8 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
   //LHS: Compute fluxes
   double flux[5], flux2[5],spec;
   for(int n =0; n<5;n++) {
-	  flux[n] = 0.0;
-	  flux2[n] = 0.0; 
+    flux[n] = 0.0;
+    flux2[n] = 0.0; 
   }
   InterfaceFlux_Inviscid(flux[0],flux[1],flux[2],flux[3],flux[4],
                          ql[0],ql[1],ql[2],ql[3],ql[4],
@@ -156,8 +156,8 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
                          norm[0],norm[1],norm[2],
                          gx,gy,gz,spec,idxn);
   for(int n =0; n<5;n++) {
-	  ql[n] = ql[n]+dql[n];
-	  qr[n] = qr[n]+dqr[n];
+    ql[n] = ql[n]+dql[n];
+    qr[n] = qr[n]+dqr[n];
   }
   InterfaceFlux_Inviscid(flux2[0],flux2[1],flux2[2],flux2[3],flux2[4],
                          ql[0],ql[1],ql[2],ql[3],ql[4],
@@ -184,90 +184,96 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < ncells) 
 #else
-  for(int idx=0;idx<ncells;idx++)
+    for(int idx=0;idx<ncells;idx++)
 #endif
-  {
-	double dqtemp[5],dqn[5];
- 	double B[5], Btmp[5];
-	double D[25]; 
-        double lmat[25]; 
+      {
+	double dqtemp[5]; //,dqn[5];
+ 	//double B[5], Btmp[5];
+ 	double B[5],Btmp[5];
+	double D[25]{0}; 
+        //double lmat[25]; 
         double rmat[25]; 
 	int index1; 
 
 	for(int n = 0; n<nfields; n++) {
-		dqtemp[n] = dq[scale*idx+n*stride]; 
-		B[n] = res[scale*idx+n*stride]; 
-		for(int m = 0; m<nfields; m++) {
-			index1 = n*nfields + m;
-			if(n==m){
-				D[index1] = 1.0/dt;
-			}
-			else{
-				D[index1] = 0.0; 
-			}
-		}
+	  dqtemp[n] = dq[scale*idx+n*stride]; 
+	  B[n] = res[scale*idx+n*stride]; 
+	  for(int m=0;m<nfields;m++) D[m*nfields+m]=1.0/dt;
+	  /*
+	  for(int m = 0; m<nfields; m++) {
+	    index1 = n*nfields + m;
+	    if(n==m){
+	      D[index1] = 1.0/dt;
+	    }
+	    else{
+	      D[index1] = 0.0; 
+	    }
+	  }
+	  */
 	}
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
-        {
-	        double *norm=normals+18*idx+3*(f-nccft[idx]);
-          	int idxn=cell2cell[f];
-          	double ql[5],qr[5];
-          	for(int n=0;n<nfields;n++) {
-			ql[n]=q[scale*idx+n*stride];
-		       	Btmp[n] =0.0;
-		}
-          	if (idxn > -1) {
-            		for(int n=0;n<nfields;n++) qr[n]=q[scale*idxn+n*stride];
-	        }
-          	if (idxn == -3) {
-            		for(int n=0;n<nfields;n++) qr[n]=flovar[n];
-          	}
+	  {
+	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    int idxn=cell2cell[f];
+	    double ql[5],qr[5];
+	    for(int n=0;n<nfields;n++) {
+	      ql[n]=q[scale*idx+n*stride];
+	    }
+	    if (idxn > -1) {
+	      for(int n=0;n<nfields;n++) qr[n]=q[scale*idxn+n*stride];
+	    }
+	    if (idxn == -3) {
+	      for(int n=0;n<nfields;n++) qr[n]=flovar[n];
+	    }
 	
-		//Compute Jacobians 
-		computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
-	                        qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
-         	                norm[0], norm[1], norm [2],
-                  	        idxn,lmat, rmat);
+	    //Compute Jacobians 
+	    computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
+			    qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
+			    norm[0], norm[1], norm [2],
+			    idxn,D, rmat,1./volume[idx]);
 
-		for(int n = 0; n<nfields; n++){
-			for(int m = 0; m<nfields; m++){
-				index1 = n*nfields + m; 
-				lmat[index1] /= volume[idx];
-				rmat[index1] /= volume[idx];
-			}
-		}
+	    /* for(int n = 0; n<nfields; n++){ */
+	    /* 	for(int m = 0; m<nfields; m++){ */
+	    /* 		index1 = n*nfields + m;  */
+	    /* 		lmat[index1] /= volume[idx]; */
+	    /* 		rmat[index1] /= volume[idx]; */
+	    /* 	} */
+	    /* } */
 
-		//Compute Di and Oij*dq_neighbor
-		for(int n=0; n<5; n++) {
-          	        if (idxn > -1) {
-                          dqn[n] = dq[scale*idxn+n*stride];
-                        }
-                        else {
-                          dqn[n] = 0.0;
-                        }
-                }
-		axb1(rmat,dqn,Btmp,1,5); 
-		for(int n = 0; n<5; n++){
-			B[n] = B[n] - Btmp[n]; 
-			for(int m = 0; m<5; m++){
-				index1 = n*5+m; 
-				D[index1] = D[index1] + lmat[index1];
-			}
-		}
-	}
+	    //Compute Di and Oij*dq_neighbor
+	    for(int n=0; n<5; n++) {
+	      if (idxn > -1) {
+		dqtemp[n] = dq[scale*idxn+n*stride];
+	      }
+	      else {
+		dqtemp[n] = 0.0;
+	      }
+	    }
+	    axb1s(rmat,dqtemp,B,1,5);
+	    //axb1(rmat,dqtemp,Btmp,1,5); 
+	    //for(int n=0;n<5;n++) B[n]-=Btmp[n];
+
+	    /* for(int n = 0; n<5; n++){ */
+	    /* 	B[n] = B[n] - Btmp[n];  */
+	    /* 	for(int m = 0; m<5; m++){ */
+	    /* 		index1 = n*5+m;  */
+	    /* 		D[index1] = D[index1] + lmat[index1]; */
+	    /* 	} */
+	    /* } */
+	  }
 
 	// Compute dqtilde and send back out of kernel
 	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
 	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = dqtemp[n]; 
-  } // loop over cells 
+      } // loop over cells 
 }
 
 FVSAND_GPU_GLOBAL
 void fillJacobians(double *q, double *normals,double *volume,
-		  double *rmatall, double* Dall,
-		 double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
-		 int* facetype, double dt)
+		   double *rmatall, double* Dall,
+		   double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
+		   int* facetype, double dt)
 {
   int scale=(istor==0)?nfields:1;
   int stride=(istor==0)?1:ncells;
@@ -275,68 +281,68 @@ void fillJacobians(double *q, double *normals,double *volume,
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < ncells) 
 #else
-  for(int idx=0;idx<ncells;idx++)
+    for(int idx=0;idx<ncells;idx++)
 #endif
-  {
-	double lmat[25], rmat[25];
+      {
+	//double lmat[25], rmat[25];
 	int index1;
 	for(int n = 0; n<nfields; n++) {
-                for(int m = 0; m<nfields; m++) {
-                        index1 = 25*idx + n*nfields + m;
-                        if(n==m){
-                                Dall[index1] = 1.0/dt;
-                        }
-                        else{
-                                Dall[index1] = 0.0;
-                        }
-                }
+	  for(int m = 0; m<nfields; m++) {
+	    index1 = 25*idx + n*nfields + m;
+	    if(n==m){
+	      Dall[index1] = 1.0/dt;
+	    }
+	    else{
+	      Dall[index1] = 0.0;
+	    }
+	  }
         }
         // Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
-        {
-                double *norm=normals+18*idx+3*(f-nccft[idx]);
-                int idxn=cell2cell[f];
-                double ql[5],qr[5];
-                for(int n=0;n<nfields;n++) {
-                        ql[n]=q[scale*idx+n*stride];
-                }
-                if (idxn > -1) {
-                        for(int n=0;n<nfields;n++) qr[n]=q[scale*idxn+n*stride];
-                }
-                if (idxn == -3) {
-                        for(int n=0;n<nfields;n++) qr[n]=flovar[n];
-                }
+	  {
+	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    int idxn=cell2cell[f];
+	    double ql[5],qr[5];
+	    for(int n=0;n<nfields;n++) {
+	      ql[n]=q[scale*idx+n*stride];
+	    }
+	    if (idxn > -1) {
+	      for(int n=0;n<nfields;n++) qr[n]=q[scale*idxn+n*stride];
+	    }
+	    if (idxn == -3) {
+	      for(int n=0;n<nfields;n++) qr[n]=flovar[n];
+	    }
 
-                //Compute Jacobians 
-                computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
-                                qr[0], qr[1],  qr[2],  qr[3],  qr[4],
-                                norm[0], norm[1], norm [2],
-                                idxn, lmat, rmat);
+	    //Compute Jacobians 
+	    computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
+			    qr[0], qr[1],  qr[2],  qr[3],  qr[4],
+			    norm[0], norm[1], norm [2],
+			    idxn, Dall+25*idx, rmatall+f*25,1./volume[idx]);
 
-                for(int n = 0; n<nfields; n++){
-                        for(int m = 0; m<nfields; m++){
-                                index1 = n*nfields + m;
-                                lmat[index1] /= volume[idx];
-                                rmat[index1] /= volume[idx];
-                        }
-                }
+	    /* for(int n = 0; n<nfields; n++){ */
+	    /*         for(int m = 0; m<nfields; m++){ */
+	    /*                 index1 = n*nfields + m; */
+	    /*                 lmat[index1] /= volume[idx]; */
+	    /*                 rmat[index1] /= volume[idx]; */
+	    /*         } */
+	    /* } */
 
-		//Fill storage matrices for lmat and rmat
-                for(int n = 0; n<nfields; n++){
-                        for(int m = 0; m<nfields; m++){
-				rmatall[f*25+n*nfields+m] = rmat[n*nfields+m];
-                                Dall[25*idx+n*nfields+m] = Dall[25*idx+n*nfields+m] + lmat[n*nfields+m];
-			}
-		}
-      	}
-  }
+	    //Fill storage matrices for lmat and rmat
+	    /* for(int n = 0; n<nfields; n++){ */
+	    /*         for(int m = 0; m<nfields; m++){ */
+	    /* 		rmatall[f*25+n*nfields+m] = rmat[n*nfields+m]; */
+	    /*                 Dall[25*idx+n*nfields+m] = Dall[25*idx+n*nfields+m] + lmat[n*nfields+m]; */
+	    /* 	} */
+	    /* } */
+	  }
+      }
 }
 
 FVSAND_GPU_GLOBAL
 void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *normals,double *volume,
 		  double *rmatall, double* Dall,
-		 double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
-		 int* facetype, double dt)
+		  double *flovar, int *cell2cell, int *nccft, int nfields, int istor, int ncells, 
+		  int* facetype, double dt)
 {
   int scale=(istor==0)?nfields:1;
   int stride=(istor==0)?1:ncells;
@@ -344,56 +350,56 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < ncells) 
 #else
-  for(int idx=0;idx<ncells;idx++)
+    for(int idx=0;idx<ncells;idx++)
 #endif
-  {
-	double dqtemp[5],dqn[5];
- 	double B[5], Btmp[5];
+      {
+	double dqtemp[5]; //,dqn[5];
+ 	double B[5]; //, Btmp[5];
 	//double rmat[25], D[25];
 	int index1; 
 
 	for(int n = 0; n<nfields; n++) {
-		dqtemp[n] = dq[scale*idx+n*stride]; 
-		B[n] = res[scale*idx+n*stride];
+	  dqtemp[n] = dq[scale*idx+n*stride]; 
+	  B[n] = res[scale*idx+n*stride];
 	}
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
-        {
-	        double *norm=normals+18*idx+3*(f-nccft[idx]);
-          	int idxn=cell2cell[f];
-		/*
-	        for(int n = 0; n<nfields; n++){
-		        for(int m = 0; m<nfields; m++){
-				index1 = n*nfields+m;
-				rmat[index1] = rmatall[25*f+index1]; 
-			}
-		}*/	
-		double *rmat = rmatall + 25*f; 
+	  {
+	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    int idxn=cell2cell[f];
+	    /*
+	      for(int n = 0; n<nfields; n++){
+	      for(int m = 0; m<nfields; m++){
+	      index1 = n*nfields+m;
+	      rmat[index1] = rmatall[25*f+index1]; 
+	      }
+	      }*/	
+	    double *rmat = rmatall + 25*f; 
 
-		//Get neighbor dq and compute O_ij*dq_j
-		for(int n=0; n<5; n++) {
-          	        if (idxn > -1) {
-                          dqn[n] = dq[scale*idxn+n*stride];
-                        }
-                        else {
-                          dqn[n] = 0.0;
-                        }
-                }
-		axb1(rmat,dqn,Btmp,1,5); 
-		for(int n = 0; n<5; n++) B[n] = B[n] - Btmp[n]; 
-	}
+	    //Get neighbor dq and compute O_ij*dq_j
+	    for(int n=0; n<5; n++) {
+	      if (idxn > -1) {
+		dqtemp[n] = dq[scale*idxn+n*stride];
+	      }
+	      else {
+		dqtemp[n] = 0.0;
+	      }
+	    }
+	    axb1s(rmat,dqtemp,B,1,5); 
+	    //for(int n = 0; n<5; n++) B[n] = B[n] - Btmp[n]; 
+	  }
 
 	// Compute dqtilde and send back out of kernel
 	/*
-	for(int n=0;n<nfields;n++) { 
-		for(int m=0;m<nfields;m++) {
-			D[n*5+m] = Dall[idx*25+n*5+m];
-		}
-	}*/
+	  for(int n=0;n<nfields;n++) { 
+	  for(int m=0;m<nfields;m++) {
+	  D[n*5+m] = Dall[idx*25+n*5+m];
+	  }
+	  }*/
 	double *D = Dall + idx*25;
 	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
 	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = dqtemp[n]; 
-  } // loop over cells 
+      } // loop over cells 
 }
 
 FVSAND_GPU_GLOBAL
@@ -477,19 +483,19 @@ void fill_faces(double *q, double *faceq, int *nccft,int *cell2face,
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < ncells) 
 #else
-  for(int idx=0;idx<ncells;idx++)
+    for(int idx=0;idx<ncells;idx++)
 #endif
-    {
-      for(int f=nccft[idx];f<nccft[idx+1];f++)
-	{
-	  int faceid=cell2face[f];
-	  int isgn=abs(faceid)/faceid;
-	  int offset=(1-isgn)*nfields/2;
-	  faceid=abs(faceid)-1;
-	  for(int n=0;n<nfields;n++)
-	    faceq[2*faceid*nfields+n+offset]=q[scale*idx+n*stride];
-	}      
-    }
+      {
+	for(int f=nccft[idx];f<nccft[idx+1];f++)
+	  {
+	    int faceid=cell2face[f];
+	    int isgn=abs(faceid)/faceid;
+	    int offset=(1-isgn)*nfields/2;
+	    faceid=abs(faceid)-1;
+	    for(int n=0;n<nfields;n++)
+	      faceq[2*faceid*nfields+n+offset]=q[scale*idx+n*stride];
+	  }      
+      }
 }
 FVSAND_GPU_GLOBAL
 void face_flux(double *faceflux,double *faceq, double *face_norm, double *flovar,
@@ -500,27 +506,27 @@ void face_flux(double *faceflux,double *faceq, double *face_norm, double *flovar
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < nfaces)
 #else
-  for(int idx=0;idx<nfaces;idx++)
+    for(int idx=0;idx<nfaces;idx++)
 #endif
-    {
-      double *ql=faceq+(2*idx)*nfields;
-      double *qr=faceq+(2*idx+1)*nfields;
-      double *dres=faceflux+idx*nfields;
-      double *norm=face_norm+idx*3;
-      double gx,gy,gz;
-      gx=gy=gz=0;
-      double spec;
-      int idxn=facetype[idx];
-      if (idxn == -3) {
-       for(int n=0;n<nfields;n++)
-          qr[n]=flovar[n];
+      {
+	double *ql=faceq+(2*idx)*nfields;
+	double *qr=faceq+(2*idx+1)*nfields;
+	double *dres=faceflux+idx*nfields;
+	double *norm=face_norm+idx*3;
+	double gx,gy,gz;
+	gx=gy=gz=0;
+	double spec;
+	int idxn=facetype[idx];
+	if (idxn == -3) {
+	  for(int n=0;n<nfields;n++)
+	    qr[n]=flovar[n];
+	}
+	InterfaceFlux_Inviscid(dres[0],dres[1],dres[2],dres[3],dres[4],
+			       ql[0],ql[1],ql[2],ql[3],ql[4],
+			       qr[0],qr[1],qr[2],qr[3],qr[4],
+			       norm[0],norm[1],norm[2],
+			       gx,gy,gz,spec,idxn);      
       }
-      InterfaceFlux_Inviscid(dres[0],dres[1],dres[2],dres[3],dres[4],
-			     ql[0],ql[1],ql[2],ql[3],ql[4],
-			     qr[0],qr[1],qr[2],qr[3],qr[4],
-			     norm[0],norm[1],norm[2],
-			     gx,gy,gz,spec,idxn);      
-    }
 }
 
 //res_d,faceflux_d,volume_d,cell2face_d,nccft_d,
@@ -537,18 +543,18 @@ void computeResidualFace(double *res, double *faceflux, double *volume,
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < ncells) 
 #else
-  for(int idx=0;idx<ncells;idx++)
+    for(int idx=0;idx<ncells;idx++)
 #endif
-    {
-      for(int n=0;n<nfields;n++) res[scale*idx+n*stride]=0;      
-      for(int f=nccft[idx];f<nccft[idx+1];f++)
-	{
-	  int faceid=cell2face[f];
-	  int isgn=faceid/abs(faceid);
-	  faceid=abs(faceid)-1;
-	  for(int n=0;n<nfields;n++)
-	    res[scale*idx+n*stride]-=(isgn*faceflux[faceid*nfields+n]);
-	}
-      for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
-    }
+      {
+	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]=0;      
+	for(int f=nccft[idx];f<nccft[idx+1];f++)
+	  {
+	    int faceid=cell2face[f];
+	    int isgn=faceid/abs(faceid);
+	    faceid=abs(faceid)-1;
+	    for(int n=0;n<nfields;n++)
+	      res[scale*idx+n*stride]-=(isgn*faceflux[faceid*nfields+n]);
+	  }
+	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
+      }
 }

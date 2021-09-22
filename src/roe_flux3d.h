@@ -195,7 +195,7 @@ void computeJacobian( real& ql1, real& ql2, real& ql3, real& ql4, real& ql5,
                       real& qr1, real& qr2, real& qr3, real& qr4, real& qr5,
                       real& nxd, real& nyd, real& nzd,
                       int & faceID,
-                      real lmatout[25], real rmatout[25])    
+		      real *lmatout, real *rmatout, real scaling)
 {
 
 real gam=1.4;
@@ -747,8 +747,8 @@ for( int i = 0; i < 5 ; i++ )
  FOR2(i,5,j,5)
      {
 	     int index1 = i*5+j;
-	     lmatout[index1] = lmat[i][j];
-	     rmatout[index1] = rmat[i][j];
+	     lmatout[index1] += (lmat[i][j]*scaling);
+	     rmatout[index1] = (rmat[i][j]*scaling);
      }
 
 }

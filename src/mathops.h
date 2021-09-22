@@ -120,9 +120,24 @@ void axb1(double A[25],double *x,double *b,double fac,int N)
   int index1; 
   for(j=0;j<N;j++)
   {
+    b[j]=0;
     for(k=0;k<N;k++){
 	    index1 = j*N+k;
-	    b[j]=(fac*A[index1]*x[k]);
+	    b[j]+=(fac*A[index1]*x[k]);
+    }
+  }
+}
+
+FVSAND_GPU_DEVICE
+void axb1s(double A[25],double *x,double *b,double fac,int N)
+{
+  int j,k;
+  int index1;
+  for(j=0;j<N;j++)
+  {
+    for(k=0;k<N;k++){
+            index1 = j*N+k;
+            b[j]-=(fac*A[index1]*x[k]);
     }
   }
 }
