@@ -252,14 +252,13 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  
  flovar_d=gpu::push_to_device<double>(flovar,sizeof(double)*nfields);
  qinf_d=gpu::allocate_on_device<double>(sizeof(double)*nfields);
- 
- nfields_d=nfields;
- nthreads=ncells+nhalo;
- //nthreads=ncells;
- n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
- FVSAND_GPU_LAUNCH_FUNC(init_q,n_blocks,block_size,0,0,
-		        qinf_d,q,dq_d,center_d,flovar_d,nfields,istor,(ncells+nhalo));
 
+
+ nfields_d=nfields;
+ int N=ncells+nhalo;
+ FVSAND_GPU_KERNEL_LAUNCH( init_q, N, 
+			   qinf_d,q,dq_d,center_d,flovar_d,nfields,istor,N);
+ 
  qh = new double[(ncells+nhalo)*nfields];
  gpu::pull_from_device<double>(qh,q,sizeof(double)*(ncells+nhalo)*nfields);
 
@@ -299,12 +298,10 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
 {
   
   nthreads=device2host.size();
-
   if(nthreads == 0) return;
+  FVSAND_GPU_KERNEL_LAUNCH( updateHost, nthreads,
+			    qbuf_d,qd,device2host_d,nthreads);
   
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  FVSAND_GPU_LAUNCH_FUNC(updateHost,n_blocks,block_size,0,0,
-                         qbuf_d,qd,device2host_d,device2host.size());
   gpu::pull_from_device<double>(qbuf,qbuf_d,sizeof(double)*device2host.size());
 
   for(int i=0;i<device2host.size();i++)
@@ -320,9 +317,9 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
   gpu::copy_to_device(qbuf_d,qbuf,sizeof(double)*host2device.size());
 
   nthreads=host2device.size();
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  FVSAND_GPU_LAUNCH_FUNC(updateDevice,n_blocks,block_size,0,0,
+  FVSAND_GPU_KERNEL_LAUNCH( updateDevice, nthreads,
 			 qd,qbuf_d,host2device_d,host2device.size());
+
 }
 
 // New update with persistent buffers and minimum copies
@@ -331,12 +328,8 @@ void LocalMesh::UpdateFringes(double *qd)
 {
     nthreads=device2host.size();
     if(nthreads == 0) return;
-    n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-    FVSAND_GPU_LAUNCH_FUNC(updateHost,n_blocks,block_size,0,0,
-			   qbuf_d,qd,device2host_d,device2host.size());
-
-    
-
+    FVSAND_GPU_KERNEL_LAUNCH( updateHost, nthreads,
+			      qbuf_d,qd,device2host_d,nthreads);
     // separate sends and receives so that we can overlap comm and calculation
     // in the residual and iteration loops.
     // TODO (george) use qbuf2_d and qbuf_d instead of qbuf2 and qbuf for cuda-aware
@@ -352,9 +345,8 @@ void LocalMesh::UpdateFringes(double *qd)
     gpu::copy_to_device(qbuf_d2,qbuf2,sizeof(double)*host2device.size());
     
     nthreads=host2device.size();
-    n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-    FVSAND_GPU_LAUNCH_FUNC(updateDevice,n_blocks,block_size,0,0,
-			   qd,qbuf_d2,host2device_d,host2device.size());
+    FVSAND_GPU_KERNEL_LAUNCH( updateDevice, nthreads,
+			      qd,qbuf_d2,host2device_d,nthreads);
 }
     
 
@@ -371,11 +363,9 @@ void LocalMesh::Residual(double *qv,int restype)
 void LocalMesh::Residual_cell(double *qv)
 {
   nthreads=ncells;
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  FVSAND_GPU_LAUNCH_FUNC(computeResidual,n_blocks,block_size,0,0,
-			 res_d, qv, center_d, normals_d, volume_d,
-			 qinf_d, cell2cell_d, nccft_d, nfields_d,istor,ncells);
-
+  FVSAND_GPU_KERNEL_LAUNCH(computeResidual,nthreads,
+			   res_d, qv, center_d, normals_d, volume_d,
+			   qinf_d, cell2cell_d, nccft_d, nfields_d,istor,ncells);
   UpdateFringes(res_d);
 
 }
@@ -383,22 +373,18 @@ void LocalMesh::Residual_cell(double *qv)
 void LocalMesh::Residual_face(double *qv)
 {
   nthreads=ncells+nhalo;
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  FVSAND_GPU_LAUNCH_FUNC(fill_faces, n_blocks,block_size,0,0,
-			 qv,faceq_d,nccft_d,cell2face_d,nfields_d,istor,ncells+nhalo);
+  FVSAND_GPU_KERNEL_LAUNCH(fill_faces,nthreads,
+			   qv,faceq_d,nccft_d,cell2face_d,nfields_d,istor,ncells+nhalo);
 
   nthreads=nfaces;
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  FVSAND_GPU_LAUNCH_FUNC(face_flux,n_blocks,block_size,0,0,
-			 faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
+  FVSAND_GPU_KERNEL_LAUNCH(face_flux,nthreads,
+			   faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
 
   nthreads=ncells;
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  FVSAND_GPU_LAUNCH_FUNC(computeResidualFace,n_blocks,block_size,0,0,
-			 res_d,faceflux_d,volume_d,cell2face_d,nccft_d,
-			 nfields_d,istor,ncells);
+  FVSAND_GPU_KERNEL_LAUNCH(computeResidualFace,nthreads,
+			   res_d,faceflux_d,volume_d,cell2face_d,nccft_d,
+			   nfields_d,istor,ncells);
   UpdateFringes(res_d);
-
 }
 
 void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
@@ -409,12 +395,12 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
   */
   FVSAND_NVTX_FUNCTION("Jacobi");
   nthreads=(ncells+nhalo)*nfields_d;
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  FVSAND_GPU_LAUNCH_FUNC(setValues,n_blocks,block_size,0,0,
-			 dq_d, 0.0, (ncells+nhalo)*nfields_d);
+  FVSAND_GPU_KERNEL_LAUNCH(setValues,nthreads,
+			 dq_d, 0.0, nthreads);
   //compute and store Jacobians;
   if(istoreJac){
-    FVSAND_GPU_LAUNCH_FUNC(fillJacobians,n_blocks,block_size,0,0,
+    nthreads=ncells+nhalo;
+    FVSAND_GPU_KERNEL_LAUNCH(fillJacobians,nthreads,
 			   q, normals_d, volume_d,
 			   rmatall_d, Dall_d,
 			   flovar_d, cell2cell_d,
@@ -424,27 +410,24 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
   for(int m = 0; m < nsweep; m++){
     //printf("Sweep %i\n=================\n",m);
     nthreads=ncells+nhalo;
-    n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-
     // compute dqtilde for all cells
     if(istoreJac){
-      FVSAND_GPU_LAUNCH_FUNC(jacobiSweep2,n_blocks,block_size,0,0,
+      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep2,nthreads,
 			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
 			     rmatall_d, Dall_d,
 			     flovar_d, cell2cell_d,
 			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
     }
     else{
-      FVSAND_GPU_LAUNCH_FUNC(jacobiSweep,n_blocks,block_size,0,0,
+      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep,nthreads,
 			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
 			     flovar_d, cell2cell_d,
 			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
     }
     // update dq = dqtilde for all cells
     nthreads=(ncells+nhalo)*nfields_d;
-    n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-    FVSAND_GPU_LAUNCH_FUNC(copyValues,n_blocks,block_size,0,0,
-			   dq_d, dqupdate_d, (ncells+nhalo)*nfields_d);
+    FVSAND_GPU_KERNEL_LAUNCH(copyValues,nthreads,
+			   dq_d, dqupdate_d, nthreads);
 
     // Store final dq in res to be used in update routine
     UpdateFringes(dq_d);
@@ -455,17 +438,15 @@ void LocalMesh::Update(double *qdest, double *qsrc, double fscal)
 {
   FVSAND_NVTX_FUNCTION( "update" );
   nthreads=(ncells+nhalo)*nfields_d;
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  FVSAND_GPU_LAUNCH_FUNC(updateFields,n_blocks,block_size,0,0,
-			 res_d, qdest, qsrc, fscal, (ncells+nhalo)*nfields_d);
+  FVSAND_GPU_KERNEL_LAUNCH(updateFields,nthreads,
+			 res_d, qdest, qsrc, fscal, nthreads);
 }
 
 void LocalMesh::UpdateQ(double *qdest, double *qsrc, double fscal)
 {
   nthreads=(ncells+nhalo)*nfields_d;
-  n_blocks=nthreads/block_size + (nthreads%block_size==0 ? 0:1);
-  FVSAND_GPU_LAUNCH_FUNC(updateFields,n_blocks,block_size,0,0,
-			 dq_d, qdest, qsrc, fscal, (ncells+nhalo)*nfields_d);
+  FVSAND_GPU_KERNEL_LAUNCH(updateFields,nthreads,
+			 dq_d, qdest, qsrc, fscal, nthreads);
 }
 
 double LocalMesh::ResNorm()
