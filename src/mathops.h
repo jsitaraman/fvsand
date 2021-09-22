@@ -2,57 +2,64 @@
 //#define UNIT_CHECK
 #define REAL double
 
-FVSAND_GPU_DEVICE void solveAxb5(double *A, double *b, double* x)
-{
-	double s; 
-	int index1, index2;
-       	double L[25], U[25]; 
-	for(int i=0; i<25; i++){
-		L[i] = 0.0; 
-		U[i] = 0.0; 
-	}	
-	// LU Decomp
-        for (int j=0; j<5; j++) {
-          for (int k=0; k<j; k++) {
-            L[5*j+k] = A[5*j+k];
-          }
-          for (int k=1; k<j; k++) {
-            for (int l=0; l<k; l++) {
-              L[5*j+k] = L[5*j+k] - L[5*j+l]*U[5*l+k];
-            }
-          }
+FVSAND_GPU_DEVICE void solveAxb5(double *A, double *b, double *x) {
+  // double s;
+  // int index1, index2;
+  double L[15] = {0.0};
+  double U[10] = {0.0};
+  auto LMap = [](int index) {
+    int n = index / 5;
+    return n * (n + 1) / 2 + index % 5;
+  };
+  auto UMap = [](int index) {
+    int n = (24 - index) / 5;
+    return 5 - n * (n - 1) / 2 + index % 5;
+  };
+  // LU Decomp
+  for (int j = 0; j < 5; j++) {
+    for (int k = 0; k < j; k++) {
+      L[LMap(5 * j + k)] = A[5 * j + k];
+    }
+    for (int k = 1; k < j; k++) {
+      for (int l = 0; l < k; l++) {
+        L[LMap(5 * j + k)] =
+            L[LMap(5 * j + k)] - L[LMap(5 * j + l)] * U[UMap(5 * l + k)];
+      }
+    }
 
-          L[5*j+j] = A[5*j+j];
-          for (int k=0; k<j; k++) {
-            L[5*j+j] = L[5*j+j] - L[5*j+k]*U[5*k+j];
-          }
-          L[5*j+j] = 1.0/L[5*j+j];
+    L[LMap(5 * j + j)] = A[5 * j + j];
+    for (int k = 0; k < j; k++) {
+      L[LMap(5 * j + j)] =
+          L[LMap(5 * j + j)] - L[LMap(5 * j + k)] * U[UMap(5 * k + j)];
+    }
+    L[LMap(5 * j + j)] = 1.0 / L[LMap(5 * j + j)];
 
-          for (int k=j+1; k<5; k++) {
-            U[5*j+k] = A[5*j+k];
-	    for (int l=0; l<j; l++) {
-              U[5*j+k] = U[5*j+k] - L[5*j+l]*U[5*l+k];
-            }
-            U[5*j+k] = U[5*j+k]*L[5*j+j];
-          }
-        }
+    for (int k = j + 1; k < 5; k++) {
+      U[UMap(5 * j + k)] = A[5 * j + k];
+      for (int l = 0; l < j; l++) {
+        U[UMap(5 * j + k)] =
+            U[UMap(5 * j + k)] - L[LMap(5 * j + l)] * U[UMap(5 * l + k)];
+      }
+      U[UMap(5 * j + k)] = U[UMap(5 * j + k)] * L[LMap(5 * j + j)];
+    }
+  }
 
-	// Forward prop to solve Ly = b
-	double y[5]; 	
-        for (int j=0; j<5; j++) {
-          y[j] = b[j];
-          for (int k=0; k<j; k++) {
-            y[j] = y[j] - L[5*j+k]*y[k];
-          }
-          y[j] = y[j]*L[5*j+j];
-        }
+  // Forward prop to solve Ly = b
+  double y[5] = {0.0};
+  for (int j = 0; j < 5; j++) {
+    y[j] = b[j];
+    for (int k = 0; k < j; k++) {
+      y[j] = y[j] - L[LMap(5 * j + k)] * y[k];
+    }
+    y[j] = y[j] * L[LMap(5 * j + j)];
+  }
 
-	for (int j=4; j>-1; j--) {
-          x[j] = y[j];
-          for (int k=j+1; k<5; k++) {
-            x[j] = x[j] - U[5*j+k]*x[k];
-          }
-        }
+  for (int j = 4; j > -1; j--) {
+    x[j] = y[j];
+    for (int k = j + 1; k < 5; k++) {
+      x[j] = x[j] - U[UMap(5 * j + k)] * x[k];
+    }
+  }
 }
 
 
@@ -114,37 +121,32 @@ FVSAND_GPU_DEVICE void invertMat5(double *A, double *f, double *x)
 // perform b=fac*A*x
 //
 FVSAND_GPU_DEVICE
-void axb1(double A[25],double *x,double *b,double fac,int N)
-{
-  int j,k;
-  int index1; 
-  for(j=0;j<N;j++)
-  {
-    b[j]=0;
-    for(k=0;k<N;k++){
-	    index1 = j*N+k;
-	    b[j]+=(fac*A[index1]*x[k]);
+void axb1(double A[25], double *x, double *b, double fac, int N) {
+  int j, k;
+  int index1;
+  for (j = 0; j < N; j++) {
+    b[j] = 0;
+    for (k = 0; k < N; k++) {
+      index1 = j * N + k;
+      b[j] += (fac * A[index1] * x[k]);
     }
   }
 }
 
 FVSAND_GPU_DEVICE
-void axb1s(double A[25],double *x,double *b,double fac,int N)
-{
-  int j,k;
+void axb1s(double A[25], double *x, double *b, double fac, int N) {
+  int j, k;
   int index1;
-  for(j=0;j<N;j++)
-  {
-    for(k=0;k<N;k++){
-            index1 = j*N+k;
-            b[j]-=(fac*A[index1]*x[k]);
+  for (j = 0; j < N; j++) {
+    for (k = 0; k < N; k++) {
+      index1 = j * N + k;
+      b[j] -= (fac * A[index1] * x[k]);
     }
   }
 }
 
 #ifdef UNIT_CHECK
-int main()
-{
+int main() {
   REAL A5mat[5][5];
   REAL A4mat[4][4];
   REAL b5mat[5];
@@ -152,65 +154,55 @@ int main()
   REAL x5mat[5];
   REAL x4mat[4];
 
-  int i,j;
-  int ip1,im1;
+  int i, j;
+  int ip1, im1;
 
-  for(i=0;i<5;i++)
-    for(j=0;j<5;j++)
-      A5mat[i][j]=0;
-  
-  for(i=0;i<5;i++)
-    {
-      ip1=(i+1)%5;
-      im1=(i==0)?4:i-1;
-      A5mat[i][i]=-2+0.1*i;
-      A5mat[ip1][i]=0.9;
-      A5mat[im1][i]=1;
-      b5mat[i]=1;
-    }
+  for (i = 0; i < 5; i++)
+    for (j = 0; j < 5; j++)
+      A5mat[i][j] = 0;
 
-  invertMat5(A5mat,b5mat,x5mat);
+  for (i = 0; i < 5; i++) {
+    ip1 = (i + 1) % 5;
+    im1 = (i == 0) ? 4 : i - 1;
+    A5mat[i][i] = -2 + 0.1 * i;
+    A5mat[ip1][i] = 0.9;
+    A5mat[im1][i] = 1;
+    b5mat[i] = 1;
+  }
 
-  for(i=0;i<5;i++)
-    {
-      for(j=0;j<5;j++)
-	printf("%f ",A5mat[i][j]);
-      printf("\n");
-    }
-  
-  for(i=0;i<5;i++)
-    printf("%f %f\n",b5mat[i],x5mat[i]);
+  invertMat5(A5mat, b5mat, x5mat);
 
+  for (i = 0; i < 5; i++) {
+    for (j = 0; j < 5; j++)
+      printf("%f ", A5mat[i][j]);
+    printf("\n");
+  }
 
-  for(i=0;i<4;i++)
-    for(j=0;j<4;j++)
-      A4mat[i][j]=0;
-  
-  for(i=0;i<4;i++)
-    {
-      ip1=(i+1)%4;
-      im1=(i==0)?3:i-1;
-      A4mat[i][i]=-2;
-      A4mat[ip1][i]=0.9;
-      A4mat[im1][i]=1;
-      b4mat[i]=1;
-    }
+  for (i = 0; i < 5; i++)
+    printf("%f %f\n", b5mat[i], x5mat[i]);
 
-  invertMat4(A4mat,b4mat,x4mat);
+  for (i = 0; i < 4; i++)
+    for (j = 0; j < 4; j++)
+      A4mat[i][j] = 0;
 
-  for(i=0;i<4;i++)
-    {
-      for(j=0;j<4;j++)
-	printf("%f ",A4mat[i][j]);
-      printf("\n");
-    }
-  
-  for(i=0;i<4;i++)
-    printf("%f %f\n",b4mat[i],x4mat[i]);
+  for (i = 0; i < 4; i++) {
+    ip1 = (i + 1) % 4;
+    im1 = (i == 0) ? 3 : i - 1;
+    A4mat[i][i] = -2;
+    A4mat[ip1][i] = 0.9;
+    A4mat[im1][i] = 1;
+    b4mat[i] = 1;
+  }
 
+  invertMat4(A4mat, b4mat, x4mat);
 
+  for (i = 0; i < 4; i++) {
+    for (j = 0; j < 4; j++)
+      printf("%f ", A4mat[i][j]);
+    printf("\n");
+  }
+
+  for (i = 0; i < 4; i++)
+    printf("%f %f\n", b4mat[i], x4mat[i]);
 }
 #endif
-
-  
-  
