@@ -133,7 +133,7 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
   computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
                   qr[0], qr[1],  qr[2],  qr[3],  qr[4],
                   norm[0], norm[1], norm [2],
-                  idxn,lmat, rmat);
+                  idxn,lmat, rmat,1.0);
   axb1(rmat,dqr,rmatdqr,1,5);
   axb1(lmat,dql,lmatdql,1,5);
   printf("\nOutputs:\n==========\n");
@@ -187,16 +187,19 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
     for(int idx=0;idx<ncells;idx++)
 #endif
       {
-	double dqtemp[5],dqn[5];
- 	double B[5], Btmp[5];
-	double D[25]; 
-        double lmat[25]; 
+	double dqtemp[5]; //,dqn[5];
+ 	//double B[5], Btmp[5];
+ 	double B[5],Btmp[5];
+	double D[25]{0}; 
+        //double lmat[25]; 
         double rmat[25]; 
 	int index1; 
 
 	for(int n = 0; n<nfields; n++) {
 	  dqtemp[n] = dq[scale*idx+n*stride]; 
 	  B[n] = res[scale*idx+n*stride]; 
+	  for(int m=0;m<nfields;m++) D[m*nfields+m]=1.0/dt;
+	  /*
 	  for(int m = 0; m<nfields; m++) {
 	    index1 = n*nfields + m;
 	    if(n==m){
@@ -206,6 +209,7 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 	      D[index1] = 0.0; 
 	    }
 	  }
+	  */
 	}
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
@@ -215,7 +219,6 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 	    double ql[5],qr[5];
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=q[scale*idx+n*stride];
-	      Btmp[n] =0.0;
 	    }
 	    if (idxn > -1) {
 	      for(int n=0;n<nfields;n++) qr[n]=q[scale*idxn+n*stride];
@@ -228,33 +231,36 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 	    computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
 			    qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
 			    norm[0], norm[1], norm [2],
-			    idxn,lmat, rmat);
+			    idxn,D, rmat,1./volume[idx]);
 
-	    for(int n = 0; n<nfields; n++){
-	      for(int m = 0; m<nfields; m++){
-		index1 = n*nfields + m; 
-		lmat[index1] /= volume[idx];
-		rmat[index1] /= volume[idx];
-	      }
-	    }
+	    /* for(int n = 0; n<nfields; n++){ */
+	    /* 	for(int m = 0; m<nfields; m++){ */
+	    /* 		index1 = n*nfields + m;  */
+	    /* 		lmat[index1] /= volume[idx]; */
+	    /* 		rmat[index1] /= volume[idx]; */
+	    /* 	} */
+	    /* } */
 
 	    //Compute Di and Oij*dq_neighbor
 	    for(int n=0; n<5; n++) {
 	      if (idxn > -1) {
-		dqn[n] = dq[scale*idxn+n*stride];
+		dqtemp[n] = dq[scale*idxn+n*stride];
 	      }
 	      else {
-		dqn[n] = 0.0;
+		dqtemp[n] = 0.0;
 	      }
 	    }
-	    axb1(rmat,dqn,Btmp,1,5); 
-	    for(int n = 0; n<5; n++){
-	      B[n] = B[n] - Btmp[n]; 
-	      for(int m = 0; m<5; m++){
-		index1 = n*5+m; 
-		D[index1] = D[index1] + lmat[index1];
-	      }
-	    }
+	    axb1s(rmat,dqtemp,B,1,5);
+	    //axb1(rmat,dqtemp,Btmp,1,5); 
+	    //for(int n=0;n<5;n++) B[n]-=Btmp[n];
+
+	    /* for(int n = 0; n<5; n++){ */
+	    /* 	B[n] = B[n] - Btmp[n];  */
+	    /* 	for(int m = 0; m<5; m++){ */
+	    /* 		index1 = n*5+m;  */
+	    /* 		D[index1] = D[index1] + lmat[index1]; */
+	    /* 	} */
+	    /* } */
 	  }
 
 	// Compute dqtilde and send back out of kernel
@@ -278,7 +284,7 @@ void fillJacobians(double *q, double *normals,double *volume,
     for(int idx=0;idx<ncells;idx++)
 #endif
       {
-	double lmat[25], rmat[25];
+	//double lmat[25], rmat[25];
 	int index1;
 	for(int n = 0; n<nfields; n++) {
 	  for(int m = 0; m<nfields; m++) {
@@ -311,23 +317,23 @@ void fillJacobians(double *q, double *normals,double *volume,
 	    computeJacobian(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
 			    qr[0], qr[1],  qr[2],  qr[3],  qr[4],
 			    norm[0], norm[1], norm [2],
-			    idxn, lmat, rmat);
+			    idxn, Dall+25*idx, rmatall+f*25,1./volume[idx]);
 
-	    for(int n = 0; n<nfields; n++){
-	      for(int m = 0; m<nfields; m++){
-		index1 = n*nfields + m;
-		lmat[index1] /= volume[idx];
-		rmat[index1] /= volume[idx];
-	      }
-	    }
+	    /* for(int n = 0; n<nfields; n++){ */
+	    /*         for(int m = 0; m<nfields; m++){ */
+	    /*                 index1 = n*nfields + m; */
+	    /*                 lmat[index1] /= volume[idx]; */
+	    /*                 rmat[index1] /= volume[idx]; */
+	    /*         } */
+	    /* } */
 
 	    //Fill storage matrices for lmat and rmat
-	    for(int n = 0; n<nfields; n++){
-	      for(int m = 0; m<nfields; m++){
-		rmatall[f*25+n*nfields+m] = rmat[n*nfields+m];
-		Dall[25*idx+n*nfields+m] = Dall[25*idx+n*nfields+m] + lmat[n*nfields+m];
-	      }
-	    }
+	    /* for(int n = 0; n<nfields; n++){ */
+	    /*         for(int m = 0; m<nfields; m++){ */
+	    /* 		rmatall[f*25+n*nfields+m] = rmat[n*nfields+m]; */
+	    /*                 Dall[25*idx+n*nfields+m] = Dall[25*idx+n*nfields+m] + lmat[n*nfields+m]; */
+	    /* 	} */
+	    /* } */
 	  }
       }
 }
@@ -347,8 +353,8 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *
     for(int idx=0;idx<ncells;idx++)
 #endif
       {
-	double dqtemp[5],dqn[5];
- 	double B[5], Btmp[5];
+	double dqtemp[5]; //,dqn[5];
+ 	double B[5]; //, Btmp[5];
 	//double rmat[25], D[25];
 	int index1; 
 
@@ -373,14 +379,14 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *
 	    //Get neighbor dq and compute O_ij*dq_j
 	    for(int n=0; n<5; n++) {
 	      if (idxn > -1) {
-		dqn[n] = dq[scale*idxn+n*stride];
+		dqtemp[n] = dq[scale*idxn+n*stride];
 	      }
 	      else {
-		dqn[n] = 0.0;
+		dqtemp[n] = 0.0;
 	      }
 	    }
-	    axb1(rmat,dqn,Btmp,1,5); 
-	    for(int n = 0; n<5; n++) B[n] = B[n] - Btmp[n]; 
+	    axb1s(rmat,dqtemp,B,1,5); 
+	    //for(int n = 0; n<5; n++) B[n] = B[n] - Btmp[n]; 
 	  }
 
 	// Compute dqtilde and send back out of kernel
