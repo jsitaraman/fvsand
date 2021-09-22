@@ -29,7 +29,7 @@ namespace gpu {
 
 #define FVSAND_GPU_KERNEL_LAUNCH(func, N, ... )                               \
 {                                                                             \
-  constexpr int FVSAND_BLOCK_SIZE = 1024;                                     \
+  constexpr int FVSAND_BLOCK_SIZE = 256;                                      \
   const int __n_blocks = ( N + FVSAND_BLOCK_SIZE-1 ) / FVSAND_BLOCK_SIZE ;    \
   FVSAND_GPU_LAUNCH_FUNC( func                                                \
                         , __n_blocks                                          \
