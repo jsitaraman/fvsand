@@ -189,11 +189,11 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
       {
 	double dqtemp[5]; //,dqn[5];
  	//double B[5], Btmp[5];
- 	double B[5],Btmp[5];
+ 	double B[5];//,Btmp[5];
 	double D[25]{0}; 
         //double lmat[25]; 
         double rmat[25]; 
-	int index1; 
+	//int index1; 
 
 	for(int n = 0; n<nfields; n++) {
 	  dqtemp[n] = dq[scale*idx+n*stride]; 
@@ -357,7 +357,7 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *
 	double dqtemp[5]; //,dqn[5];
  	double B[5]; //, Btmp[5];
 	//double rmat[25], D[25];
-	int index1; 
+	//int index1; 
 
 	for(int n = 0; n<nfields; n++) {
 	  dqtemp[n] = dq[scale*idx+n*stride]; 
@@ -366,7 +366,7 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
-	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    //double *norm=normals+18*idx+3*(f-nccft[idx]);
 	    int idxn=cell2cell[f];
 	    /*
 	      for(int n = 0; n<nfields; n++){

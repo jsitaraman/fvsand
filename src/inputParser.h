@@ -17,7 +17,7 @@ void parseInputs(char *inputfile,
 {
   FILE *fp;
   char line[256];
-  char comments[100];
+  //char comments[100];
   fp=fopen(inputfile,"r");
    if ( fp == nullptr ) {
     printf("Could not open file [%s]\n", inputfile );
