@@ -55,7 +55,7 @@ FVSAND_GPU_DEVICE void solveAxb5(double *A, double *b, double* x)
         }
 }
 
-/*
+
 //
 // perform x = inv (A)*f
 // currently set for 5x5 matrix
@@ -108,7 +108,7 @@ FVSAND_GPU_DEVICE void invertMat5(double *A, double *f, double *x)
   x[1]=d2-u23*x[2]-u24*x[3]-u25*d5;
   x[0]=d1-u12*x[1]-u13*x[2]-u14*x[3]-u15*d5;
 }
-*/
+
 
 //
 // perform b=fac*A*x

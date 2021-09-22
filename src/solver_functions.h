@@ -264,7 +264,8 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 	  }
 
 	// Compute dqtilde and send back out of kernel
-	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
+	//solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
+	invertMat5(D,B,dqtemp);
 	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = dqtemp[n]; 
       } // loop over cells 
 }
@@ -397,7 +398,8 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate, double *
 	  }
 	  }*/
 	double *D = Dall + idx*25;
-	solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
+	invertMat5(D,B,dqtemp);
+	//solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
 	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = dqtemp[n]; 
       } // loop over cells 
 }
