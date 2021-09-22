@@ -61,7 +61,7 @@ class GlobalMesh
 class StrandMesh : public GlobalMesh
 {
   public:
-  StrandMesh(char *surface_file,double ds, double stretch, int nlevels);
+  StrandMesh(char *surface_file,double ds, double stretch, int nlevels,int myid);
   void WriteMesh(int label);
   void WriteBoundaries(int label);
   void PartitionSphereMesh(int, int, MPI_Comm);

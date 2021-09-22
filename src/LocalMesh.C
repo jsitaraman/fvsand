@@ -83,7 +83,7 @@ LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
 			sndmap,
 			rcvmap,mycomm);
   double elapsed=stopwatch.tock();
-  printf("Comm Patterns time %e\n",elapsed);
+  //printf("Comm Patterns time %e\n",elapsed);
   //printf("ncells/nhalo=%d %d\n",ncells,nhalo);
   //
   // mine out the vertices of all the local cells
@@ -236,7 +236,7 @@ void LocalMesh::CreateFaces(void)
 	  nfaces++;
 	}
       }
-  printf("nfaces=%d\n",nfaces);
+  //printf("nfaces=%d\n",nfaces);
 
   facetype_d=gpu::push_to_device<int>(facetype_h.data(),sizeof(int)*nfaces);
   cell2face_d=gpu::push_to_device<int>(cell2face_h,sizeof(int)*cell2cell.size());

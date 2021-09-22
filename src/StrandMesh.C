@@ -20,7 +20,7 @@ extern "C" {
   void getspherepart_(int *, int *, double *);
 };
 
-StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels)
+StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels, int myid)
 {
   FILE *fp;  
   fp=fopen(surface_file,"r");
@@ -59,6 +59,7 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
    exit(0);
   }
   fclose(fp);
+  if (myid==0) printf("Finished reading grid ..\n");
   
   nnodes=nsurfnodes*(nlevels+1);
   ncells=nsurfcells*nlevels;
@@ -129,6 +130,8 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
       offset+=nsurfnodes;
       ds*=stretch;
     }
+  if (myid==0) printf("Generated volume mesh ..\n");
+  if (myid==0) printf("Total Prizmatic Elements: %d\n",ncells);
 
   /* call canned f90 to get the neighbor information for all cells */
   
@@ -174,6 +177,7 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
   	 k++;
         }
       }
+  if (myid==0) printf("Assigned Boundary Conditions..\n");
   //printf("k=%d\n",k);
   //WriteBoundaries(0);
 

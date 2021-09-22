@@ -75,17 +75,18 @@ int main(int argc, char *argv[])
   int nsweep = 2;   // Jacobi Sweeps (=0 means explict)
   int istoreJac =0; // Jacobian storage or not 
   int restype=0;    // restype = 0 (cell-based) 1 (face-based)
-  printf("inputfile=%s\n",argv[1]);
-  parseInputs(argv[1],fname,&dsmin,&stretch,&nlevels,
+  if (argc > 1) {
+   parseInputs(argv[1],fname,&dsmin,&stretch,&nlevels,
 	      flovar,&nsteps,&nsave,&dt,&nsweep,
 	      &istoreJac,&restype);
+  }
   
   // runge-kutta tableue
   double rk[4]={0.25,8./15,5./12,3./4};
 
   // create strand mesh
   StrandMesh *sm;
-  sm=new StrandMesh(fname,dsmin,stretch,nlevels);
+  sm=new StrandMesh(fname,dsmin,stretch,nlevels,myid);
   sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);
   //sm->WriteMesh(myid);
 
@@ -135,6 +136,8 @@ int main(int argc, char *argv[])
   if (myid == 0) {
    printf("# ----------------------------------\n");
    printf("# Elapsed time: %13.4f s\n", elapsed);
+   printf("# Through-put : %13.4f [million-elements/sec/iteration]\n",
+		   sm->ncells/(elapsed/nsteps)/1e6);
    printf("# ----------------------------------\n");
   }
 

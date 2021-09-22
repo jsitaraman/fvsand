@@ -19,6 +19,10 @@ void parseInputs(char *inputfile,
   char line[256];
   char comments[100];
   fp=fopen(inputfile,"r");
+   if ( fp == nullptr ) {
+    printf("Could not open file [%s]\n", inputfile );
+    MPI_Abort( MPI_COMM_WORLD, -1 );
+  }
   fgets(line,256,fp);  sscanf(line,"meshfile=%s",meshfile);
   fgets(line,256,fp);  sscanf(line,"dsmin=%lf",dsmin);
   fgets(line,256,fp);  sscanf(line,"stretch=%lf",stretch);

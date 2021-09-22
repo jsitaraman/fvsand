@@ -108,17 +108,16 @@ namespace FVSAND {
 		    node2nodelocal[nn++]=nodecount;
 		  } else {
 		    node2nodelocal[nn++]=distance(halo.begin(),it)+(*nlocal);
-		    for(int h=ngptr[node2node[j]];h<ngptr[node2node[j]];h++)
+		    for(int h=ngptr[node2node[j]];h<ngptr[node2node[j]+1];h++)
 		      {
+			int ih=h-ngptr[node2node[j]];
 			if (node2node[h]==inode)
-			  halo2node[hcft[distance(halo.begin(),it)]+h]=global2local[inode];		      
+			  halo2node[hcft[distance(halo.begin(),it)]+ih]=global2local[inode];		      
 		      }
 		  }	    
 		}
 		else {
-		  node2nodelocal[nn++]=global2local[node2node[j]];
-		  //node2nodelocal.push_back(global2local[node2node[j]]); // connection is to a local node,
-		  // add the local id of that here
+		  node2nodelocal[nn++]=global2local[node2node[j]]; // connection is to a local node,
 		}
 	      }
 	    }
@@ -132,20 +131,23 @@ namespace FVSAND {
 	  ncon_local.push_back(ngptr[h+1]-ngptr[h]);
 	  for(int j=ngptr[h];j<ngptr[h+1];j++)
 	    {
-              /*
-             auto it = std::find(local2global.begin(), local2global.end(), node2node[j]);
-             if (it!=local2global.end() && distance(local2global.begin(),it) < (*nlocal)) {
-               node2nodelocal.push_back(distance(local2global.begin(),it));
-             }
-             else {
-               node2nodelocal.push_back(-1);
-             }*/
-
               node2nodelocal[nn++]=halo2node[mm++];
 	    }
 	  global2local.emplace(h,b);
 	  b++;
 	}
+      /*
+      char fn[20];
+      sprintf(fn,"c2c%d.dat",myid);
+      FILE*fp=fopen(fn,"w");
+      for(int i=0;i<(*nlocal+*nhalo);i++)
+       {
+         for(int j=0;j<5;j++)
+           fprintf(fp,"%d ",node2nodelocal[5*i+j]);
+         fprintf(fp,"\n");
+       }
+      fclose(fp);
+      */
       //
       MPI_Request *ireq=new MPI_Request [pmap.size()*2];
       MPI_Status *istatus=new MPI_Status [pmap.size()*2];
