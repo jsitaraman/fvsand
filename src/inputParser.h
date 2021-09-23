@@ -11,12 +11,13 @@ void parseInputs(char *inputfile,
 		 int *nsteps,
 		 int *nsave,
 		 double *dt,
+                 bool &reOrderCells,
 		 int *nsweep,
 		 int *istoreJac,
 		 int *restype)
 {
   FILE *fp;
-  char line[256];
+  char line[256],b[8];
   //char comments[100];
   fp=fopen(inputfile,"r");
    if ( fp == nullptr ) {
@@ -35,6 +36,11 @@ void parseInputs(char *inputfile,
   fgets(line,256,fp);  sscanf(line,"nsteps=%d",nsteps);
   fgets(line,256,fp);  sscanf(line,"nsave=%d",nsave);
   fgets(line,256,fp);  sscanf(line,"dt=%lf",dt);
+  fgets(line,256,fp);  
+  if ( sscanf(line,"reOrderCells=%[TtRrUuEe]",b))
+    reOrderCells = true;
+  else
+    reOrderCells = false;
   fgets(line,256,fp);  sscanf(line,"nsweep=%d",nsweep);
   fgets(line,256,fp);  sscanf(line,"istoreJac=%d",istoreJac);
   fgets(line,256,fp);  sscanf(line,"restype=%d",restype);
