@@ -3,6 +3,7 @@
 #include "mpi.h"
 #include "GlobalMesh.h"
 
+#include "rcm.hpp"
 #include "NVTXMacros.h"
 
 using namespace FVSAND;
@@ -152,11 +153,11 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
   cell2cell = new int64_t[csize];
   faceInfo  = new int64_t[fsize];
   nconn     = new int[ncells];
-  
+
   for(int i=0;i<csize;i++) cell2cell[i]=(int64_t)(ctmp[i]);
   for(int i=0;i<fsize;i++) faceInfo[i]=(int64_t)(ftmp[i]);
   for(int i=0;i<ncells;i++) nconn[i]=5;
-  
+
   k=0;
   int itype=2; // prizms
   
@@ -184,6 +185,80 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
   delete [] ctmp;
   delete [] ftmp;
   delete [] ndc6;
+
+}
+
+void StrandMesh::ReOrderCells(void) {
+  int *adj_row = new int[ncells+1];
+  adj_row[0]=1;
+  for(int i=0;i<ncells;i++) {
+    int nc = 0;
+    for(int j=0;j<5;j++) {
+      if (cell2cell[5*i+j] >= 0) {
+        nc++;
+      }
+    }
+    adj_row[i+1]=adj_row[i]+nc;  
+  }
+
+  int* adj = new int[adj_row[ncells]];
+
+  int nc = 0;
+  for(int i=0;i<ncells;i++) {
+    for(int j=0;j<5;j++) {
+      if (cell2cell[5*i+j] >= 0) {
+        adj[nc] = (int)cell2cell[5*i+j]+1;
+        nc++;
+      }
+    }
+  }
+  
+  int *perm = new int[ncells];
+
+  // Perform reverse Cuthill-McKee ordering
+  genrcm(ncells,adj_row,adj,perm);
+
+  delete [] adj_row;
+  delete [] adj;
+
+  for(int i=0;i<ncells;i++) {
+    perm[i]--;
+  }
+
+  // Update cell2node
+  uint64_t *cell2node_orig=new uint64_t [6*ncells];
+  for(int i=0;i<6*ncells;i++) {
+    cell2node_orig[i] = cell2node[i];
+  }
+  for(int i=0;i<ncells;i++) {
+    nc = perm[i]; 
+    for(int j=0;j<6;j++) {
+      cell2node[6*nc+j] = cell2node_orig[6*i+j];
+    }
+  }
+  delete [] cell2node_orig;
+
+  // Update cell2cell
+  int64_t *cell2cell_orig = new int64_t[5*ncells];
+  for(int i=0;i<5*ncells;i++) {
+    cell2cell_orig[i] = cell2cell[i];
+  }
+
+  for(int i=0;i<ncells;i++) {
+    nc = perm[i]; 
+    for(int j=0;j<5;j++) {
+      if (cell2cell_orig[5*i+j] >= 0) {
+         cell2cell[5*nc+j] = perm[cell2cell_orig[5*i+j]];
+      }
+      else {
+         cell2cell[5*nc+j] = cell2cell_orig[5*i+j];
+      }
+    }
+  }
+
+  delete [] cell2cell_orig;
+
+  delete [] perm;
   
 }
 

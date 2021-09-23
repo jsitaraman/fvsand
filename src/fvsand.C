@@ -72,12 +72,13 @@ int main(int argc, char *argv[])
   int nsteps=2000;
   int nsave=100;
   double dt=0.03;
+  bool reOrderCells=false; // Re-order cells for better cache efficiency 
   int nsweep = 2;   // Jacobi Sweeps (=0 means explict)
   int istoreJac =0; // Jacobian storage or not 
   int restype=0;    // restype = 0 (cell-based) 1 (face-based)
   if (argc > 1) {
    parseInputs(argv[1],fname,&dsmin,&stretch,&nlevels,
-	      flovar,&nsteps,&nsave,&dt,&nsweep,
+	      flovar,&nsteps,&nsave,&dt,reOrderCells,&nsweep,
 	      &istoreJac,&restype);
   }
   
@@ -87,6 +88,7 @@ int main(int argc, char *argv[])
   // create strand mesh
   StrandMesh *sm;
   sm=new StrandMesh(fname,dsmin,stretch,nlevels,myid);
+  if (reOrderCells) sm->ReOrderCells();
   sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);
   //sm->WriteMesh(myid);
 

@@ -60,6 +60,7 @@ target_sources(fvsand.exe PRIVATE
   utils.c
   timer.C
   Range.C
+  rcm.cpp
 )
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR} /usr/local/include/)
