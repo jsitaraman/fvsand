@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
   double dt=0.03;
   bool reOrderCells=false; // Re-order cells for better cache efficiency 
   int nsweep = 2;   // Jacobi Sweeps (=0 means explict)
-  int istoreJac =0; // Jacobian storage or not 
+  int istoreJac =3; // Jacobian storage or not 
   int restype=0;    // restype = 0 (cell-based) 1 (face-based)
   if (argc > 1) {
    parseInputs(argv[1],fname,&dsmin,&stretch,&nlevels,
