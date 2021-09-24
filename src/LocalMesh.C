@@ -398,7 +398,7 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
   FVSAND_GPU_KERNEL_LAUNCH(setValues,nthreads,
 			 dq_d, 0.0, nthreads);
   //compute and store Jacobians;
-  if(istoreJac){
+  if(istoreJac==1){
     nthreads=ncells+nhalo;
     FVSAND_GPU_KERNEL_LAUNCH(fillJacobians,nthreads,
 			   q, normals_d, volume_d,
@@ -411,15 +411,21 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
     //printf("Sweep %i\n=================\n",m);
     nthreads=ncells+nhalo;
     // compute dqtilde for all cells
-    if(istoreJac){
+    if(istoreJac==1){
       FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep2,nthreads,
 			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
 			     rmatall_d, Dall_d,
 			     flovar_d, cell2cell_d,
 			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
     }
-    else{
+    else if(istoreJac==0) {
       FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep,nthreads,
+			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+			     flovar_d, cell2cell_d,
+			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+    }
+    else if(istoreJac==2) {
+      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep3,nthreads,
 			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
 			     flovar_d, cell2cell_d,
 			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
