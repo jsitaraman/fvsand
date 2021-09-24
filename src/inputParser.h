@@ -36,14 +36,14 @@ void parseInputs(char *inputfile,
   fgets(line,256,fp);  sscanf(line,"nsteps=%d",nsteps);
   fgets(line,256,fp);  sscanf(line,"nsave=%d",nsave);
   fgets(line,256,fp);  sscanf(line,"dt=%lf",dt);
+  fgets(line,256,fp);  sscanf(line,"nsweep=%d",nsweep);
+  fgets(line,256,fp);  sscanf(line,"istoreJac=%d",istoreJac);
+  fgets(line,256,fp);  sscanf(line,"restype=%d",restype);
   fgets(line,256,fp);  
   if ( sscanf(line,"reOrderCells=%[TtRrUuEe]",b))
     reOrderCells = true;
   else
     reOrderCells = false;
-  fgets(line,256,fp);  sscanf(line,"nsweep=%d",nsweep);
-  fgets(line,256,fp);  sscanf(line,"istoreJac=%d",istoreJac);
-  fgets(line,256,fp);  sscanf(line,"restype=%d",restype);
   fclose(fp);
 }
 

@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
   // and compute grid metrics
   LocalMesh *lm;
   lm= new LocalMesh(sm,myid,MPI_COMM_WORLD);
-  lm->CreateGridMetrics();
+  lm->CreateGridMetrics(istoreJac);
 
   // initialize solution
   lm->InitSolution(flovar.data(),nfields);

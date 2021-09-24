@@ -74,7 +74,8 @@ class LocalMesh
 
   // jacobian quantities
   double *rmatall_d{nullptr}, *Dall_d{nullptr}; 
-
+  float *Dall_d_f{nullptr};
+  
   // face quantities
   int *cell2face_d{nullptr};
   int *facetype_d{nullptr};
@@ -109,7 +110,7 @@ class LocalMesh
 	    int myid,
 	    MPI_Comm comm);
   void WriteMesh(int label);
-  void CreateGridMetrics();
+  void CreateGridMetrics(int);
   void CreateFaces();
   void InitSolution(double *, int);
   void Residual(double * qv, int);

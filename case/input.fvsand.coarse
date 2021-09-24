@@ -13,3 +13,4 @@ dt=0.2                        # dt
 nsweep=2                      # number of jacobi sweeps (=0 means explicit rk3)
 istoreJac=0                   # store jacoabians or not
 restype=0                     # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
+reOrderCells=false            # reorder cells

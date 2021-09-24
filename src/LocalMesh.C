@@ -147,7 +147,7 @@ LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
   
 }
 
-void LocalMesh::CreateGridMetrics()
+void LocalMesh::CreateGridMetrics(int istoreJac)
 {
   FVSAND_NVTX_FUNCTION( "grid_metrics" );
 
@@ -162,11 +162,17 @@ void LocalMesh::CreateGridMetrics()
   nccft_h[0]=0;
   for(int i=0;i<ncells+nhalo;i++)
     nccft_h[i+1]=nccft_h[i]+ncon[i];  
-  nccft_d=gpu::push_to_device<int>(nccft_h,sizeof(int)*(ncon.size()+1));  
-
-  Dall_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*25);
-  rmatall_d=gpu::allocate_on_device<double>(sizeof(double)*nccft_h[ncells+nhalo]*25);
-
+  nccft_d=gpu::push_to_device<int>(nccft_h,sizeof(int)*(ncon.size()+1));
+  //
+  if (istoreJac==1 || istoreJac ==4) {
+    Dall_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*25);
+  }
+  if (istoreJac==5) {
+    Dall_d_f=gpu::allocate_on_device<float>(sizeof(float)*(ncells+nhalo)*25);
+  }
+  if (istoreJac==1) {
+    rmatall_d=gpu::allocate_on_device<double>(sizeof(double)*nccft_h[ncells+nhalo]*25);
+  }
   // allocate storage for metrics
   center_d=gpu::allocate_on_device<double>(sizeof(double)*3*(ncells+nhalo));
   // allocate larger storage than necessary for normals to avoid
@@ -406,35 +412,66 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 			   flovar_d, cell2cell_d,
 			   nccft_d, nfields_d, istor, ncells, facetype_d, dt);
   }
+  if (istoreJac==4) {
+    nthreads=ncells+nhalo;
+    FVSAND_GPU_KERNEL_LAUNCH(fillJacobians_diag,nthreads,
+                           q, normals_d, volume_d,
+			     Dall_d,
+                           flovar_d, cell2cell_d,
+                           nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+  }
+  if (istoreJac==5) {
+    nthreads=ncells+nhalo;
+    FVSAND_GPU_KERNEL_LAUNCH(fillJacobians_diag_f,nthreads,
+			     q, normals_d, volume_d,
+			     Dall_d_f,
+			     flovar_d, cell2cell_d,
+			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+  }
+  
   // Jacobi Sweeps
   for(int m = 0; m < nsweep; m++){
     //printf("Sweep %i\n=================\n",m);
     nthreads=ncells+nhalo;
     // compute dqtilde for all cells
-    if(istoreJac==1){
-      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep2,nthreads,
+    if(istoreJac==0){
+      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep,nthreads,
+			       q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+			       flovar_d, cell2cell_d,
+			       nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+    }
+    else if(istoreJac==1) {
+      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep1,nthreads,
 			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
 			     rmatall_d, Dall_d,
 			     flovar_d, cell2cell_d,
-			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
-    }
-    else if(istoreJac==0) {
-      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep,nthreads,
-			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
-			     flovar_d, cell2cell_d,
-			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);      
     }
     else if(istoreJac==2) {
-      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep3,nthreads,
+      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep2,nthreads,
 			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
 			     flovar_d, cell2cell_d,
 			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
     }
     else if(istoreJac==3) {
-      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep4,nthreads,
+      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep3,nthreads,
 			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
 			     flovar_d, cell2cell_d,
 			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+    }
+    else if(istoreJac==4) {
+      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep4,nthreads,
+			       q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+			       Dall_d,
+			       flovar_d, cell2cell_d,
+			       nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+    }
+    else if(istoreJac==5) {
+      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep5,nthreads,
+			       q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+			       Dall_d_f,
+			       flovar_d, cell2cell_d,
+			       nccft_d, nfields_d, istor, ncells, facetype_d, dt);
     }
     // update dq = dqtilde for all cells
     

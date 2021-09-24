@@ -11,5 +11,6 @@ nsteps=2000                   # number of steps
 nsave=100                     # frequency to show residual 
 dt=0.1                       # dt
 nsweep=2                      # number of jacobi sweeps (=0 means explicit rk3)
-istoreJac=0                   # store jacoabians or not
+istoreJac=3                   # store jacoabians or not
 restype=0                     # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
+reOrderCells=false            # reorder cells or not
