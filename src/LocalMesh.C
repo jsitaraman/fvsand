@@ -430,6 +430,12 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 			     flovar_d, cell2cell_d,
 			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
     }
+    else if(istoreJac==3) {
+      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep4,nthreads,
+			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+			     flovar_d, cell2cell_d,
+			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+    }
     // update dq = dqtilde for all cells
     
     nthreads=(ncells+nhalo)*nfields_d;

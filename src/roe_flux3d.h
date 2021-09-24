@@ -764,8 +764,6 @@ void computeJacobianDiag( real& ql1, real& ql2, real& ql3, real& ql4, real& ql5,
 {
 
 real gam=1.4;
-int imode=1;
-
 
 real gm1;
 real area,nx,ny,nz;
@@ -1160,4 +1158,228 @@ for( int i = 0; i < 5 ; i++ )
 	     lmatout[index1] += (lmat[i][j]*scaling);
      }
 
+}
+
+FVSAND_GPU_DEVICE
+void InterfaceFlux_Inviscid_d( real & f1d, real & f2d, real & f3d, real & f4d, real & f5d,
+			       real & ql1, real& ql2, real & ql3, real & ql4, real & ql5,
+			       real & qr1, real& qr2, real & qr3, real & qr4, real & qr5,
+			       real & qr1d, real& qr2d, real & qr3d, real & qr4d, real & qr5d,
+			       real & dsx, real & dsy, real & dsz,
+			       real & gx, real & gy, real & gz, int & faceID, real scaling)
+{
+  real  gm1=0.4;
+  real eps,rlft,ulft,vlft,wlft,plft;
+  real rlfti,uvwl,elft,hlft,clft;
+  real rrht,urht,vrht,wrht,prht;
+  real urhtd,vrhtd,wrhtd,prhtd;
+  real rrhti,rurht,rvrht,rwrht,uvwr,erht,hrht,crht;
+  real rrhtid,uvwrd,erhtd,hrhtd;
+  real rat,rati,rav,uav,vav,wav,hav,uvw,cav;
+  real ratd,ratid,ravd,uavd,vavd,wavd,havd,uvwd,cavd;
+  real aq1,aq2,aq3,aq4,aq5,ri1,ri2,ri3,ri4,rr2,rr,r0,r1,r2,r3,r4;
+  real aq1d,aq2d,aq3d,aq4d,aq5d;
+  real uu,c2,c2i,auu,aupc,aumc,uulft,uurht,upclft,upcrht;
+  real uud,c2d,c2id,auud,aupcd,aumcd,uurhtd;
+  real umclft,umcrht,dauu,dauus,daupc,daumc,daumcs,rcav,aquu;
+  real rcavd,aquud;
+  real daupcs,c2ih,ruuav,b1,b2,b3,b4,b5,b6,b7,b8,aj;
+  real ruuavd,b1d,b2d,b3d,b4d,b5d,b6d,b7d,b8d;
+  real eprht;
+  real eprhtd;
+
+  real faceSpeed;
+
+  if ( faceID != -2 ) // boundary face
+    {
+      //
+      // first executable statement
+      //
+      eps = 1.e-6;
+ 
+      faceSpeed = (gx*dsx + gy*dsy + gz*dsz)/sqrt(dsx*dsx + dsy*dsy + dsz*dsz);
+
+      rlft = ql1;
+      ulft = ql2/ql1;
+      vlft = ql3/ql1;
+      wlft = ql4/ql1;
+      plft = gm1*(ql5 - 0.5*(ql2*ql2 + ql3*ql3 + ql4*ql4)/ql1);
+
+      rlfti = 1.0/rlft;
+      uvwl = 0.5*( ulft*ulft + vlft*vlft + wlft*wlft );
+      elft = plft/gm1 + rlft*uvwl;
+      hlft = ( elft + plft )*rlfti;
+      clft = sqrt( gm1*( hlft - uvwl ) );
+
+      rrht = qr1;
+      urht = qr2/qr1;
+      vrht = qr3/qr1;
+      wrht = qr4/qr1;
+      prht = gm1*(qr5-0.5*(qr2*qr2 + qr3*qr3 + qr4*qr4)/qr1);
+
+      urhtd = -urht*qr1d/qr1 + qr2d/qr1;
+      vrhtd = -vrht*qr1d/qr1 + qr3d/qr1;
+      wrhtd = -wrht*qr1d/qr1 + qr4d/qr1;
+      prhtd = 0.5*(qr2*qr2 + qr3*qr3 + qr4*qr4)*qr1d/(qr1*qr1) -
+              (qr2*qr2d + qr3*qr3d + qr4*qr4d)/qr1 + qr5d;
+      prhtd *= gm1;
+
+      rrhti = 1.0/rrht;
+      rrhtid = -qr1d*rrhti*rrhti;
+
+      rurht = qr2;
+      rvrht = qr3;
+      rwrht = qr4;
+
+      uvwr = 0.5*( urht*urht + vrht*vrht + wrht*wrht );
+      uvwrd = urht*urhtd + vrht*vrhtd + wrht*wrhtd;
+
+      erht = prht/gm1 + rrht*uvwr;
+      erhtd = prhtd/gm1 + rrht*uvwrd + qr1d*uvwr;
+
+      hrht = ( erht + prht )*rrhti;
+      hrhtd = ( erht + prht )*rrhtid + ( erhtd + prhtd )*rrhti;
+
+      crht = sqrt( gm1*( hrht - uvwr ) );
+
+      rat  = sqrt( rrht*rlfti );
+      ratd = 0.5*qr1d*rlfti/rat;
+
+      rati = 1.0/( rat + 1. );
+      ratid = -rati*rati*ratd;
+
+      rav  =   rat*rlft;
+      uav  = ( rat*urht + ulft )*rati;
+      vav  = ( rat*vrht + vlft )*rati;
+      wav  = ( rat*wrht + wlft )*rati;
+      hav  = ( rat*hrht + hlft )*rati;
+
+      ravd  =   ratd*rlft;
+      uavd  = ( rat*urht + ulft )*ratid + (rat*urhtd + ratd*urht)*rati;
+      vavd  = ( rat*vrht + vlft )*ratid + (rat*vrhtd + ratd*vrht)*rati;
+      wavd  = ( rat*wrht + wlft )*ratid + (rat*wrhtd + ratd*wrht)*rati;
+      havd  = ( rat*hrht + hlft )*ratid + (rat*hrhtd + ratd*hrht)*rati;
+
+      uvw  = 0.5*( uav*uav + vav*vav + wav*wav );
+      uvwd = uav*uavd + vav*vavd + wav*wavd;
+
+      cav  = sqrt( gm1*( hav - uvw ) );
+      cavd = 0.5*gm1*( havd - uvwd)/cav;
+
+      aq1  = rrht - rlft;
+      aq2  = urht - ulft;
+      aq3  = vrht - vlft;
+      aq4  = wrht - wlft;
+      aq5  = prht - plft;
+
+      aq1d  = qr1d;
+      aq2d  = urhtd;
+      aq3d  = vrhtd;
+      aq4d  = wrhtd;
+      aq5d  = prhtd;
+
+      ri1 = dsx;
+      ri2 = dsy;
+      ri3 = dsz;
+      ri4 = faceSpeed;
+      rr2 = ri1*ri1 + ri2*ri2 + ri3*ri3;
+      rr  = sqrt( rr2 );
+      r0  = 1.0 / rr;
+      r1  = ri1*r0;
+      r2  = ri2*r0;
+      r3  = ri3*r0;
+      r4  = ri4*r0;
+
+      uu  = r1*uav + r2*vav + r3*wav + r4;
+      c2  = cav*cav;
+      c2i = 1.0/c2;
+
+      uud  = r1*uavd + r2*vavd + r3*wavd;
+      c2d  = 2.0*cav*cavd;
+      c2id = -c2d*c2i*c2i;
+
+      auu   = abs( uu    );
+      aupc  = abs( uu+cav );
+      aumc  = abs( uu-cav );
+
+      auud  = uu*uud/auu;
+      aupcd = (uu+cav)*(uud+cavd)/aupc;
+      aumcd = (uu-cav)*(uud-cavd)/aumc;
+
+      uulft = r1*ulft + r2*vlft + r3*wlft + r4;
+      uurht = r1*urht + r2*vrht + r3*wrht + r4;
+      upclft= uulft + clft;
+      upcrht= uurht + crht;
+      umclft= uulft - clft;
+      umcrht= uurht - crht;
+
+      uurhtd  = r1*urhtd + r2*vrhtd + r3*wrhtd;
+
+      dauu = 4.*(uurht-uulft)+eps;
+      dauus = roe_max(dauu,0.0);
+      if (auu <= 0.5*dauus) 
+	auu = auu*auu/dauu+0.25*dauu;
+
+      daupc = 4.*(upcrht-upclft)+eps;
+      daupcs = roe_max(daupc,0.0);
+  
+      if (aupc <= 0.5*daupcs)  
+	aupc = aupc*aupc/daupc+0.25*daupc;
+
+      daumc = 4.*(umcrht-umclft)+eps;
+      daumcs = roe_max(daumc,0.0);
+  
+      if (aumc <= 0.5*daumcs) 
+	aumc = aumc*aumc/daumc+0.25*daumc;
+
+      rcav = rav*cav;
+      aquu = uurht - uulft;
+      c2ih = 0.5*c2i;
+      ruuav= auu*rav;
+       
+      rcavd = rav*cavd + ravd*cav;
+      aquud = uurhtd;
+      ruuavd = auu*ravd + auud*rav;
+
+      b1   = auu*( aq1 - c2i*aq5 );
+      b2   = c2ih*aupc*( aq5 + rcav*aquu );
+      b3   = c2ih*aumc*( aq5 - rcav*aquu );
+      b4   = b1 + b2 + b3;
+      b5   = cav*( b2 - b3 );
+      b6   = ruuav*( aq2 - r1*aquu );
+      b7   = ruuav*( aq3 - r2*aquu );
+      b8   = ruuav*( aq4 - r3*aquu );
+
+      b1d = auu*( aq1d - c2i*aq5d - c2id*aq5) +
+            auud*( aq1 - c2i*aq5 );
+      b2d = c2ih*aupc*( aq5d + rcav*aquud + rcavd*aquu ) +
+            c2ih*aupcd*( aq5 + rcav*aquu ) + 
+            0.5*c2id*aupc*( aq5 + rcav*aquu );
+      b3d = c2ih*aumc*( aq5d - rcav*aquud - rcavd*aquu ) +
+            c2ih*aumcd*( aq5 - rcav*aquu ) + 
+            0.5*c2id*aumc*( aq5 - rcav*aquu );
+      b4d = b1d + b2d + b3d;
+      b5d = cav*( b2d - b3d ) + cavd*( b2 - b3 );
+      b6d = ruuav*( aq2d - r1*aquud ) + ruuavd*( aq2 - r1*aquu );
+      b7d = ruuav*( aq3d - r2*aquud ) + ruuavd*( aq3 - r2*aquu );
+      b8d = ruuav*( aq4d - r3*aquud ) + ruuavd*( aq4 - r3*aquu );
+
+      aq1d = b4d;
+      aq2d = uav*b4d + uavd*b4 + r1*b5d + b6d;
+      aq3d = vav*b4d + vav*b4d + r2*b5d + b7d;
+      aq4d = wav*b4d + wav*b4d + r3*b5d + b8d;
+      aq5d = hav*b4d + havd*b4 + ( uu-r4 )*b5d + uud*b5 + 
+             uav*b6d + uavd*b6 + 
+             vav*b7d + vavd*b7 + 
+             wav*b8d + wavd*b8 - (c2*b1d + c2d*b1)/gm1;
+
+      aj     = 0.5*rr;
+      eprht  = erht + prht;
+      eprhtd = erhtd + prhtd;
+      f1d = f1d - aj*(  rrht*uurhtd +   qr1d*uurht            - aq1d )*scaling;
+      f2d = f2d - aj*( rurht*uurhtd +   qr2d*uurht + r1*prhtd - aq2d )*scaling;
+      f3d = f3d - aj*( rvrht*uurhtd +   qr3d*uurht + r2*prhtd - aq3d )*scaling;
+      f4d = f4d - aj*( rwrht*uurhtd +   qr4d*uurht + r3*prhtd - aq4d )*scaling;
+      f5d = f5d - aj*( eprht*uurhtd + eprhtd*uurht - r4*prhtd - aq5d )*scaling;
+    }
 }
