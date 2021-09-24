@@ -7,11 +7,11 @@ FVSAND_GPU_DEVICE void solveAxb5(double *A, double *b, double *x) {
   // int index1, index2;
   double L[15] = {0.0};
   double U[10] = {0.0};
-  auto LMap = [](int index) {
+  auto LMap = [](const int& index) {
     int n = index / 5;
     return n * (n + 1) / 2 + index % 5;
   };
-  auto UMap = [](int index) {
+  auto UMap = [](const int& index) {
     int n = (24 - index) / 5;
     return 5 - n * (n - 1) / 2 + index % 5;
   };
