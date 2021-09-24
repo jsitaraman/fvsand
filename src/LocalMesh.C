@@ -337,10 +337,16 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
 // doesn't work CUDA-Aware -- debug this
 void LocalMesh::UpdateFringes(double *qd)
 {
+    FVSAND_NVTX_FUNCTION("UpdateFringes");
+
     nthreads=device2host.size();
     if(nthreads == 0) return;
-    FVSAND_GPU_KERNEL_LAUNCH( updateHost, nthreads,
-			      qbuf_d,qd,device2host_d,nthreads);
+
+    FVSAND_NVTX_SECTION( "pack", 
+      FVSAND_GPU_KERNEL_LAUNCH( updateHost, nthreads,
+			                          qbuf_d,qd,device2host_d,nthreads);
+    );
+
     // separate sends and receives so that we can overlap comm and calculation
     // in the residual and iteration loops.
     // TODO (george) use qbuf2_d and qbuf_d instead of qbuf2 and qbuf for cuda-aware
@@ -348,16 +354,26 @@ void LocalMesh::UpdateFringes(double *qd)
     pc.postRecvs_direct(qbuf2,nfields_d,rcvmap,ireq,mycomm,&reqcount);
     // TODO (george) with cuda-aware this pull is not required
     // but it doesn't work now
-    gpu::pull_from_device<double>(qbuf,qbuf_d,sizeof(double)*device2host.size());
+    FVSAND_NVTX_SECTION( "copy-to-host",
+      gpu::pull_from_device( qbuf, qbuf_d, sizeof(double)*device2host.size() );
+    );
+    
     pc.postSends_direct(qbuf,nfields_d,sndmap,ireq,mycomm,&reqcount);
     pc.finish_comm(reqcount,ireq,istatus);
+    
     // same as above
     // not doing cuda-aware now
-    gpu::copy_to_device(qbuf_d2,qbuf2,sizeof(double)*host2device.size());
-    
+    FVSAND_NVTX_SECTION( "copy-to-device", 
+      gpu::copy_to_device( qbuf_d2, qbuf2, sizeof(double)*host2device.size() );
+    );
+
     nthreads=host2device.size();
-    FVSAND_GPU_KERNEL_LAUNCH( updateDevice, nthreads,
-			      qd,qbuf_d2,host2device_d,nthreads);
+
+    FVSAND_NVTX_SECTION( "unpack",
+      FVSAND_GPU_KERNEL_LAUNCH( updateDevice, nthreads,
+			                          qd,qbuf_d2,host2device_d,nthreads );
+    );
+
 }
     
 
