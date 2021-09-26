@@ -8,6 +8,11 @@
 #include "timer.h"
 #include <cstdio>
 
+#if defined(FVSAND_HAS_GPU) && defined(FVSAND_HAS_CUDA) && !defined(FVSAND_FAKE_GPU)
+// add CUDA thrust includes
+#include <thrust/transform_reduce.h>
+#endif
+
 using namespace FVSAND;
 
 LocalMesh::~LocalMesh()
@@ -499,18 +504,42 @@ void LocalMesh::UpdateQ(double *qdest, double *qsrc, double fscal)
 			 dq_d, qdest, qsrc, fscal, nthreads);
 }
 
+#if defined(FVSAND_HAS_GPU) && defined(FVSAND_HAS_CUDA) && !defined(FVSAND_FAKE_GPU)
+template <typename T>
+struct fvsand_square_op
+{
+  __host__ __device__
+  T operator()(const T& x) const { 
+      return x * x;
+  }
+};
+#endif
+
 double LocalMesh::ResNorm()
 {
   FVSAND_NVTX_FUNCTION( "ResNorm" );
 
-  gpu::pull_from_device<double>(qh,res_d,sizeof(double)*nfields_d*(ncells+nhalo));
   double rnorm[2];
   double rnormTotal[2];
-
   rnorm[0]=0.0;
   rnorm[1]=ncells;
+
+#if defined(FVSAND_HAS_GPU) && defined(FVSAND_HAS_CUDA) && !defined(FVSAND_FAKE_GPU)
+  fvsand_square_op<double> unary_op;
+  thrust::plus<double> binary_op;
+  const int N = nfields_d * ncells; 
+  rnorm[ 0 ]  = thrust::transform_reduce( thrust::device
+                                        , res_d
+                                        , res_d+N
+                                        , unary_op
+                                        , 0.0
+                                        , binary_op );
+#else
+  gpu::pull_from_device<double>(qh,res_d,sizeof(double)*nfields_d*(ncells+nhalo));
   for(int i=0;i<nfields_d*ncells;i++)
     rnorm[0]+=(qh[i]*qh[i]);
+#endif
+
   MPI_Reduce(rnorm,rnormTotal,2,MPI_DOUBLE,MPI_SUM, 0, mycomm);
   
   rnormTotal[0]=sqrt(rnormTotal[0]/nfields_d/rnormTotal[1]);
