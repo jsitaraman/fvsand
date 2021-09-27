@@ -421,88 +421,108 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
     exit(0);
   */
   FVSAND_NVTX_FUNCTION("Jacobi");
-  nthreads=(ncells+nhalo)*nfields_d;
-  FVSAND_GPU_KERNEL_LAUNCH(setValues,nthreads,
-			 dq_d, 0.0, nthreads);
+
+  FVSAND_NVTX_SECTION( "setValues",
+    nthreads=(ncells+nhalo)*nfields_d;
+    FVSAND_GPU_KERNEL_LAUNCH(setValues,nthreads,dq_d, 0.0, nthreads);
+  );
+
   //compute and store Jacobians;
   if(istoreJac==1){
-    nthreads=ncells+nhalo;
-    FVSAND_GPU_KERNEL_LAUNCH(fillJacobians,nthreads,
-			   q, normals_d, volume_d,
-			   rmatall_d, Dall_d,
-			   flovar_d, cell2cell_d,
-			   nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+
+    FVSAND_NVTX_SECTION( "fillJacobians",
+      nthreads=ncells+nhalo;
+      FVSAND_GPU_KERNEL_LAUNCH(fillJacobians,nthreads,
+		  	   q, normals_d, volume_d,
+		  	   rmatall_d, Dall_d,
+		  	   flovar_d, cell2cell_d,
+		  	   nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+    );
+
   }
   if (istoreJac==4) {
-    nthreads=ncells+nhalo;
-    FVSAND_GPU_KERNEL_LAUNCH(fillJacobians_diag,nthreads,
-                           q, normals_d, volume_d,
-			     Dall_d,
-                           flovar_d, cell2cell_d,
-                           nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+
+    FVSAND_NVTX_SECTION( "fillJacobians_diag", 
+      nthreads=ncells+nhalo;
+      FVSAND_GPU_KERNEL_LAUNCH(fillJacobians_diag,nthreads,
+                             q, normals_d, volume_d,
+		  	                     Dall_d,
+                             flovar_d, cell2cell_d,
+                             nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+    );
+
   }
   if (istoreJac==5) {
-    nthreads=ncells+nhalo;
-    FVSAND_GPU_KERNEL_LAUNCH(fillJacobians_diag_f,nthreads,
-			     q, normals_d, volume_d,
-			     Dall_d_f,
-			     flovar_d, cell2cell_d,
-			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+
+    FVSAND_NVTX_SECTION( "fillJacobians_diag_f", 
+      nthreads=ncells+nhalo;
+      FVSAND_GPU_KERNEL_LAUNCH(fillJacobians_diag_f,nthreads,
+		  	     q, normals_d, volume_d,
+		  	     Dall_d_f,
+		  	     flovar_d, cell2cell_d,
+		  	     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+    );
+
   }
   
   // Jacobi Sweeps
-  for(int m = 0; m < nsweep; m++){
-    //printf("Sweep %i\n=================\n",m);
-    nthreads=ncells+nhalo;
-    // compute dqtilde for all cells
-    if(istoreJac==0){
-      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep,nthreads,
-			       q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
-			       flovar_d, cell2cell_d,
-			       nccft_d, nfields_d, istor, ncells, facetype_d, dt);
-    }
-    else if(istoreJac==1) {
-      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep1,nthreads,
-			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
-			     rmatall_d, Dall_d,
-			     flovar_d, cell2cell_d,
-			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);      
-    }
-    else if(istoreJac==2) {
-      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep2,nthreads,
-			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
-			     flovar_d, cell2cell_d,
-			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
-    }
-    else if(istoreJac==3) {
-      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep3,nthreads,
-			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
-			     flovar_d, cell2cell_d,
-			     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
-    }
-    else if(istoreJac==4) {
-      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep4,nthreads,
-			       q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
-			       Dall_d,
-			       flovar_d, cell2cell_d,
-			       nccft_d, nfields_d, istor, ncells, facetype_d, dt);
-    }
-    else if(istoreJac==5) {
-      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep5,nthreads,
-			       q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
-			       Dall_d_f,
-			       flovar_d, cell2cell_d,
-			       nccft_d, nfields_d, istor, ncells, facetype_d, dt);
-    }
-    // update dq = dqtilde for all cells
-    
-    nthreads=(ncells+nhalo)*nfields_d;
-    FVSAND_GPU_KERNEL_LAUNCH(copyValues,nthreads,
-			   dq_d, dqupdate_d, nthreads);
-   
-    // Store final dq in res to be used in update routine
-    UpdateFringes(dq_d);
-  }
+  FVSAND_NVTX_SECTION( "JacobiSweep", 
+    for(int m = 0; m < nsweep; m++){
+      //printf("Sweep %i\n=================\n",m);
+      nthreads=ncells+nhalo;
+      // compute dqtilde for all cells
+      if(istoreJac==0){
+        FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep,nthreads,
+	  		       q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+	  		       flovar_d, cell2cell_d,
+	  		       nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+      }
+      else if(istoreJac==1) {
+        FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep1,nthreads,
+	  		     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+	  		     rmatall_d, Dall_d,
+	  		     flovar_d, cell2cell_d,
+	  		     nccft_d, nfields_d, istor, ncells, facetype_d, dt);      
+      }
+      else if(istoreJac==2) {
+        FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep2,nthreads,
+	  		     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+	  		     flovar_d, cell2cell_d,
+	  		     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+      }
+      else if(istoreJac==3) {
+        FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep3,nthreads,
+	  		     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+	  		     flovar_d, cell2cell_d,
+	  		     nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+      }
+      else if(istoreJac==4) {
+        FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep4,nthreads,
+	  		       q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+	  		       Dall_d,
+	  		       flovar_d, cell2cell_d,
+	  		       nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+      }
+      else if(istoreJac==5) {
+        FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep5,nthreads,
+	  		       q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+	  		       Dall_d_f,
+	  		       flovar_d, cell2cell_d,
+	  		       nccft_d, nfields_d, istor, ncells, facetype_d, dt);
+      }
+      // update dq = dqtilde for all cells
+
+      FVSAND_NVTX_SECTION( "copyValues", 
+        nthreads=(ncells+nhalo)*nfields_d;
+        FVSAND_GPU_KERNEL_LAUNCH(copyValues,nthreads,
+	  	  	   dq_d, dqupdate_d, nthreads);
+      );
+
+      // Store final dq in res to be used in update routine
+      UpdateFringes(dq_d);
+    } // END for all jacobi sweeps
+
+  );
 }
 
 void LocalMesh::Update(double *qdest, double *qsrc, double fscal)
