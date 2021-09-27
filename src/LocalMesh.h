@@ -90,6 +90,7 @@ class LocalMesh
   int nthreads,n_blocks;
   int block_size{128};  
   int istor{0};
+  int scale,stride;
 
   MPI_Request *ireq{nullptr};
   MPI_Status *istatus{nullptr};
