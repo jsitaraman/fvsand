@@ -359,7 +359,9 @@ void LocalMesh::UpdateFringes(double *qd)
     );
     
     pc.postSends_direct(qbuf,nfields_d,sndmap,ireq,mycomm,&reqcount);
-    pc.finish_comm(reqcount,ireq,istatus);
+    FVSAND_NVTX_SECTION( "waitall", 
+      pc.finish_comm(reqcount,ireq,istatus);
+    );
     
     // same as above
     // not doing cuda-aware now
