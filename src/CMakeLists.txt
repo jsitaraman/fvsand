@@ -35,7 +35,7 @@ if (FVSAND_ENABLE_CUDA)
     message(FATAL_ERROR "Your nvcc version is ${CMAKE_CUDA_COMPILER_VERSION}. "
       "Please use CUDA toolkit version 9.0 or newer")
   endif()
-  set(FVSAND_CUDA_FLAGS "-rdynamic --Wno-deprecated-gpu-targets -m64")
+  set(FVSAND_CUDA_FLAGS "-lineinfo -rdynamic --Wno-deprecated-gpu-targets -m64")
   set(FVSAND_CUDA_ARCH_FLAGS "-gencode=arch=compute_${FVSAND_CUDA_SM},code=sm_${FVSAND_CUDA_SM}")
   set(CMAKE_CUDA_STANDARD 11)
   set(CMAKE_CUDA_STANDARD_REQUIRED ON)
