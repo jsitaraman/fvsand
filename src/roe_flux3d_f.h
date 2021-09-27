@@ -1160,6 +1160,413 @@ for( int i = 0; i < 5 ; i++ )
 
 }
 
+
+FVSAND_GPU_DEVICE
+void computeJacobianDiag_f2( real_f& ql1, real_f& ql2, real_f& ql3, real_f& ql4, real_f& ql5,
+			     real_f& qr1, real_f& qr2, real_f& qr3, real_f& qr4, real_f& qr5,
+			     real_f& nxd, real_f& nyd, real_f& nzd,
+			     int & faceID,
+			     real_f *lmatout, real_f scaling,int idx,int ncells)
+{
+
+real_f gam=1.4;
+
+real_f gm1;
+real_f area,nx,ny,nz;
+real_f rol,ul,vl,wl,pl,hl,umag2;
+real_f ror,ur,vr,wr,pr,hr;
+real_f uconl,uconr;
+real_f ubar,vbar,wbar,hbar,uconbar,cbar,robar;
+//real_f dp,dro,du,dv,dw;
+real_f eig1,eig2,eig3;
+
+real_f fact,A,B,term1,term2,del1,del2;
+
+real_f dro_dql[5];
+real_f du_dql[5];
+real_f dv_dql[5];
+real_f dw_dql[5];
+real_f dp_dql[5];
+real_f ducon_dql[5];
+real_f ddel1_dql[5];
+real_f ddel2_dql[5];
+
+real_f dq5_dql[5];
+real_f dh_dql[5];
+real_f dfact_dql[5];
+real_f dA_dql[5];
+real_f dB_dql[5];
+real_f drobar_dql[5],dubar_dql[5],dvbar_dql[5],dwbar_dql[5];
+real_f dhbar_dql[5],duconbar_dql[5],dcbar_dql[5];
+
+real_f deig1_dql[5],deig2_dql[5],deig3_dql[5];
+real_f dterm1_dql[5];
+real_f dterm2_dql[5];
+real_f imat[5][5];
+real_f dp;
+
+real_f lmat[5][5];
+real_f lmat1[5][5];
+//------------------------------------------------------------------------------
+      gm1 = gam - 1.0;
+      area = sqrt(nxd*nxd + nyd*nyd + nzd*nzd);
+
+      nx = nxd/area;
+      ny = nyd/area;
+      nz = nzd/area;
+
+      //------> back calculate primitive state
+
+      rol = ql1;
+      ul  = ql2/ql1;
+      vl  = ql3/ql1;
+      wl  = ql4/ql1;
+      pl  = gm1*( ql5 - 0.5 * rol * (ul*ul + vl*vl + wl*wl) );
+      hl  = (ql5 + pl)/rol;
+      umag2 = ul*ul+vl*vl+wl*wl; 
+      //cl  = sqrt(gam*pl/rol);
+        
+      ror = qr1;
+      ur  = qr2/qr1;
+      vr  = qr3/qr1;
+      wr  = qr4/qr1;
+      pr  = gm1*( qr5 - 0.5 * ror * (ur*ur + vr*vr + wr*wr) );
+      hr  = (qr5 + pr)/ror;
+      //cr  = sqrt(gam*pr/ror);
+
+      //-----> primitive state differences
+
+      //dro = ror - rol;
+      //du  =  ur - ul;
+      //dv  =  vr - vl;
+      //dw  =  wr - wl;
+      dp  =  pr - pl;
+
+      //----> face normal velocities
+
+      uconr = ur*nx + vr*ny + wr*nz;
+      uconl = ul*nx + vl*ny + wl*nz;
+//------------------------------------------------------------------------------!
+//-------> linearization of left and right primitive states <-------------------!
+//------------------------------------------------------------------------------!
+      //---> left state
+
+      dro_dql[0]    = 0.0;
+      dro_dql[1]    = 0.0;
+      dro_dql[2]    = 0.0;
+      dro_dql[3]    = 0.0;
+      dro_dql[4]    = 0.0;
+
+      dro_dql[0] = 1.0;
+
+      du_dql[0] =  0.0;
+      du_dql[1] =  0.0;
+      du_dql[2] =  0.0;
+      du_dql[3] =  0.0;
+      du_dql[4] =  0.0;
+
+      du_dql[0] = -ul /rol;
+      du_dql[1] =  1.0/rol;
+
+      dv_dql[0] =  0.0;
+      dv_dql[1] =  0.0;
+      dv_dql[2] =  0.0;
+      dv_dql[3] =  0.0;
+      dv_dql[4] =  0.0;
+
+      dv_dql[0] = -vl /rol;
+      dv_dql[2] =  1.0/rol;
+
+      dw_dql[0] =  0.0;
+      dw_dql[1] =  0.0;
+      dw_dql[2] =  0.0;
+      dw_dql[3] =  0.0;
+      dw_dql[4] =  0.0;
+
+      dw_dql[0] = -wl /rol;
+      dw_dql[3] =  1.0/rol;
+
+      dp_dql[0] =  0.5*gm1*( ul*ul + vl*vl + wl*wl );
+      dp_dql[1] = -gm1*ul;
+      dp_dql[2] = -gm1*vl;
+      dp_dql[3] = -gm1*wl;
+      dp_dql[4] =  gm1;
+
+      dq5_dql[0] = 0.0;
+      dq5_dql[1] = 0.0;
+      dq5_dql[2] = 0.0;
+      dq5_dql[3] = 0.0;
+      dq5_dql[4] = 0.0;
+
+      dq5_dql[4] = 1.0;
+
+      dh_dql[0] = -(ql5 + pl)*dro_dql[0]/rol/rol + (1.0/rol)*(dq5_dql[0] + dp_dql[0]);
+      dh_dql[1] = -(ql5 + pl)*dro_dql[1]/rol/rol + (1.0/rol)*(dq5_dql[1] + dp_dql[1]);
+      dh_dql[2] = -(ql5 + pl)*dro_dql[2]/rol/rol + (1.0/rol)*(dq5_dql[2] + dp_dql[2]);
+      dh_dql[3] = -(ql5 + pl)*dro_dql[3]/rol/rol + (1.0/rol)*(dq5_dql[3] + dp_dql[3]);
+      dh_dql[4] = -(ql5 + pl)*dro_dql[4]/rol/rol + (1.0/rol)*(dq5_dql[4] + dp_dql[4]);
+ 
+      //dc_dql[0] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[0] - (pl/rol/rol)*dro_dql[0] );
+      //dc_dql[1] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[1] - (pl/rol/rol)*dro_dql[1] );
+      //dc_dql[2] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[2] - (pl/rol/rol)*dro_dql[2] );
+      //dc_dql[3] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[3] - (pl/rol/rol)*dro_dql[3] );
+      //dc_dql[4] = (0.5*gam/cl)*( (1.0/rol)*dp_dql[4] - (pl/rol/rol)*dro_dql[4] );
+
+      ducon_dql[0] = -uconl/rol;
+      ducon_dql[1] =  nx   /rol;
+      ducon_dql[2] =  ny   /rol;
+      ducon_dql[3] =  nz   /rol;
+      ducon_dql[4] =  0.0;
+
+//!------------------------------------------------------------------------------!
+//!----------------------------> Roe average state <-----------------------------!
+//------------------------------------------------------------------------------!
+
+      fact = sqrt(ror/rol);
+
+      A    = 1.0 /(1.0 + fact);
+      B    = fact/(1.0 + fact);
+
+      robar = rol*fact;
+      ubar  = ul*A + ur*B;
+      vbar  = vl*A + vr*B;
+      wbar  = wl*A + wr*B;
+      hbar  = hl*A + hr*B;
+      cbar = gm1*(hbar - 0.5*(ubar*ubar + vbar*vbar + wbar*wbar));
+      cbar = sqrt(cbar);
+      uconbar = ubar*nx + vbar*ny + wbar*nz;
+
+//!------------------------------------------------------------------------------!
+//!--------------------------> Eigenvalues <-------------------------------------!
+//!------------------------------------------------------------------------------!
+
+      eig1 = abs(uconbar);
+      eig2 = abs(uconbar + cbar);
+      eig3 = abs(uconbar - cbar);
+
+//!------------------------------------------------------------------------------!
+//!--------------> approximate linearization section <---------------------------!
+//!------------------------------------------------------------------------------!
+
+/*
+if( imode==1 ) then
+      term1 = -eig1 + 0.5*(eig2 + eig3)
+      term2 = 0.5*(eig2 - eig3)
+      del1  = term1*dp/cbar/cbar + term2*robar*(uconr - uconl)/cbar
+      del2  = term1*(uconr - uconl)*robar + term2*dp/cbar
+
+      ddel1_dql(:) = - term1*dp_dql(:)/cbar/cbar - term2*robar*ducon_dql(:)/cbar
+
+      ddel2_dql(:) = - term1*ducon_dql(:)*robar - term2*dp_dql(:)/cbar
+
+      goto 111
+     
+endif        
+*/
+
+//!------------------------------------------------------------------------------!
+//!-----------> linearization of Roe averaged state <----------------------------!
+//!------------------------------------------------------------------------------!
+#pragma unroll 5
+for( int i = 0; i < 5 ; i++ )
+ {
+      dfact_dql[i] = (0.5/fact)*(-ror/rol/rol)*dro_dql[i];
+
+      dA_dql[i] = -dfact_dql[i]/(1.0+fact)/(1.0+fact);
+
+      dB_dql[i] = dfact_dql[i]/(1.0 + fact)/(1.0 + fact);
+
+      drobar_dql[i] = dro_dql[i]*fact + rol*dfact_dql[i];
+
+      dubar_dql[i] = du_dql[i]*A + ul*dA_dql[i]               + ur*dB_dql[i];
+
+      dvbar_dql[i] = dv_dql[i]*A + vl*dA_dql[i]               + vr*dB_dql[i];
+
+      dwbar_dql[i] = dw_dql[i]*A + wl*dA_dql[i]               + wr*dB_dql[i];
+
+      dhbar_dql[i] = dh_dql[i]*A + hl*dA_dql[i]               + hr*dB_dql[i];
+
+      dcbar_dql[i] = gm1*( dhbar_dql[i] - ubar*dubar_dql[i]     
+                                        - vbar*dvbar_dql[i]     
+                                        - wbar*dwbar_dql[i] );
+      dcbar_dql[i] = dcbar_dql[i]*0.5/cbar;
+
+      duconbar_dql[i] = dubar_dql[i]*nx + dvbar_dql[i]*ny + dwbar_dql[i]*nz;
+
+//!------------------------------------------------------------------------------!
+//!------------------> linearization of Eigenvalues <----------------------------!
+//!------------------------------------------------------------------------------!
+
+      if(uconbar>=0.0) 
+        {
+                deig1_dql[i] = duconbar_dql[i];
+        }
+      else 
+        {
+                deig1_dql[i] = -duconbar_dql[i];
+        }
+
+      if( (uconbar + cbar) >= 0.0 ) 
+        {
+                deig2_dql[i] = ( duconbar_dql[i] + dcbar_dql[i] );
+        }
+      else
+        {
+                deig2_dql[i] = -( duconbar_dql[i] + dcbar_dql[i] );
+        }
+
+      if( (uconbar - cbar) >= 0.0 )
+        {
+                deig3_dql[i] = ( duconbar_dql[i] - dcbar_dql[i] );
+        }
+      else
+        {
+                deig3_dql[i] = -( duconbar_dql[i] - dcbar_dql[i] );
+        }
+
+//!------------------------------------------------------------------------------!
+      term1 = -eig1 + 0.5*(eig2 + eig3);
+      term2 = 0.5*(eig2 - eig3);
+      del1  = term1*dp/cbar/cbar + term2*robar*(uconr - uconl)/cbar;
+      del2  = term1*(uconr - uconl)*robar + term2*dp/cbar;
+
+      dterm1_dql[i] = -deig1_dql[i] + 0.5*( deig2_dql[i] + deig3_dql[i] );
+
+      dterm2_dql[i] = 0.5*( deig2_dql[i] - deig3_dql[i] );
+
+      ddel1_dql[i] = dterm1_dql[i]*dp/cbar/cbar - term1*dp_dql[i]/cbar/cbar - 2.0*term1*dp*dcbar_dql[i]/cbar/cbar/cbar;
+      ddel1_dql[i] = ddel1_dql[i] + dterm2_dql[i]*robar*( uconr-uconl )/cbar + term2*drobar_dql[i]*(uconr-uconl)/cbar 
+                                  - term2*robar*ducon_dql[i]/cbar - dcbar_dql[i]*term2*robar*(uconr-uconl)/cbar/cbar;
+
+      ddel2_dql[i] = dterm1_dql[i]*(uconr-uconl)*robar - term1*ducon_dql[i]*robar + term1*(uconr-uconl)*drobar_dql[i];
+      ddel2_dql[i] = ddel2_dql[i] + dterm2_dql[i]*dp/cbar - term2*dp_dql[i]/cbar - dcbar_dql[i]*term2*dp/cbar/cbar;
+}
+
+//!------------------------------------------------------------------------------!
+//111 continue
+//!------------------------------------------------------------------------------!
+//!-----------------------> Roe flux Jacobian <----------------------------------!
+//!------------------------------------------------------------------------------!
+
+
+//      !------------> common linearization terms
+
+      FOR2(i,5,j,5)
+       {
+        lmat[i][j] = 0.0;
+        lmat1[i][j] = 0.0;
+        imat[i][j] = 0.0;
+       }
+
+      for ( int i = 0 ; i < 5 ; i++ )
+           imat[i][i] = 1.0;
+     
+      FOR2(i,5,j,5)
+       {      
+         lmat[i][j] = lmat[i][j] - eig1*imat[i][j];
+       }
+
+
+      #pragma unroll 5
+      for ( int i = 0 ; i < 5 ; i++ )
+      {
+       lmat[0][i] = lmat[0][i] + ddel1_dql[i];
+       lmat[1][i] = lmat[1][i] + ddel1_dql[i]*ubar + ddel2_dql[i]*nx;
+       lmat[2][i] = lmat[2][i] + ddel1_dql[i]*vbar + ddel2_dql[i]*ny;
+       lmat[3][i] = lmat[3][i] + ddel1_dql[i]*wbar + ddel2_dql[i]*nz;
+       lmat[4][i] = lmat[4][i] + ddel1_dql[i]*hbar + ddel2_dql[i]*uconbar;
+       }
+    
+      //------> additional terms for exact linearization
+
+     // if(imode/=1) then
+        #pragma unroll 5
+         for ( int j = 0 ; j < 5 ; j++ )
+         {       
+           lmat[0][j] = lmat[0][j] + ( qr1 - ql1 )* deig1_dql[j];  
+	   lmat[1][j] = lmat[1][j] + ( qr2 - ql2 )* deig1_dql[j];  
+	   lmat[2][j] = lmat[2][j] + ( qr3 - ql3 )* deig1_dql[j];  
+	   lmat[3][j] = lmat[3][j] + ( qr4 - ql4 )* deig1_dql[j];  
+	   lmat[4][j] = lmat[4][j] + ( qr5 - ql5 )* deig1_dql[j];  
+         }         
+         
+         #pragma unroll 5       
+         for ( int j = 0 ; j < 5 ; j++ )
+          {
+            lmat[1][j] = lmat[1][j] + del1*dubar_dql[j];
+            lmat[2][j] = lmat[2][j] + del1*dvbar_dql[j];
+            lmat[3][j] = lmat[3][j] + del1*dwbar_dql[j];
+            lmat[4][j] = lmat[4][j] + del1*dhbar_dql[j] + del2*duconbar_dql[j];
+          }
+
+    //  endif
+
+//      !------------------------------------------------------------------------------!
+//      !-------------------------------------------------------!
+//      !-----------> Compute native flux Jacobian <------------!
+//      !-------------------------------------------------------!
+
+    for ( int j = 0 ; j < 5 ; j++ )
+    {
+//      !-----> left state
+      lmat1[0][j] = dro_dql[j]*uconl + rol*ducon_dql[j];
+
+      lmat1[1][j] = dro_dql[j]*uconl*ul + rol*ducon_dql[j]*ul + rol*uconl*du_dql[j];
+      lmat1[2][j] = dro_dql[j]*uconl*vl + rol*ducon_dql[j]*vl + rol*uconl*dv_dql[j];
+      lmat1[3][j] = dro_dql[j]*uconl*wl + rol*ducon_dql[j]*wl + rol*uconl*dw_dql[j];
+
+      lmat1[2][j] = lmat1[2][j] + ny*dp_dql[j];
+      lmat1[1][j] = lmat1[1][j] + nx*dp_dql[j];
+      lmat1[3][j] = lmat1[3][j] + nz*dp_dql[j];
+
+      lmat1[4][j] = ( dq5_dql[j] + dp_dql[j] )*uconl + (ql5 + pl)*ducon_dql[j];
+    }
+//      !======================================================================
+ if ( faceID == -2 )
+  {
+	  // XXX How does Area factor into wall BCs?
+     for(int n = 0; n<5; n++){
+        lmat[0][n] = 0.0;
+        lmat[4][n] = 0.0;
+     }
+     lmat[1][0] = gm1*0.5-umag2*nx;
+     lmat[1][1] = -gm1*ul*nx;
+     lmat[1][2] = -gm1*vl*nx;
+     lmat[1][3] = -gm1*wl*nx;
+     lmat[1][4] = gm1*nx;
+
+     lmat[2][0] = gm1*0.5*umag2*ny;
+     lmat[2][1] = -gm1*ul*ny;
+     lmat[2][2] = -gm1*vl*ny;
+     lmat[2][3] = -gm1*wl*ny;
+     lmat[2][4] = gm1*ny;
+
+     lmat[3][0] = gm1*0.5*umag2*nz;
+     lmat[3][1] = -gm1*ul*nz;
+     lmat[3][2] = -gm1*vl*nz;
+     lmat[3][3] = -gm1*wl*nz;
+     lmat[3][4] = gm1*nz;
+     FOR2(i,5,j,5)
+     {
+       lmat[i][j] = lmat[i][j]*area;
+     }
+  }
+ else  
+  {
+     FOR2(i,5,j,5)
+     {
+       lmat[i][j] = 0.5*( lmat1[i][j] - lmat[i][j] )*area;
+     }
+ }  
+ FOR2(i,5,j,5)
+     {
+       int index1 = ncells*(i*5+j)+idx;
+       lmatout[index1] += (lmat[i][j]*scaling);
+     }
+
+}
+
+
 FVSAND_GPU_DEVICE
 void InterfaceFlux_Inviscid_d_f( real_f & f1d, real_f & f2d, real_f & f3d, real_f & f4d, real_f & f5d,
 			       real_f & ql1, real_f& ql2, real_f & ql3, real_f & ql4, real_f & ql5,
