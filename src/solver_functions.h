@@ -892,6 +892,75 @@ void face_flux(double *faceflux,double *faceq, double *face_norm, double *flovar
       }
 }
 
+// compute fluxes across face and both jacobians
+FVSAND_GPU_GLOBAL
+void face_flux_Jac(double *faceflux,double *faceq, double *face_norm, double *flovar, double *volume, double dt, float* Dall,
+	       int *face2cell, int *facetype,
+	       int nfields,int nfaces, int ncells)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < nfaces)
+#else
+    for(int idx=0;idx<nfaces;idx++)
+#endif
+      {
+	float ql[5],qr[5],norm[3];
+	for(int n = 0; n<5; n++){
+  	  ql[n]=faceq[(2*idx)*nfields+n];
+	  qr[n]=faceq[(2*idx+1)*nfields+n];
+	}
+	int idxn=facetype[idx];
+	if (idxn == -3) { // boundary face
+	  for(int n=0;n<nfields;n++)
+	    qr[n]=flovar[n];
+	}
+	norm[0]=face_norm[idx*3];
+	norm[1]=face_norm[idx*3+1];
+	norm[2]=face_norm[idx*3+2];
+
+	// compute jacobians on side 1
+	int e1 = face2cell[2*idx];
+	int e2 = face2cell[2*idx+1]; 
+	int index1;
+	for(int n = 0; n<nfields; n++) {
+	  for(int m = 0; m<nfields; m++) {
+	    index1 = 25*e1 + n*nfields + m;
+	    if(n==m){
+	      Dall[index1] = 1.0/dt;
+	    }
+	    else{
+	      Dall[index1] = 0.0;
+	    }
+	  }
+	}
+	computeJacobianDiag_f2(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
+			       qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
+   	 		       norm[0], norm[1], norm [2],
+			       e2,Dall+25*e1, 1./(float)volume[e1],e1,ncells);
+
+	// compute jacobians on side 2
+	norm[0] = -norm[0];
+	norm[1] = -norm[1];
+	norm[2] = -norm[2];
+	for(int n = 0; n<nfields; n++) {
+	  for(int m = 0; m<nfields; m++) {
+	    index1 = 25*e2 + n*nfields + m;
+	    if(n==m){
+	      Dall[index1] = 1.0/dt;
+	    }
+	    else{
+	      Dall[index1] = 0.0;
+	    }
+	  }
+	}
+	computeJacobianDiag_f2(qr[0], qr[1],  qr[2],  qr[3],  qr[4],
+			       ql[0], ql[1],  ql[2],  ql[3],  ql[4],  
+	 		       norm[0], norm[1], norm[2],
+			       e1,Dall+25*e2, 1./(float)volume[e2],e2,ncells);
+      }
+}
+
 
 FVSAND_GPU_GLOBAL
 void computeResidualFace(double *res, double *faceflux, double *volume,

@@ -1,0 +1,245 @@
+diff --git a/case/input.fvsand.coarse b/case/input.fvsand.coarse
+index 983b4e9..9892115 100644
+--- a/case/input.fvsand.coarse
++++ b/case/input.fvsand.coarse
+@@ -12,7 +12,7 @@ nsave=100		       # frequency to show residual
+ dt=0.2			       # dt						    
+ nsweep=4		       # number of jacobi sweeps (=0 means explicit rk3)	    
+ istoreJac=5		       # jacobian storage type
+-restype=0		       # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
++restype=1		       # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
+ reOrderCells=false             # reverse cuthill-mckee reordering for bandwidth
+ 
+ # Jacobian storage types
+diff --git a/src/LocalMesh.C b/src/LocalMesh.C
+index 215ce1f..5be1698 100644
+--- a/src/LocalMesh.C
++++ b/src/LocalMesh.C
+@@ -47,6 +47,7 @@ LocalMesh::~LocalMesh()
+   FVSAND_FREE_DEVICE(Dall_d);
+   //
+   FVSAND_FREE_DEVICE(cell2face_d);
++  FVSAND_FREE_DEVICE(face2cell_d);
+   FVSAND_FREE_DEVICE(facetype_d);
+   FVSAND_FREE_DEVICE(facenorm_d);
+   FVSAND_FREE_DEVICE(faceq_d);
+@@ -246,9 +247,21 @@ void LocalMesh::CreateFaces(void)
+   facetype_d=gpu::push_to_device<int>(facetype_h.data(),sizeof(int)*nfaces);
+   cell2face_d=gpu::push_to_device<int>(cell2face_h,sizeof(int)*cell2cell.size());
+   facenorm_d=gpu::push_to_device<double>(facenorm_h.data(),sizeof(double)*nfaces*3);
++
++  int *face2cell_h=new int [nfaces*2];
++  for(int idx = 0; idx<ncells; idx++){ 
++    for(int f=nccft_h[idx];f<nccft_h[idx+1];f++){
++      int faceid = cell2face_h[f];
++      int isgn=abs(faceid)/faceid;
++      int offset=(1-isgn)/2;
++      face2cell_h[2*faceid+offset] = idx;
++    }
++  } 
++  face2cell_d=gpu::push_to_device<int>(face2cell_h,sizeof(int)*nfaces*2);        
+  
+   delete [] cell2face_h;
+   delete [] normals_h;
++  delete [] face2cell_h;
+ }
+ 
+ void LocalMesh::InitSolution(double *flovar, int nfields)
+@@ -364,13 +377,13 @@ void LocalMesh::UpdateFringes(double *qd)
+ }
+     
+ 
+-void LocalMesh::Residual(double *qv,int restype)
++void LocalMesh::Residual(double *qv, double dt, int restype, int nsweep)
+ {
+   FVSAND_NVTX_FUNCTION("residual");
+   if (restype==0) {
+     Residual_cell(qv);
+   } else {
+-    Residual_face(qv);
++    Residual_face(qv,dt, nsweep);
+   }
+ }
+ 				
+@@ -384,15 +397,24 @@ void LocalMesh::Residual_cell(double *qv)
+ 
+ }
+ 
+-void LocalMesh::Residual_face(double *qv)
++void LocalMesh::Residual_face(double *qv, double dt, int nsweep)
+ {
+   nthreads=ncells+nhalo;
+   FVSAND_GPU_KERNEL_LAUNCH(fill_faces,nthreads,
+ 			   qv,faceq_d,nccft_d,cell2face_d,nfields_d,scale, stride,ncells+nhalo);
+ 
+   nthreads=nfaces;
+-  FVSAND_GPU_KERNEL_LAUNCH(face_flux,nthreads,
+-			   faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
++  if(nsweep){ // implicit solve, fill jacobians too
++     FVSAND_GPU_KERNEL_LAUNCH(face_flux,nthreads,
++   			      faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
++     FVSAND_GPU_KERNEL_LAUNCH(face_flux_Jac,nthreads,
++   			      faceflux_d,faceq_d,facenorm_d,qinf_d, volume_d, dt, Dall_d_f,face2cell_d,facetype_d,nfields_d,nfaces,ncells+nhalo);
++
++  } 
++  else { // only compute fluxes 
++     FVSAND_GPU_KERNEL_LAUNCH(face_flux,nthreads,
++   			      faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
++  }
+ 
+   nthreads=ncells;
+   FVSAND_GPU_KERNEL_LAUNCH(computeResidualFace,nthreads,
+@@ -401,7 +423,7 @@ void LocalMesh::Residual_face(double *qv)
+   UpdateFringes(res_d);
+ }
+ 
+-void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
++void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac, int restype)
+ {
+ /*  FVSAND_GPU_LAUNCH_FUNC(testComputeJ,n_blocks,block_size,0,0,
+     q,normals_d,flovar_d, cell2cell_d,nccft_d,nfields_d,istor,ncells,facetype_d);
+@@ -428,7 +450,7 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
+                            flovar_d, cell2cell_d,
+ 			     nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);
+   }
+-  if (istoreJac==5) {
++  if (istoreJac==5 && restype == 0) { // Only for restype = cell, Jacobians already filled for face 
+     nthreads=ncells+nhalo;
+     FVSAND_GPU_KERNEL_LAUNCH(fillJacobians_diag_f,nthreads,
+ 			     q, normals_d, volume_d,
+diff --git a/src/LocalMesh.h b/src/LocalMesh.h
+index a07d83a..cc52721 100644
+--- a/src/LocalMesh.h
++++ b/src/LocalMesh.h
+@@ -78,6 +78,7 @@ class LocalMesh
+   
+   // face quantities
+   int *cell2face_d{nullptr};
++  int *face2cell_d{nullptr};
+   int *facetype_d{nullptr};
+   double *facenorm_d{nullptr};
+   double *faceq_d{nullptr};
+@@ -114,10 +115,10 @@ class LocalMesh
+   void CreateGridMetrics(int);
+   void CreateFaces();
+   void InitSolution(double *, int);
+-  void Residual(double * qv, int);
++  void Residual(double * qv, double, int, int);
+   void Residual_cell(double *qv);
+-  void Residual_face(double *qv);
+-  void Jacobi(double *qv, double, int, int);
++  void Residual_face(double *qv, double, int);
++  void Jacobi(double *qv, double, int, int, int);
+   void Update(double *qdest, double *qsrc, double fscal);
+   void UpdateQ(double *qdest, double *qsrc, double fscal);
+   void UpdateFringes(double *, double *);
+diff --git a/src/fvsand.C b/src/fvsand.C
+index e55af82..7927fe8 100644
+--- a/src/fvsand.C
++++ b/src/fvsand.C
+@@ -109,20 +109,20 @@ int main(int argc, char *argv[])
+       timestep_name << "TimeStep-" << iter;
+       if(nsweep){ // implicit 
+ 	FVSAND_NVTX_SECTION(timestep_name.str(),
+-         lm->Residual(lm->q,restype);           // computes res_d
+-   	 lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with dqtilde
++         lm->Residual(lm->q, dt,restype,nsweep);           // computes res_d
++   	 lm->Jacobi(lm->q,dt,nsweep,istoreJac,restype); // runs sweeps and replaces res_d with dqtilde
+          lm->UpdateQ(lm->q,lm->q,1);            // adds dqtilde (in res_d) to q XX is this dt or 1?
+ 	);
+       }else {
+       FVSAND_NVTX_SECTION( timestep_name.str(), 
+-        lm->Residual(lm->q,restype);
++        lm->Residual(lm->q,dt, restype,nsweep);
+         lm->Update(lm->qn,lm->q,rk[1]*dt);
+         lm->Update(lm->q,lm->q,rk[0]*dt);
+ 
+-        lm->Residual(lm->qn,restype);
++        lm->Residual(lm->qn,dt, restype,nsweep);
+         lm->Update(lm->qn,lm->q,rk[2]*dt);
+ 
+-        lm->Residual(lm->qn,restype);      
++        lm->Residual(lm->qn,dt, restype,nsweep);      
+         lm->Update(lm->q,lm->q,rk[3]*dt);
+       );
+      }
+diff --git a/src/solver_functions.h b/src/solver_functions.h
+index 54f2dee..580efe1 100644
+--- a/src/solver_functions.h
++++ b/src/solver_functions.h
+@@ -892,6 +892,75 @@ void face_flux(double *faceflux,double *faceq, double *face_norm, double *flovar
+       }
+ }
+ 
++// compute fluxes across face and both jacobians
++FVSAND_GPU_GLOBAL
++void face_flux_Jac(double *faceflux,double *faceq, double *face_norm, double *flovar, double *volume, double dt, float* Dall,
++	       int *face2cell, int *facetype,
++	       int nfields,int nfaces, int ncells)
++{
++#if defined (FVSAND_HAS_GPU)
++  int idx = blockIdx.x*blockDim.x + threadIdx.x;
++  if (idx < nfaces)
++#else
++    for(int idx=0;idx<nfaces;idx++)
++#endif
++      {
++	float ql[5],qr[5],norm[3];
++	for(int n = 0; n<5; n++){
++  	  ql[n]=faceq[(2*idx)*nfields+n];
++	  qr[n]=faceq[(2*idx+1)*nfields+n];
++	}
++	int idxn=facetype[idx];
++	if (idxn == -3) { // boundary face
++	  for(int n=0;n<nfields;n++)
++	    qr[n]=flovar[n];
++	}
++	norm[0]=face_norm[idx*3];
++	norm[1]=face_norm[idx*3+1];
++	norm[2]=face_norm[idx*3+2];
++
++	// compute jacobians on side 1
++	int e1 = face2cell[2*idx];
++	int e2 = face2cell[2*idx+1]; 
++	int index1;
++	for(int n = 0; n<nfields; n++) {
++	  for(int m = 0; m<nfields; m++) {
++	    index1 = 25*e1 + n*nfields + m;
++	    if(n==m){
++	      Dall[index1] = 1.0/dt;
++	    }
++	    else{
++	      Dall[index1] = 0.0;
++	    }
++	  }
++	}
++	computeJacobianDiag_f2(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
++			       qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
++   	 		       norm[0], norm[1], norm [2],
++			       e2,Dall+25*e1, 1./(float)volume[e1],e1,ncells);
++
++	// compute jacobians on side 2
++	norm[0] = -norm[0];
++	norm[1] = -norm[1];
++	norm[2] = -norm[2];
++	for(int n = 0; n<nfields; n++) {
++	  for(int m = 0; m<nfields; m++) {
++	    index1 = 25*e2 + n*nfields + m;
++	    if(n==m){
++	      Dall[index1] = 1.0/dt;
++	    }
++	    else{
++	      Dall[index1] = 0.0;
++	    }
++	  }
++	}
++	computeJacobianDiag_f2(qr[0], qr[1],  qr[2],  qr[3],  qr[4],
++			       ql[0], ql[1],  ql[2],  ql[3],  ql[4],  
++	 		       norm[0], norm[1], norm[2],
++			       e1,Dall+25*e2, 1./(float)volume[e2],e2,ncells);
++      }
++}
++
+ 
+ FVSAND_GPU_GLOBAL
+ void computeResidualFace(double *res, double *faceflux, double *volume,

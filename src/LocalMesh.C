@@ -47,6 +47,7 @@ LocalMesh::~LocalMesh()
   FVSAND_FREE_DEVICE(Dall_d);
   //
   FVSAND_FREE_DEVICE(cell2face_d);
+  FVSAND_FREE_DEVICE(face2cell_d);
   FVSAND_FREE_DEVICE(facetype_d);
   FVSAND_FREE_DEVICE(facenorm_d);
   FVSAND_FREE_DEVICE(faceq_d);
@@ -246,9 +247,22 @@ void LocalMesh::CreateFaces(void)
   facetype_d=gpu::push_to_device<int>(facetype_h.data(),sizeof(int)*nfaces);
   cell2face_d=gpu::push_to_device<int>(cell2face_h,sizeof(int)*cell2cell.size());
   facenorm_d=gpu::push_to_device<double>(facenorm_h.data(),sizeof(double)*nfaces*3);
+
+  int *face2cell_h=new int [nfaces*2];
+  for(int idx = 0; idx<ncells; idx++){ 
+    for(int f=nccft_h[idx];f<nccft_h[idx+1];f++){
+      int faceid = cell2face_h[f];
+      int isgn=abs(faceid)/faceid;
+      int offset=(1-isgn)/2;
+      face2cell_h[2*faceid+offset] = idx;
+    }
+  } 
+  face2cell_d=gpu::push_to_device<int>(face2cell_h,sizeof(int)*nfaces*2);        
  
   delete [] cell2face_h;
   delete [] normals_h;
+  delete [] face2cell_h;
+printf("Checkpt 1\n"); 
 }
 
 void LocalMesh::InitSolution(double *flovar, int nfields)
@@ -364,13 +378,14 @@ void LocalMesh::UpdateFringes(double *qd)
 }
     
 
-void LocalMesh::Residual(double *qv,int restype)
+void LocalMesh::Residual(double *qv, double dt, int restype, int nsweep)
 {
   FVSAND_NVTX_FUNCTION("residual");
   if (restype==0) {
     Residual_cell(qv);
   } else {
-    Residual_face(qv);
+printf("Checkpt 2\n"); 
+    Residual_face(qv,dt, nsweep);
   }
 }
 				
@@ -384,15 +399,27 @@ void LocalMesh::Residual_cell(double *qv)
 
 }
 
-void LocalMesh::Residual_face(double *qv)
+void LocalMesh::Residual_face(double *qv, double dt, int nsweep)
 {
   nthreads=ncells+nhalo;
   FVSAND_GPU_KERNEL_LAUNCH(fill_faces,nthreads,
 			   qv,faceq_d,nccft_d,cell2face_d,nfields_d,scale, stride,ncells+nhalo);
 
   nthreads=nfaces;
-  FVSAND_GPU_KERNEL_LAUNCH(face_flux,nthreads,
-			   faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
+  if(nsweep){ // implicit solve, fill jacobians too
+printf("Checkpt 3\n"); 
+     FVSAND_GPU_KERNEL_LAUNCH(face_flux,nthreads,
+   			      faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
+printf("Checkpt 4\n"); 
+//     FVSAND_GPU_KERNEL_LAUNCH(face_flux_Jac,nthreads,
+//   			      faceflux_d,faceq_d,facenorm_d,qinf_d, volume_d, dt, Dall_d_f,face2cell_d,facetype_d,nfields_d,nfaces,ncells+nhalo);
+printf("Checkpt 5\n"); 
+
+  } 
+  else { // only compute fluxes 
+     FVSAND_GPU_KERNEL_LAUNCH(face_flux,nthreads,
+   			      faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
+  }
 
   nthreads=ncells;
   FVSAND_GPU_KERNEL_LAUNCH(computeResidualFace,nthreads,
@@ -401,7 +428,7 @@ void LocalMesh::Residual_face(double *qv)
   UpdateFringes(res_d);
 }
 
-void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
+void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac, int restype)
 {
 /*  FVSAND_GPU_LAUNCH_FUNC(testComputeJ,n_blocks,block_size,0,0,
     q,normals_d,flovar_d, cell2cell_d,nccft_d,nfields_d,istor,ncells,facetype_d);
@@ -428,7 +455,7 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
                            flovar_d, cell2cell_d,
 			     nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);
   }
-  if (istoreJac==5) {
+  if (istoreJac==5){ // && restype == 0) { // Only for restype = cell, Jacobians already filled for face 
     nthreads=ncells+nhalo;
     FVSAND_GPU_KERNEL_LAUNCH(fillJacobians_diag_f,nthreads,
 			     q, normals_d, volume_d,

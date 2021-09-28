@@ -109,20 +109,20 @@ int main(int argc, char *argv[])
       timestep_name << "TimeStep-" << iter;
       if(nsweep){ // implicit 
 	FVSAND_NVTX_SECTION(timestep_name.str(),
-         lm->Residual(lm->q,restype);           // computes res_d
-   	 lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with dqtilde
+         lm->Residual(lm->q, dt,restype,nsweep);           // computes res_d
+   	 lm->Jacobi(lm->q,dt,nsweep,istoreJac,restype); // runs sweeps and replaces res_d with dqtilde
          lm->UpdateQ(lm->q,lm->q,1);            // adds dqtilde (in res_d) to q XX is this dt or 1?
 	);
       }else {
       FVSAND_NVTX_SECTION( timestep_name.str(), 
-        lm->Residual(lm->q,restype);
+        lm->Residual(lm->q,dt, restype,nsweep);
         lm->Update(lm->qn,lm->q,rk[1]*dt);
         lm->Update(lm->q,lm->q,rk[0]*dt);
 
-        lm->Residual(lm->qn,restype);
+        lm->Residual(lm->qn,dt, restype,nsweep);
         lm->Update(lm->qn,lm->q,rk[2]*dt);
 
-        lm->Residual(lm->qn,restype);      
+        lm->Residual(lm->qn,dt, restype,nsweep);      
         lm->Update(lm->q,lm->q,rk[3]*dt);
       );
      }

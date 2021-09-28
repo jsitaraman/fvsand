@@ -78,6 +78,7 @@ class LocalMesh
   
   // face quantities
   int *cell2face_d{nullptr};
+  int *face2cell_d{nullptr};
   int *facetype_d{nullptr};
   double *facenorm_d{nullptr};
   double *faceq_d{nullptr};
@@ -114,10 +115,10 @@ class LocalMesh
   void CreateGridMetrics(int);
   void CreateFaces();
   void InitSolution(double *, int);
-  void Residual(double * qv, int);
+  void Residual(double * qv, double, int, int);
   void Residual_cell(double *qv);
-  void Residual_face(double *qv);
-  void Jacobi(double *qv, double, int, int);
+  void Residual_face(double *qv, double, int);
+  void Jacobi(double *qv, double, int, int, int);
   void Update(double *qdest, double *qsrc, double fscal);
   void UpdateQ(double *qdest, double *qsrc, double fscal);
   void UpdateFringes(double *, double *);
