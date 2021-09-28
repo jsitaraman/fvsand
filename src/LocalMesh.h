@@ -89,7 +89,7 @@ class LocalMesh
   // host/device data
   int nthreads,n_blocks;
   int block_size{128};  
-  int istor{0};
+  int istor{1};
   int scale,stride;
 
   MPI_Request *ireq{nullptr};
