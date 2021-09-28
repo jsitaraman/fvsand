@@ -249,7 +249,13 @@ void LocalMesh::CreateFaces(void)
   facenorm_d=gpu::push_to_device<double>(facenorm_h.data(),sizeof(double)*nfaces*3);
 
   int *face2cell_h=new int [nfaces*2];
-  for(int idx = 0; idx<ncells; idx++){ 
+  //debug
+/*  for(int idx = 0; idx<nfaces; idx++){
+    face2cell_h[2*idx+0] = 100; 
+    face2cell_h[2*idx+1] = 100; 
+  }
+*/
+  for(int idx = 0; idx<(ncells+nhalo); idx++){ 
     for(int f=nccft_h[idx];f<nccft_h[idx+1];f++){
       int faceid = cell2face_h[f];
       int isgn=abs(faceid)/faceid;

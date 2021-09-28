@@ -934,7 +934,7 @@ void face_flux_Jac(double *faceflux,double *faceq, double *face_norm, double *fl
 	    }
 	  }
 	}
-	computeJacobianDiag_f2(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
+	computeJacobianDiag_f3(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
 			       qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
    	 		       norm[0], norm[1], norm [2],
 			       e2,Dall+25*e1, 1./(float)volume[e1],e1,ncells);
@@ -954,7 +954,7 @@ void face_flux_Jac(double *faceflux,double *faceq, double *face_norm, double *fl
 	    }
 	  }
 	}
-	computeJacobianDiag_f2(qr[0], qr[1],  qr[2],  qr[3],  qr[4],
+	computeJacobianDiag_f3(qr[0], qr[1],  qr[2],  qr[3],  qr[4],
 			       ql[0], ql[1],  ql[2],  ql[3],  ql[4],  
 	 		       norm[0], norm[1], norm[2],
 			       e1,Dall+25*e2, 1./(float)volume[e2],e2,ncells);
