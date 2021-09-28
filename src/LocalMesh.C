@@ -219,7 +219,9 @@ void LocalMesh::CreateFaces(void)
     for(int f=nccft_h[idx];f<nccft_h[idx+1];f++)
       {
 	if (iflag[f]) {
-	  double *norm=normals_h+18*idx+3*(f-nccft_h[idx]);
+	  double norm[3];
+	  for(int d=0;d<3;d++)
+	    norm[d]=normals_h[(3*(f-nccft_h[idx])+d)*(ncells+nhalo)+idx];
 	  facenorm_h.push_back(norm[0]);
 	  facenorm_h.push_back(norm[1]);
 	  facenorm_h.push_back(norm[2]);	  

@@ -47,7 +47,8 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]=0;
 	for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
-	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    double norm[3];
+	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 	    int idxn=cell2cell[f];
 	    // first order now
 	    double ql[5],qr[5];	  
@@ -114,7 +115,8 @@ FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
   for(int n=0;n<nfields;n++) ql[n]=q[scale*idx+n*stride];
   if (idxn > -1) for(int n=0;n<nfields;n++) qr[n]=q[scale*idxn+n*stride];
   if (idxn == -3) for(int n=0;n<nfields;n++) qr[n]=flovar[n];
-  double *norm=normals+18*idx+3*(f-nccft[idx]);
+  double norm[3];
+  for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 
   
   printf("\nInputs:\n==========\n");
@@ -197,7 +199,9 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
-	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    double norm[3];
+	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
+	    
 	    int idxn=cell2cell[f];
 	    double ql[5],qr[5];
 	    for(int n=0;n<nfields;n++) {
@@ -265,7 +269,9 @@ void fillJacobians(double *q, double *normals,double *volume,
         // Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
-	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    double norm[3];
+	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
+
 	    int idxn=cell2cell[f];
 	    double ql[5],qr[5];
 	    for(int n=0;n<nfields;n++) {
@@ -319,7 +325,9 @@ void fillJacobians_diag(double *q, double *normals,double *volume,
         // Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
-	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    double norm[3];
+	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
+
 	    int idxn=cell2cell[f];
 	    double ql[5],qr[5];
 	    for(int n=0;n<nfields;n++) {
@@ -377,7 +385,6 @@ void fillJacobians_diag_f(double *q, double *normals,double *volume,
         // Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
-	    double *norm=normals+18*idx+3*(f-nccft[idx]);
 	    int idxn=cell2cell[f];
 	    float ql[5],qr[5];
 	    for(int n=0;n<nfields;n++) {
@@ -390,9 +397,9 @@ void fillJacobians_diag_f(double *q, double *normals,double *volume,
 	      for(int n=0;n<nfields;n++) qr[n]=flovar[n];
 	    }
 
-	    float nx=norm[0];
-	    float ny=norm[1];
-	    float nz=norm[2];
+	    float nx=normals[(3*(f-nccft[idx])+0)*stride+idx];
+	    float ny=normals[(3*(f-nccft[idx])+1)*stride+idx];
+	    float nz=normals[(3*(f-nccft[idx])+2)*stride+idx];
 	    
 	    //Compute Jacobians
 	    /* computeJacobianDiag_f(ql[0], ql[1],  ql[2],  ql[3],  ql[4], */
@@ -481,7 +488,9 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate,
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
-	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    double norm[3];
+	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
+
 	    int idxn=cell2cell[f];
 	    double ql[5],qr[5];
 	    for(int n=0;n<nfields;n++) {
@@ -570,7 +579,9 @@ void jacobiSweep3(double *q, double *res, double *dq, double *dqupdate,
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
-	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    double norm[3];
+	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
+
 	    int idxn=cell2cell[f];
 	    double ql[5],qr[5];
 	    for(int n=0;n<nfields;n++) {
@@ -644,7 +655,9 @@ void jacobiSweep4(double *q, double *res, double *dq, double *dqupdate,
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
-	    double *norm=normals+18*idx+3*(f-nccft[idx]);
+	    double norm[3];
+	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
+
 	    int idxn=cell2cell[f];
 	    double ql[5],qr[5];
 	    for(int n=0;n<nfields;n++) {
@@ -712,7 +725,6 @@ void jacobiSweep5(double *q, double *res, double *dq, double *dqupdate,
  	// Loop over neighbors
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
-	    double *norm=normals+18*idx+3*(f-nccft[idx]);
 	    int idxn=cell2cell[f];
 	    float ql[5],qr[5];
 	    for(int n=0;n<nfields;n++) {
@@ -736,9 +748,9 @@ void jacobiSweep5(double *q, double *res, double *dq, double *dqupdate,
 	    }
 	    float gx,gy,gz; // grid speeds
 	    gx=gy=gz=0;
-            float nx=(float)norm[0];
-	    float ny=(float)norm[1];
-	    float nz=(float)norm[2];
+            float nx=(float)normals[(3*(f-nccft[idx])+0)*stride+idx];
+	    float ny=(float)normals[(3*(f-nccft[idx])+1)*stride+idx];
+	    float nz=(float)normals[(3*(f-nccft[idx])+2)*stride+idx];
             InterfaceFlux_Inviscid_d_f(B[0],B[1],B[2],B[3],B[4],
 				     ql[0],ql[1],ql[2],ql[3],ql[4],
 				     qr[0],qr[1],qr[2],qr[3],qr[4],

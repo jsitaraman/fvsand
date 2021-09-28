@@ -169,7 +169,7 @@ void cell_normals_volume(double *normals,
 	    }
 	  // pointer to the right normal
 	  // norm is not unit normal
-	  double *norm=normals+18*idx+3*f;
+          double norm[3];
 	  norm[0]=norm[1]=norm[2]=0;
 	  //
 	  // unified loop for triangles and quads
@@ -203,6 +203,11 @@ void cell_normals_volume(double *normals,
 	  norm[0]*=vscal;
 	  norm[1]*=vscal;
 	  norm[2]*=vscal;
+
+	  normals[(3*f+0)*ncells+idx]=norm[0];
+	  normals[(3*f+1)*ncells+idx]=norm[1];
+	  normals[(3*f+2)*ncells+idx]=norm[2];
+
 	}
       //printf("%lf %lf\n",volume[idx],vol/3.0);
       volume[idx]=(vol/3.0);
@@ -210,7 +215,11 @@ void cell_normals_volume(double *normals,
       totalvol+=volume[idx];
       for(int f=0;f<ncon[idx];f++)
 	{
-	  double *norm=normals+18*idx+3*f;
+	  double norm[3];
+	  norm[0]=normals[(3*f+0)*ncells+idx];
+	  norm[1]=normals[(3*f+1)*ncells+idx];
+	  norm[2]=normals[(3*f+2)*ncells+idx];
+
 	  normsum[0]+=norm[0];
 	  normsum[1]+=norm[1];
 	  normsum[2]+=norm[2];
@@ -249,8 +258,13 @@ void check_conservation(double *normals,
 	      if ( cell2cell[f1]==idx) break;
 	    //fprintf(fp,"%lf %lf %lf %lf %lf %lf\n",norm[0],norm[1],norm[2],norm1[0],norm1[1],norm1[2]);
 #if !defined (FVSAND_HAS_GPU)
-	    double *norm=normals+18*idx+3*(f-nccft[idx]);
-	    double *norm1=normals+18*idxn+3*(f1-nccft[idxn]);
+	    double norm[3];
+	    double norm1[3];
+            for(int d=0;d<3;d++)
+             {
+              norm[d]=normals[(3*(f-nccft[idx])+d)*ncells+idx];
+              norm1[d]=normals[(3*(f1-nccft[idxn])+d)*ncells+idxn];
+             }
 	    conscheck+=(fabs(norm[0]+norm1[0])+
 			fabs(norm[1]+norm1[1])+
 			fabs(norm[2]+norm1[2]));
@@ -263,4 +277,3 @@ void check_conservation(double *normals,
 #endif
   //fclose(fp);
 }
-  
