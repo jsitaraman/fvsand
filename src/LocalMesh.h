@@ -120,6 +120,7 @@ class LocalMesh
   void Residual_face(double *qv);
   void Residual_Jacobian(double *qv, double dt);
   void Residual_Jacobian_diag(double *qv, double dt);
+  void Residual_Jacobian_diag_face(double *qv, double dt);
   void Jacobi(double *qv, double, int, int);
   void Update(double *qdest, double *qsrc, double fscal);
   void UpdateQ(double *qdest, double *qsrc, double fscal);

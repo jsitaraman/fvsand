@@ -82,6 +82,39 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
       }
 }
 //
+// set residual to zero 
+//
+FVSAND_GPU_GLOBAL
+void setResidual(double *res, double *q, double *center, double *normals,double *volume,
+		     double *flovar,int *cell2cell, int *nccft, int nfields, int scale, 
+		     int stride, int ncells)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+    for(int idx=0;idx<ncells;idx++)
+#endif
+      {
+	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]=0;
+      }
+}
+FVSAND_GPU_GLOBAL
+void scaleResidual(double *res, double *q, double *center, double *normals,double *volume,
+		     double *flovar,int *cell2cell, int *nccft, int nfields, int scale, 
+		     int stride, int ncells)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+    for(int idx=0;idx<ncells;idx++)
+#endif
+      {
+        for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
+      }
+}
+//
 // compute residual and Jacobian by looping over all cells
 //
 FVSAND_GPU_GLOBAL
@@ -272,6 +305,62 @@ void computeResidualJacobianDiag(double *q, double *normals,double *volume,
 	// divide by cell volume, this will have to move outside for
 	// deforming grids
 	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
+      }
+}
+//
+// compute residual and diagonal Jacobian by looping over all cells
+//
+FVSAND_GPU_GLOBAL
+void computeResidualJacobianDiagFace(double *q, double *normals,double *volume,
+		     double *res, float* Dall,
+		     double *flovar,int *face2cell, int *nccft, int nfields,
+                     int scale, int stride, int ncells, int nfaces, double dt)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < nfaces) 
+#else
+    for(int idx=0;idx<nfaces;idx++)
+#endif
+      {
+        int e1 = face2cell[idx];
+        int e2 = face2cell[nfaces+idx];
+        int f  = face2cell[2*nfaces+idx];
+
+	double norm[3];
+	for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[e1])+d)*stride+e1];
+	// first order now
+	double ql[5],qr[5];	  
+	for(int n=0;n<nfields;n++)
+	  ql[n]=q[scale*e1+n*stride];
+	if (e2 > -1) {
+	  for(int n=0;n<nfields;n++)
+	    qr[n]=q[scale*e2+n*stride];
+	}
+	if (e2 == -3) {
+	  for(int n=0;n<nfields;n++)
+	    qr[n]=flovar[n];
+	}
+	double dres[5] = {0};
+	double gx,gy,gz; // grid speeds
+	//double spec;     // spectral radius
+	gx=gy=gz=0;
+	
+	computeResidualJacobianDiag_f2(dres[0],dres[1],dres[2],dres[3],dres[4],
+	    		      ql[0],ql[1],ql[2],ql[3],ql[4],
+	    		      qr[0],qr[1],qr[2],qr[3],qr[4],
+	    		      norm[0],norm[1],norm[2],
+	    		      gx,gy,gz,e2,Dall,1./(float)volume[e1],1./(float)volume[e2],e1,e2,ncells);
+	for(int n=0;n<nfields;n++) {
+#if defined (FVSAND_HAS_GPU)
+	  atomicAdd(res+scale*e1+n*stride,-dres[n];
+	  if (e2 > -1 && e2 < ncells) atomicAdd(res+scale*e2+n*stride,dres[n];
+#else
+	  res[scale*e1+n*stride]-=dres[n];
+	  if (e2 > -1 && e2 < ncells) res[scale*e2+n*stride]+=dres[n];
+#endif
+        }
+	    
       }
 }
 // Verify compute Jacobian routine is working correctly
@@ -1289,3 +1378,4 @@ void computeResidualFace(double *res, double *faceflux, double *volume,
 	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
       }
 }
+
