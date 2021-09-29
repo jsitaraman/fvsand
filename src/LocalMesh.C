@@ -255,11 +255,13 @@ void LocalMesh::CreateFaces(void)
     face2cell_h[2*idx+1] = 100; 
   }
 */
+  for(int idx = 0; idx<nfaces; idx++) face2cell_h[idx] = -100;
   for(int idx = 0; idx<(ncells+nhalo); idx++){ 
     for(int f=nccft_h[idx];f<nccft_h[idx+1];f++){
       int faceid = cell2face_h[f];
       int isgn=abs(faceid)/faceid;
       int offset=(1-isgn)/2;
+      faceid=abs(faceid)-1;
       face2cell_h[2*faceid+offset] = idx;
     }
   } 
