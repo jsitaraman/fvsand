@@ -861,7 +861,7 @@ void fill_faces(double *q, double *faceq, int *nccft,int *cell2face,
       }
 }
 FVSAND_GPU_GLOBAL
-void face_flux(double *faceflux,double *faceq, double *face_norm, double *flovar, double* Dall,
+void face_flux(double *faceflux,double *faceq, double *face_norm, double *flovar,
 	       int *facetype,
 	       int nfields,int nfaces)
 {
@@ -892,12 +892,38 @@ void face_flux(double *faceflux,double *faceq, double *face_norm, double *flovar
 
       }
 }
+// initialize Dall
+FVSAND_GPU_GLOBAL
+void initD(double *q, double* Dall, double dt, int nfields, int scale, int stride, int ncells) 
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells)
+#else
+    for(int idx=0;idx<ncells;idx++)
+#endif
+      {
+        int index1;
+        for(int n = 0; n<nfields; n++) {
+          for(int m = 0; m<nfields; m++) {
+            index1 = 25*idx + n*nfields + m;
+            if(n==m){
+              Dall[index1] = 1.0/dt;
+            }
+            else{
+              Dall[index1] = 0.0;
+            }
+          }
+        }
+      }
+}
 
 // compute fluxes across face and both jacobians
 FVSAND_GPU_GLOBAL
-void face_flux_Jac(double *q, double *flovar, double *volume, double dt, float* Dall,
+void face_flux_Jac(double *q, double *flovar, double *faceflux, double* face_norm,double *volume, double* Dall, double dt,
 	       int *face2cell, int *facetype,
-	       int nfields,int nfaces, int ncells)
+	       int nfields,int nfaces, int scale, int stride, int ncells)
+
 {
 #if defined (FVSAND_HAS_GPU)
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
@@ -936,19 +962,19 @@ void face_flux_Jac(double *q, double *flovar, double *volume, double dt, float* 
 	// Get flux jacobian (in float)
 
 	// compute jacobians on side 1
-	computeJacobianDiag_f3(qlf[0], qlf[1],  qlf[2],  qlf[3],  qlf[4],
-			       qrf[0], qrf[1],  qrf[2],  qrf[3],  qrf[4],  
-   	 		       normf[0], normf[1], normf[2],
-			       e2,Dall, 1./(float)volume[e1],e1,ncells);
+	computeJacobianDiag_f3(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
+			       qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
+   	 		       norm[0], norm[1], norm[2],
+			       e2,Dall, 1./volume[e1],e1,ncells);
 
 	// compute jacobians on side 2
-	normf[0] = -normf[0];
-	normf[1] = -normf[1];
-	normf[2] = -normf[2];
-	computeJacobianDiag_f3(qrf[0], qrf[1],  qrf[2],  qrf[3],  qrf[4],
-			       qlf[0], qlf[1],  qlf[2],  qlf[3],  qlf[4],  
-	 		       normf[0], normf[1], normf[2],
-			       e1,Dall, 1./(float)volume[e2],e2,ncells);
+	norm[0] = -norm[0];
+	norm[1] = -norm[1];
+	norm[2] = -norm[2];
+	computeJacobianDiag_f3(qr[0], qr[1],  qr[2],  qr[3],  qr[4],
+			       ql[0], ql[1],  ql[2],  ql[3],  ql[4],  
+	 		       norm[0], norm[1], norm[2],
+			       e1,Dall, 1./volume[e2],e2,ncells);
       }
 }
 

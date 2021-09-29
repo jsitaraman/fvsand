@@ -409,22 +409,25 @@ void LocalMesh::Residual_cell(double *qv)
 
 void LocalMesh::Residual_face(double *qv, double dt, int nsweep)
 {
-  nthreads=ncells+nhalo;
-  FVSAND_GPU_KERNEL_LAUNCH(fill_faces,nthreads,
-			   qv,faceq_d,nccft_d,cell2face_d,nfields_d,scale, stride,ncells+nhalo);
 
-  nthreads=nfaces;
   if(nsweep){ // implicit solve, fill jacobians too
-printf("Checkpt 3\n"); 
-     FVSAND_GPU_KERNEL_LAUNCH(face_flux,nthreads,
-   			      faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
-printf("Checkpt 4\n"); 
-//     FVSAND_GPU_KERNEL_LAUNCH(face_flux_Jac,nthreads,
-//   			      faceflux_d,faceq_d,facenorm_d,qinf_d, volume_d, dt, Dall_d_f,face2cell_d,facetype_d,nfields_d,nfaces,ncells+nhalo);
-printf("Checkpt 5\n"); 
+     nthreads=ncells+nhalo;
+     FVSAND_GPU_KERNEL_LAUNCH(initD,nthreads,
+   			      qv, Dall_d, dt, nfields_d, scale, stride, ncells+nhalo)
+     nthreads=nfaces;
+     FVSAND_GPU_KERNEL_LAUNCH(face_flux_Jac,nthreads,
+                              qv,qinf_d, faceflux_d,facenorm_d,volume_d, Dall_d, dt,face2cell_d,facetype_d,nfields_d,nfaces,scale, stride,ncells+nhalo);
+
+
 
   } 
   else { // only compute fluxes 
+     nthreads=ncells+nhalo;
+     FVSAND_GPU_KERNEL_LAUNCH(fill_faces,nthreads,
+   				   qv,faceq_d,nccft_d,cell2face_d,nfields_d,scale, stride,ncells+nhalo);
+     nthreads=nfaces;
+     FVSAND_GPU_KERNEL_LAUNCH(face_flux,nthreads,
+   			      faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
      FVSAND_GPU_KERNEL_LAUNCH(face_flux,nthreads,
    			      faceflux_d,faceq_d,facenorm_d,qinf_d,facetype_d,nfields_d,nfaces);
   }
