@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
       timestep_name << "TimeStep-" << iter;
       if(nsweep){ // implicit 
 	FVSAND_NVTX_SECTION(timestep_name.str(),
-         lm->Residual(lm->q,restype);           // computes res_d
+         lm->Residual(lm->q,restype,dt,istoreJac); // computes res_d
    	 lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with dqtilde
          lm->UpdateQ(lm->q,lm->q,1);            // adds dqtilde (in res_d) to q XX is this dt or 1?
 	);

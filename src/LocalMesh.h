@@ -74,10 +74,11 @@ class LocalMesh
 
   // jacobian quantities
   double *rmatall_d{nullptr}, *Dall_d{nullptr}; 
-  float *Dall_d_f{nullptr};
+  float *rmatall_d_f{nullptr},*Dall_d_f{nullptr};
   
   // face quantities
   int *cell2face_d{nullptr};
+  int *face2cell_d{nullptr};
   int *facetype_d{nullptr};
   double *facenorm_d{nullptr};
   double *faceq_d{nullptr};
@@ -114,9 +115,11 @@ class LocalMesh
   void CreateGridMetrics(int);
   void CreateFaces();
   void InitSolution(double *, int);
-  void Residual(double * qv, int);
+  void Residual(double * qv, int restype, double dt=0.0, int istoreJac=0);
   void Residual_cell(double *qv);
   void Residual_face(double *qv);
+  void Residual_Jacobian(double *qv, double dt);
+  void Residual_Jacobian_diag(double *qv, double dt);
   void Jacobi(double *qv, double, int, int);
   void Update(double *qdest, double *qsrc, double fscal);
   void UpdateQ(double *qdest, double *qsrc, double fscal);

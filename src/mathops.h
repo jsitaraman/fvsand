@@ -320,6 +320,30 @@ void axb1s(double A[25], double *x, double *b, double fac, int N) {
   }
 }
 
+FVSAND_GPU_DEVICE
+void axb1s_f(float A[25], float *x, float *b, float fac, int N) {
+  int j, k;
+  int index1;
+  for (j = 0; j < N; j++) {
+    for (k = 0; k < N; k++) {
+      index1 = j * N + k;
+      b[j] -= (fac * A[index1] * x[k]);
+    }
+  }
+}
+
+FVSAND_GPU_DEVICE
+void axb1s_f2(float *A, float *x, float *b, float fac, int N, int f, int nNeighs) {
+  int j, k;
+  int index1;
+  for (j = 0; j < N; j++) {
+    for (k = 0; k < N; k++) {
+      index1 = (j * N + k)*nNeighs + f;
+      b[j] -= (fac * A[index1] * x[k]);
+    }
+  }
+}
+
 #ifdef UNIT_CHECK
 int main() {
   REAL A5mat[5][5];

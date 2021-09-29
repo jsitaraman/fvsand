@@ -45,8 +45,11 @@ LocalMesh::~LocalMesh()
   //
   FVSAND_FREE_DEVICE(rmatall_d);
   FVSAND_FREE_DEVICE(Dall_d);
+  FVSAND_FREE_DEVICE(rmatall_d_f);
+  FVSAND_FREE_DEVICE(Dall_d_f);
   //
   FVSAND_FREE_DEVICE(cell2face_d);
+  FVSAND_FREE_DEVICE(face2cell_d);
   FVSAND_FREE_DEVICE(facetype_d);
   FVSAND_FREE_DEVICE(facenorm_d);
   FVSAND_FREE_DEVICE(faceq_d);
@@ -172,11 +175,14 @@ void LocalMesh::CreateGridMetrics(int istoreJac)
   if (istoreJac==1 || istoreJac ==4) {
     Dall_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*25);
   }
-  if (istoreJac==5) {
+  if (istoreJac==5 || istoreJac==6 || istoreJac==7 || istoreJac==8 || istoreJac==9) {
     Dall_d_f=gpu::allocate_on_device<float>(sizeof(float)*(ncells+nhalo)*25);
   }
   if (istoreJac==1) {
     rmatall_d=gpu::allocate_on_device<double>(sizeof(double)*nccft_h[ncells+nhalo]*25);
+  }
+  if (istoreJac==6 || istoreJac==8) {
+    rmatall_d_f=gpu::allocate_on_device<float>(sizeof(float)*nccft_h[ncells+nhalo]*25);
   }
   // allocate storage for metrics
   center_d=gpu::allocate_on_device<double>(sizeof(double)*3*(ncells+nhalo));
@@ -211,11 +217,12 @@ void LocalMesh::CreateFaces(void)
   std::vector<int> facetype_h;
   std::vector<int>iflag(cell2cell.size()+1,1);
   int *cell2face_h=new int [cell2cell.size()];
+  std::vector< std::array<int,3> > face2cell;
   double *normals_h = new double [(ncells+nhalo)*18];
   gpu::pull_from_device<double>(normals_h,normals_d,sizeof(double)*(ncells+nhalo)*18);
 
   nfaces=0;
-  for(int idx=0;idx<(ncells+nhalo);idx++)
+  for(int idx=0;idx<ncells;idx++)
     for(int f=nccft_h[idx];f<nccft_h[idx+1];f++)
       {
 	if (iflag[f]) {
@@ -227,6 +234,8 @@ void LocalMesh::CreateFaces(void)
 	  facenorm_h.push_back(norm[2]);	  
 	  cell2face_h[f]=nfaces+1;
 	  int idxn=cell2cell[f];
+          std::array<int,3> arr = {idx,idxn,f};
+          face2cell.emplace_back(arr);
 	  if (idxn > -1) {
 	    // make face info 1 based to use negative sign
 	    int f1;
@@ -242,12 +251,23 @@ void LocalMesh::CreateFaces(void)
 	}
       }
   //printf("nfaces=%d\n",nfaces);
+  //
+  int *face2cell_h=new int [3*nfaces];
+  for(int f=0;f<nfaces;f++) {
+    face2cell_h[f] = face2cell[f][0];
+    face2cell_h[nfaces+f] = face2cell[f][1];
+    face2cell_h[2*nfaces+f] = face2cell[f][2];
+  }
+
+  face2cell.clear();
 
   facetype_d=gpu::push_to_device<int>(facetype_h.data(),sizeof(int)*nfaces);
   cell2face_d=gpu::push_to_device<int>(cell2face_h,sizeof(int)*cell2cell.size());
+  face2cell_d=gpu::push_to_device<int>(face2cell_h,sizeof(int)*nfaces*3);
   facenorm_d=gpu::push_to_device<double>(facenorm_h.data(),sizeof(double)*nfaces*3);
  
   delete [] cell2face_h;
+  delete [] face2cell_h;
   delete [] normals_h;
 }
 
@@ -364,9 +384,19 @@ void LocalMesh::UpdateFringes(double *qd)
 }
     
 
-void LocalMesh::Residual(double *qv,int restype)
+void LocalMesh::Residual(double *qv, int restype, double dt, int istoreJac)
 {
   FVSAND_NVTX_FUNCTION("residual");
+  if ( istoreJac == 6 ) {
+    Residual_Jacobian(qv,dt);
+    return;
+  }
+
+  if ( istoreJac == 7 ) {
+    Residual_Jacobian_diag(qv,dt);
+    return;
+  }
+
   if (restype==0) {
     Residual_cell(qv);
   } else {
@@ -398,6 +428,28 @@ void LocalMesh::Residual_face(double *qv)
   FVSAND_GPU_KERNEL_LAUNCH(computeResidualFace,nthreads,
 			   res_d,faceflux_d,volume_d,cell2face_d,nccft_d,
 			   nfields_d,scale,stride,ncells);
+  UpdateFringes(res_d);
+}
+
+void LocalMesh::Residual_Jacobian(double *qv, double dt)
+{
+  nthreads=ncells;
+  FVSAND_GPU_KERNEL_LAUNCH(computeResidualJacobian,nthreads,
+        		   qv, normals_d, volume_d,
+        		   res_d, rmatall_d_f, Dall_d_f,
+        		   qinf_d, cell2cell_d,
+                           nccft_d, nfields_d, scale, stride, ncells, dt);
+  UpdateFringes(res_d);
+}
+
+void LocalMesh::Residual_Jacobian_diag(double *qv, double dt)
+{
+  nthreads=ncells;
+  FVSAND_GPU_KERNEL_LAUNCH(computeResidualJacobianDiag,nthreads,
+        		   qv, normals_d, volume_d,
+        		   res_d, Dall_d_f,
+        		   qinf_d, cell2cell_d,
+                           nccft_d, nfields_d, scale, stride, ncells, dt);
   UpdateFringes(res_d);
 }
 
@@ -436,6 +488,33 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 			     flovar_d, cell2cell_d,
 			     nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);
   }
+  if (istoreJac==8) {
+    nthreads=ncells+nhalo;
+    FVSAND_GPU_KERNEL_LAUNCH(fillJacobians_diag_f,nthreads,
+			     q, normals_d, volume_d,
+			     Dall_d_f,
+			     flovar_d, cell2cell_d,
+			     nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);
+    FVSAND_GPU_KERNEL_LAUNCH(fillJacobians_offdiag_f,nthreads,
+			     q, normals_d, volume_d,
+			     rmatall_d_f,
+			     flovar_d, cell2cell_d,
+			     nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);
+  }
+  if (istoreJac==9) {
+    nthreads=ncells;
+    FVSAND_GPU_KERNEL_LAUNCH(setJacobians_diag_f,nthreads,
+			     q, normals_d, volume_d,
+			     Dall_d_f,
+			     flovar_d, cell2cell_d,
+			     nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);
+    nthreads=nfaces;
+    FVSAND_GPU_KERNEL_LAUNCH(fillJacobiansFace_diag_f,nthreads,
+			     q, normals_d, volume_d,
+			     Dall_d_f,
+			     flovar_d, face2cell_d,
+			     nccft_d, nfields_d, scale, stride, ncells, nfaces, dt);
+  }
   
   // Jacobi Sweeps
   for(int m = 0; m < nsweep; m++){
@@ -453,7 +532,7 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
 			     rmatall_d, Dall_d,
 			     flovar_d, cell2cell_d,
-			       nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);      
+			     nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);      
     }
     else if(istoreJac==2) {
       FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep2,nthreads,
@@ -474,12 +553,19 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 			       flovar_d, cell2cell_d,
 			       nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);
     }
-    else if(istoreJac==5) {
+    else if(istoreJac==5 || istoreJac==7 || istoreJac==9) {
       FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep5,nthreads,
 			       q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
 			       Dall_d_f,
 			       flovar_d, cell2cell_d,
 			       nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);
+    }
+    else if(istoreJac==6 || istoreJac==8){
+      FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep1_f,nthreads,
+			     q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
+			     rmatall_d_f, Dall_d_f,
+			     flovar_d, cell2cell_d,
+			     nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);      
     }
     // update dq = dqtilde for all cells
     
