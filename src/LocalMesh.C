@@ -413,10 +413,10 @@ void LocalMesh::Residual_face(double *qv, double dt, int nsweep)
   if(nsweep){ // implicit solve, fill jacobians too
      nthreads=ncells+nhalo;
      FVSAND_GPU_KERNEL_LAUNCH(initD,nthreads,
-   			      qv, Dall_d, dt, nfields_d, scale, stride, ncells+nhalo)
+   			      qv, Dall_d_f, dt, nfields_d, scale, stride, ncells+nhalo)
      nthreads=nfaces;
      FVSAND_GPU_KERNEL_LAUNCH(face_flux_Jac,nthreads,
-                              qv,qinf_d, faceflux_d,facenorm_d,volume_d, Dall_d, dt,face2cell_d,facetype_d,nfields_d,nfaces,scale, stride,ncells+nhalo);
+                              qv,qinf_d, faceflux_d,facenorm_d,volume_d, Dall_d_f, dt,face2cell_d,facetype_d,nfields_d,nfaces,scale, stride,ncells+nhalo);
 
 
 

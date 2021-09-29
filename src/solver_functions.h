@@ -894,7 +894,7 @@ void face_flux(double *faceflux,double *faceq, double *face_norm, double *flovar
 }
 // initialize Dall
 FVSAND_GPU_GLOBAL
-void initD(double *q, double* Dall, double dt, int nfields, int scale, int stride, int ncells) 
+void initD(double *q, float* Dall, float dt, int nfields, int scale, int stride, int ncells) 
 {
 #if defined (FVSAND_HAS_GPU)
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
@@ -920,7 +920,7 @@ void initD(double *q, double* Dall, double dt, int nfields, int scale, int strid
 
 // compute fluxes across face and both jacobians
 FVSAND_GPU_GLOBAL
-void face_flux_Jac(double *q, double *flovar, double *faceflux, double* face_norm,double *volume, double* Dall, double dt,
+void face_flux_Jac(double *q, double *flovar, double *faceflux, double* face_norm,double *volume, float* Dall, double dt,
 	       int *face2cell, int *facetype,
 	       int nfields,int nfaces, int scale, int stride, int ncells)
 
@@ -965,7 +965,7 @@ void face_flux_Jac(double *q, double *flovar, double *faceflux, double* face_nor
 	computeJacobianDiag_f3(ql[0], ql[1],  ql[2],  ql[3],  ql[4],
 			       qr[0], qr[1],  qr[2],  qr[3],  qr[4],  
    	 		       norm[0], norm[1], norm[2],
-			       e2,Dall, 1./volume[e1],e1,ncells);
+			       e2,Dall, 1./(float)volume[e1],e1,ncells);
 
 	// compute jacobians on side 2
 	norm[0] = -norm[0];
@@ -974,7 +974,7 @@ void face_flux_Jac(double *q, double *flovar, double *faceflux, double* face_nor
 	computeJacobianDiag_f3(qr[0], qr[1],  qr[2],  qr[3],  qr[4],
 			       ql[0], ql[1],  ql[2],  ql[3],  ql[4],  
 	 		       norm[0], norm[1], norm[2],
-			       e1,Dall, 1./volume[e2],e2,ncells);
+			       e1,Dall, 1./(float)volume[e2],e2,ncells);
       }
 }
 

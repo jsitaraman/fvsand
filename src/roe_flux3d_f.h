@@ -1792,9 +1792,9 @@ void InterfaceFlux_Inviscid_d_f( real_f & f1d, real_f & f2d, real_f & f3d, real_
 }
 
 FVSAND_GPU_DEVICE
-void computeJacobianDiag_f3( real_f& ql1, real_f& ql2, real_f& ql3, real_f& ql4, real_f& ql5,
-			     real_f& qr1, real_f& qr2, real_f& qr3, real_f& qr4, real_f& qr5,
-			     real_f& nxd, real_f& nyd, real_f& nzd,
+void computeJacobianDiag_f3( real_f ql1, real_f ql2, real_f ql3, real_f ql4, real_f ql5,
+			     real_f qr1, real_f qr2, real_f qr3, real_f qr4, real_f qr5,
+			     real_f nxd, real_f nyd, real_f nzd,
 			     int & faceID,
 			     real_f *lmatout, real_f scaling,int idx,int ncells)
 {
