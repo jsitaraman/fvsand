@@ -353,8 +353,8 @@ void computeResidualJacobianDiagFace(double *q, double *normals,double *volume,
 	    		      gx,gy,gz,e2,Dall,1./(float)volume[e1],1./(float)volume[e2],e1,e2,ncells);
 	for(int n=0;n<nfields;n++) {
 #if defined (FVSAND_HAS_GPU)
-	  atomicAdd(res+scale*e1+n*stride,-dres[n];
-	  if (e2 > -1 && e2 < ncells) atomicAdd(res+scale*e2+n*stride,dres[n];
+	  atomicAdd(res+scale*e1+n*stride,-dres[n]);
+	  if (e2 > -1 && e2 < ncells) atomicAdd(res+scale*e2+n*stride,dres[n]);
 #else
 	  res[scale*e1+n*stride]-=dres[n];
 	  if (e2 > -1 && e2 < ncells) res[scale*e2+n*stride]+=dres[n];
