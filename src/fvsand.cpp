@@ -12,40 +12,6 @@
 #include "inputParser.h"
 using namespace FVSAND;
 
-// -----------------------------------------------------------------------------
-#if FVSAND_HAS_GPU
-#include "cuda_runtime.h"
-void listdev( int rank )
-{
-    cudaError_t err;
-    
-    int dev_cnt = 0;
-    cudaSetDevice(rank);
-    err = cudaGetDeviceCount( &dev_cnt );
-    assert( err == cudaSuccess || err == cudaErrorNoDevice );
-    printf( "rank %d, cnt %d\n", rank, dev_cnt );
-    
-    cudaDeviceProp prop;
-    for (int dev = 0; dev < dev_cnt; ++dev) {
-        err = cudaGetDeviceProperties( &prop, dev );
-        assert( err == cudaSuccess );
-
-        // printf( "rank %d, dev %d, prop %s, pci %d, %d, %d\n",
-        //         rank, dev,
-        //         prop.name,
-        //         prop.pciBusID,
-        //         prop.pciDeviceID,
-        //         prop.pciDomainID );
-
-        // dylan: for NVLINK systems multiple GPUs will appear on the
-        // same PCIe bus. A unique identifier for the GPU is the UUID,
-        // which we can just print the first 8 bytes from.
-        printf( "rank %d, dev %d, prop %s [%X]\n",
-                rank, dev, prop.name, ((unsigned long long*)prop.uuid.bytes)[0]);
-    }
-}
-#endif
-
 int main(int argc, char *argv[])
 {
   int myid, mydeviceid, numprocs,numdevices;
@@ -59,7 +25,7 @@ int main(int argc, char *argv[])
   FVSAND_GPU_CHECK_ERROR(cudaGetDeviceCount(&numdevices));
   mydeviceid = myid % numdevices;
   FVSAND_GPU_CHECK_ERROR(cudaSetDevice(mydeviceid));
-  listdev(myid);
+  gpu::listdev(myid);
   //printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid);
 #endif
   // default parameters

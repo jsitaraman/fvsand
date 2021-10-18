@@ -89,7 +89,7 @@ LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
 			rcvmap,mycomm);
   double elapsed=stopwatch.tock();
   //printf("Comm Patterns time %e\n",elapsed);
-  //printf("ncells/nhalo=%d %d\n",ncells,nhalo);
+  printf("ncells/nhalo=%d %d\n",ncells,nhalo);
   //
   // mine out the vertices of all the local cells
   // and turn everything into local coordinates
@@ -184,7 +184,7 @@ void LocalMesh::CreateGridMetrics(int istoreJac)
   // unequal stride, 6=max faces for hex and 3 doubles per face
   normals_d=gpu::allocate_on_device<double>(sizeof(double)*18*(ncells+nhalo));
   volume_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo));
-  
+
   // compute cell center_ds
 
   const int N = ncells + nhalo;

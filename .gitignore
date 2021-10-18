@@ -3,4 +3,5 @@ build
 *.dat
 tecplot.*
 src/TAGS
+TAGS
 *.vscode*

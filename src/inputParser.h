@@ -2,7 +2,7 @@
 #include<iostream>
 #include<vector>
 
-void parseInputs(char *inputfile,
+void parseInputs(const char *inputfile,
 		 char *meshfile,
 		 double *dsmin,
 		 double *stretch,

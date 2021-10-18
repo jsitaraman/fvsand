@@ -5,11 +5,13 @@
 #include <string>
 #include <stdexcept>
 #include <cuda.h>
+#include <cuda_runtime.h>
 
 #define FVSAND_GPU_DEVICE __device__
 #define FVSAND_GPU_GLOBAL __global__
 #define FVSAND_GPU_HOST __host__
 #define FVSAND_GPU_HOST_DEVICE __host__ __device__
+
 //#define FVSAND_HAS_GPU CUDA
 namespace FVSAND {
 namespace gpu {
@@ -36,8 +38,10 @@ inline const char* gpuGetErrorString(gpuError_t err) { return cudaGetErrorString
 #define FVSAND_GPU_CALL(call) cuda ## call
 #define FVSAND_GPU_CALL_CHECK(call) FVSAND_CUDA_CHECK_ERROR(FVSAND_GPU_CALL(call))
 
+#ifdef __NVCC__ // only allow files compiled with "nvcc" to launch kernels
 #define FVSAND_GPU_LAUNCH_FUNC(func, blocks, threads, sharedmem, stream, ...) \
     func<<<blocks, threads, sharedmem, stream>>>(__VA_ARGS__);
+#endif
 
 template <typename T>
 inline T* allocate_on_device(const size_t size)
@@ -85,8 +89,24 @@ inline void synchronize()
   cudaDeviceSynchronize();
 }
 
+inline void listdev( int rank )
+{
+    int dev_cnt = 0;
+    FVSAND_CUDA_CHECK_ERROR(cudaSetDevice(rank));
+    FVSAND_CUDA_CHECK_ERROR(cudaGetDeviceCount( &dev_cnt ));
+    printf( "rank %d, cnt %d\n", rank, dev_cnt );
+    
+    cudaDeviceProp prop;
+    for (int dev = 0; dev < dev_cnt; ++dev) {
+      FVSAND_CUDA_CHECK_ERROR(cudaGetDeviceProperties( &prop, dev ));
+      printf( "rank %d, dev %d, prop %s [%X]\n",
+              rank, dev, prop.name, ((unsigned long long*)prop.uuid.bytes)[0]);
+    }
+}
+
 } // namespace gpu
 } // namespace FVSAND
+
 
 
 #endif /* FVSAND_CUDA_H */
