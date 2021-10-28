@@ -68,9 +68,13 @@ class LocalMesh
   int *cell2cell_d{nullptr};           // cell to cell connectivity graph
 
   double *center_d{nullptr};      // cell center  (device)
+  double *centroid_d{nullptr};    // cell centroid (device)
+  double *facecentroid_d{nullptr};// face centroid (device)
   double *normals_d{nullptr};     // cell normals (device)
   double *volume_d{nullptr};      // cell volume  (device)
   double *res_d{nullptr};         // residual (host and device)
+  double *grad_d{nullptr};        // gradients (device)
+  double *gradweights_d{nullptr}; // gradient weights
 
   // jacobian quantities
   double *rmatall_d{nullptr}, *Dall_d{nullptr}; 

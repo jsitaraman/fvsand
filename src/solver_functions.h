@@ -1,6 +1,10 @@
 #define GAMMA 1.4
 #define GM1 0.4
 #define GGM1 0.56
+// number of equations = 5 for laminar Navier-Stokes
+#define NEQNS 5
+// threshold for limiter
+#define lim_eps 1e-6 
 #include <stdio.h>
 #include "roe_flux3d.h"
 #include "roe_flux3d_f.h"
@@ -51,7 +55,7 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 	    int idxn=cell2cell[f];
 	    // first order now
-	    double ql[5],qr[5];	  
+	    double ql[NEQNS],qr[NEQNS];	  
 	    for(int n=0;n<nfields;n++)
 	      ql[n]=q[scale*idx+n*stride];
 	    if (idxn > -1) {
@@ -151,7 +155,7 @@ void computeResidualJacobian(double *q, double *normals,double *volume,
 	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 	    int idxn=cell2cell[f];
 	    // first order now
-	    double ql[5],qr[5];	  
+	    double ql[NEQNS],qr[NEQNS];	  
 	    for(int n=0;n<nfields;n++)
 	      ql[n]=q[scale*idx+n*stride];
 	    if (idxn > -1) {
@@ -251,7 +255,7 @@ void computeResidualJacobianDiag(double *q, double *normals,double *volume,
 	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 	    int idxn=cell2cell[f];
 	    // first order now
-	    double ql[5],qr[5];	  
+	    double ql[NEQNS],qr[NEQNS];	  
 	    for(int n=0;n<nfields;n++)
 	      ql[n]=q[scale*idx+n*stride];
 	    if (idxn > -1) {
@@ -330,7 +334,7 @@ void computeResidualJacobianDiagFace(double *q, double *normals,double *volume,
 	double norm[3];
 	for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[e1])+d)*stride+e1];
 	// first order now
-	double ql[5],qr[5];	  
+	double ql[NEQNS],qr[NEQNS];	  
 	for(int n=0;n<nfields;n++)
 	  ql[n]=q[scale*e1+n*stride];
 	if (e2 > -1) {
@@ -386,7 +390,7 @@ void computeResidualJacobianDiagFace2(double *q, double *normals,double *volume,
 	double norm[3];
 	for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[e1])+d)*stride+e1];
 	// first order now
-	double ql[5],qr[5];	  
+	double ql[NEQNS],qr[NEQNS];	  
 	for(int n=0;n<nfields;n++)
 	  ql[n]=q[scale*e1+n*stride];
 	if (e2 > -1) {
@@ -441,12 +445,13 @@ void computeResidualJacobianDiagFace2(double *q, double *normals,double *volume,
 // Verify compute Jacobian routine is working correctly
 // Make sure that F{qr+dqr,ql+dql) - F{qr,ql} = dql*lmat + dqr*rmat
 FVSAND_GPU_GLOBAL void testComputeJ(double *q, double *normals,
-				    double *flovar, int *cell2cell, int *nccft, int nfields, int scale, int stride, int ncells,int* facetype)
+				    double *flovar, int *cell2cell, int *nccft, int nfields,
+				    int scale, int stride, int ncells,int* facetype)
 {
   double lmat[25], rmat[25];
-  double dql[5],dqr[5],lmatdql[5], rmatdqr[5];
+  double dql[NEQNS],dqr[NEQNS],lmatdql[NEQNS], rmatdqr[NEQNS];
   double rhs[5],lhs[5];
-  double ql[5],qr[5];
+  double ql[NEQNS],qr[NEQNS];
   double gx,gy,gz;
 
   // Setup arbitrary inputs
@@ -560,7 +565,7 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 	    
 	    int idxn=cell2cell[f];
-	    double ql[5],qr[5];
+	    double ql[NEQNS],qr[NEQNS];
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=q[scale*idx+n*stride];
 	    }
@@ -630,7 +635,7 @@ void fillJacobians(double *q, double *normals,double *volume,
 	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 
 	    int idxn=cell2cell[f];
-	    double ql[5],qr[5];
+	    double ql[NEQNS],qr[NEQNS];
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=q[scale*idx+n*stride];
 	    }
@@ -686,7 +691,7 @@ void fillJacobians_diag(double *q, double *normals,double *volume,
 	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 
 	    int idxn=cell2cell[f];
-	    double ql[5],qr[5];
+	    double ql[NEQNS],qr[NEQNS];
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=q[scale*idx+n*stride];
 	    }
@@ -743,7 +748,7 @@ void fillJacobians_diag_f(double *q, double *normals,double *volume,
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
 	    int idxn=cell2cell[f];
-	    float ql[5],qr[5];
+	    float ql[NEQNS],qr[NEQNS];
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=q[scale*idx+n*stride];
 	    }
@@ -790,7 +795,7 @@ void fillJacobians_offdiag_f(double *q, double *normals,double *volume,
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
 	    int idxn=cell2cell[f];
-	    float ql[5],qr[5];
+	    float ql[NEQNS],qr[NEQNS];
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=q[scale*idx+n*stride];
 	    }
@@ -865,7 +870,7 @@ void fillJacobiansFace_diag_f(double *q, double *normals,double *volume,
         int e2 = face2cell[nfaces+idx];
         int f  = face2cell[2*nfaces+idx];
 
-        float ql[5],qr[5];
+        float ql[NEQNS],qr[NEQNS];
         for(int n=0;n<nfields;n++) {
           ql[n]=q[scale*e1+n*stride];
         }
@@ -1028,7 +1033,7 @@ void jacobiSweep2(double *q, double *res, double *dq, double *dqupdate,
 	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 
 	    int idxn=cell2cell[f];
-	    double ql[5],qr[5];
+	    double ql[NEQNS],qr[NEQNS];
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=q[scale*idx+n*stride];
 	    }
@@ -1119,7 +1124,7 @@ void jacobiSweep3(double *q, double *res, double *dq, double *dqupdate,
 	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 
 	    int idxn=cell2cell[f];
-	    double ql[5],qr[5];
+	    double ql[NEQNS],qr[NEQNS];
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=q[scale*idx+n*stride];
 	    }
@@ -1195,7 +1200,7 @@ void jacobiSweep4(double *q, double *res, double *dq, double *dqupdate,
 	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 
 	    int idxn=cell2cell[f];
-	    double ql[5],qr[5];
+	    double ql[NEQNS],qr[NEQNS];
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=q[scale*idx+n*stride];
 	    }
@@ -1262,7 +1267,7 @@ void jacobiSweep5(double *q, double *res, double *dq, double *dqupdate,
         for(int f=nccft[idx];f<nccft[idx+1];f++)
 	  {
 	    int idxn=cell2cell[f];
-	    float ql[5],qr[5];
+	    float ql[NEQNS],qr[NEQNS];
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=(float)q[scale*idx+n*stride];
 	    }
@@ -1453,4 +1458,82 @@ void computeResidualFace(double *res, double *faceflux, double *volume,
 	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
       }
 }
-
+//
+// compute residual by looping over all cells
+//
+FVSAND_GPU_GLOBAL
+void gradients_and_limiters(double *weights, double *grad, double *q,
+			    double *flovar, double *centroid, double *facecentroid,
+			    int *cell2cell, int *nccft, int nfields, int scale, 
+			    int stride, int ncells)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+    for(int idx=0;idx<ncells;idx++)
+#endif
+      {
+	// set gradients to zero and limiter value to 1
+	for(int n=0;n<nfields*4;n++) grad[scale*idx+n*stride]=((n+1)%4==0)?1:0;
+	// max and min values for each field in the fn1 neighborhood
+	double qmax[NEQNS],qmin[NEQNS],ql[NEQNS];
+	// set qmax, qmin initially to cell centroid value
+	for(int n=0;n<nfields;n++) {
+	  ql[n]=q[scale*idx+n*stride];
+	  qmax[n]=ql[n];
+	  qmin[n]=ql[n];
+	}
+	for(int f=nccft[idx];f<nccft[idx+1];f++)
+	  {
+	    double qr[NEQNS];
+	    int idxn=cell2cell[f];
+	    if (idxn > -1) {
+	      for(int n=0;n<nfields;n++)
+		qr[n]=q[scale*idxn+n*stride];
+	    }
+	    if (idxn == -3) {
+	      // free stream BC
+	      for(int n=0;n<nfields;n++)
+		qr[n]=flovar[n];
+	    } else if (idxn==-2) {
+	      // wall boundary	      
+	      double p=GM1*(ql[4]-0.5*(ql[1]*ql[1]+ql[2]*ql[2]+ql[3]*ql[3])/ql[0]);
+	      qr[0]=ql[0];
+	      qr[1]=0.0;
+	      qr[2]=0.0;
+	      qr[3]=0.0;
+	      qr[4]=p/GM1;
+	    }
+	    for(int n=0;n<nfields;n++)
+	      {
+		for(int d=0;d<3;d++)
+		  {
+		    grad[scale*idx+(n*4+d)*stride]+=(qr[n]-ql[n])*
+		      (weights[scale*idx+(3*(f-nccft[idx])+d)*stride]);
+		  }
+		qmax[n]=fvsand_max(qmax[n],qr[n]);
+		qmin[n]=fvsand_min(qmin[n],qr[n]);
+	      }
+	  }	
+	for(int f=nccft[idx];f<nccft[idx+1];f++) {
+	  double dx[3];
+	  double d1,d2,phival,ds2;
+	  for(int d=0;d<3;d++)
+	    dx[d]=facecentroid[(3*(f-nccft[idx])+d)*stride+scale*idx]-centroid[d*stride+scale*idx];
+	  for(int n=0;n<nfields;n++) {
+	    d2=0;
+	    for(int d=0;d<3;d++)
+	      d2=grad[scale*idx+(n*4+d)*stride]*dx[d];	    
+	    // differentiable form of Barth-Jesperson limiter
+	    if (abs(d2) < lim_eps) continue;
+	    ds2=0.5*((d2>=0)?1:-1);
+	    d1=(ds2+0.5)*qmax[n]+(0.5-ds2)*qmin[n];
+	    phival=(d1-ql[n])/d2;
+	    phival=tanh(0.1*pow(phival,4)+phival);
+	    grad[scale*idx+(n*4+3)*stride]=fvsand_min(phival,
+						      grad[scale*idx+(n*4+3)*stride]);
+	  }
+	}
+      }
+}

@@ -1,6 +1,8 @@
 #include <stdio.h>
 //#define UNIT_CHECK
 #define REAL double
+#define fvsand_max(a,b) ((a) > (b)) ? (a) :(b)
+#define fvsand_min(a,b) ((a) < (b)) ? (a) :(b)
 
 FVSAND_GPU_DEVICE void solveAxb5(double *A, double *b, double *x) {
   // double s;

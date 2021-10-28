@@ -39,9 +39,13 @@ LocalMesh::~LocalMesh()
   //
   FVSAND_FREE_DEVICE(cell2cell_d);
   FVSAND_FREE_DEVICE(center_d);
+  FVSAND_FREE_DEVICE(centroid_d);
+  FVSAND_FREE_DEVICE(facecentroid_d);
   FVSAND_FREE_DEVICE(normals_d);
   FVSAND_FREE_DEVICE(volume_d);
   FVSAND_FREE_DEVICE(res_d);
+  FVSAND_FREE_DEVICE(grad_d);
+  FVSAND_FREE_DEVICE(gradweights_d);
   //
   FVSAND_FREE_DEVICE(rmatall_d);
   FVSAND_FREE_DEVICE(Dall_d);
@@ -187,20 +191,22 @@ void LocalMesh::CreateGridMetrics(int istoreJac)
   }
   // allocate storage for metrics
   center_d=gpu::allocate_on_device<double>(sizeof(double)*3*(ncells+nhalo));
+  centroid_d=gpu::allocate_on_device<double>(sizeof(double)*3*(ncells+nhalo));
+  facecentroid_d=gpu::allocate_on_device<double>(sizeof(double)*18*(ncells+nhalo));
   // allocate larger storage than necessary for normals to avoid
   // unequal stride, 6=max faces for hex and 3 doubles per face
   normals_d=gpu::allocate_on_device<double>(sizeof(double)*18*(ncells+nhalo));
   volume_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo));
-  
+  gradweights_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells)*18);
   // compute cell center_ds
 
-  const int N = ncells + nhalo;
+  int N = ncells + nhalo;
   FVSAND_GPU_KERNEL_LAUNCH( cell_center, (N*3), center_d, x_d, nvcft_d, 
                             cell2node_d, N );
 
-  // compute cell normals and volume_d
-  FVSAND_GPU_KERNEL_LAUNCH( cell_normals_volume, N, normals_d, volume_d, x_d, 
-                            ncon_d, cell2node_d, nvcft_d, N );
+  // compute cell normals, centroid and volume_d
+  FVSAND_GPU_KERNEL_LAUNCH( cell_normals_volume, N, normals_d, volume_d, centroid_d, facecentroid_d,
+			    x_d, ncon_d, cell2node_d, nvcft_d, N );
 
   // check conservation
   FVSAND_GPU_KERNEL_LAUNCH( check_conservation, N, normals_d, x_d, nccft_d, 
@@ -275,14 +281,15 @@ void LocalMesh::CreateFaces(void)
 void LocalMesh::InitSolution(double *flovar, int nfields)
 {
  FVSAND_NVTX_FUNCTION( "init_solution" );
- FVSAND_NVTX_SECTION( "memory_allocation",
+ // FVSAND_NVTX_SECTION( "memory_allocation",
   q=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
   qn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
   qnn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
   res_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
   dq_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
   dqupdate_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
- );
+  grad_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields*4);
+  // );
  
  flovar_d=gpu::push_to_device<double>(flovar,sizeof(double)*nfields);
  qinf_d=gpu::allocate_on_device<double>(sizeof(double)*nfields);
@@ -295,6 +302,12 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  int N=ncells+nhalo;
  FVSAND_GPU_KERNEL_LAUNCH( init_q, N, 
 			   qinf_d,q,dq_d,center_d,flovar_d,nfields,scale,stride,N);
+ 
+ N=ncells;
+ FVSAND_GPU_KERNEL_LAUNCH( weighted_least_squares, N, gradweights_d,
+			   centroid_d, facecentroid_d,
+			   cell2cell_d, nccft_d,
+			   scale, stride, N);
  
  qh = new double[(ncells+nhalo)*nfields];
  gpu::pull_from_device<double>(qh,q,sizeof(double)*(ncells+nhalo)*nfields);
