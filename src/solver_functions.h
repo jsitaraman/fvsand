@@ -22,7 +22,8 @@ void init_q(double *q0, double *q, double *dq,  double *center, double *flovar, 
     for(int idx=0;idx<ncells;idx++)
 #endif
       {
-	q0[0]=flovar[0];
+	q0[0]=flovar[0]
+	  + 0.1*center[idx] + 0.2*center[idx+stride]+ 0.3*center[idx+2*stride];
 	q0[1]=flovar[0]*flovar[1]; 
 	q0[2]=flovar[0]*flovar[2]; 
 	q0[3]=flovar[0]*flovar[3]; 
@@ -1459,7 +1460,8 @@ void computeResidualFace(double *res, double *faceflux, double *volume,
       }
 }
 //
-// compute residual by looping over all cells
+// compute gradients of all fields and 
+// the limiter function per field for the gradients
 //
 FVSAND_GPU_GLOBAL
 void gradients_and_limiters(double *weights, double *grad, double *q,
@@ -1504,6 +1506,17 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	      qr[2]=0.0;
 	      qr[3]=0.0;
 	      qr[4]=p/GM1;
+	      
+	      double fc[3];
+	      fc[0]=facecentroid[(3*(f-nccft[idx])+0)*stride+idx];
+	      fc[1]=facecentroid[(3*(f-nccft[idx])+1)*stride+idx];
+	      fc[2]=facecentroid[(3*(f-nccft[idx])+2)*stride+idx];
+	      qr[0]=flovar[0]+0.1*fc[0]+0.2*fc[1]+0.3*fc[2];
+	      qr[1]=flovar[0]*flovar[1]; 
+	      qr[2]=flovar[0]*flovar[2]; 
+	      qr[3]=flovar[0]*flovar[3]; 
+	      qr[4]=flovar[4]/GM1 + 0.5*(qr[1]*qr[1]+qr[2]*qr[2]+qr[3]*qr[3])/qr[0];
+	      
 	    }
 	    for(int n=0;n<nfields;n++)
 	      {
@@ -1515,7 +1528,13 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 		qmax[n]=fvsand_max(qmax[n],qr[n]);
 		qmin[n]=fvsand_min(qmin[n],qr[n]);
 	      }
-	  }	
+	  }
+	/*	for(int n=0;n<nfields;n++)
+	  {
+	    for(int d=0;d<3;d++) printf("%f ",grad[scale*idx+(n*4+d)*stride]);
+	    printf("\n");
+	  }
+	  exit(0);*/
 	for(int f=nccft[idx];f<nccft[idx+1];f++) {
 	  double dx[3];
 	  double d1,d2,phival,ds2;

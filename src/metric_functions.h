@@ -162,6 +162,9 @@ void cell_normals_volume(double *normals,
       // kludge to convert [4,5,6,8] to [0,1,2,3]
       int itype=(nvcft[idx+1]-nvcft[idx]-4);
       itype=(itype > 3) ? 3: itype;
+      //for(int i=0;i<nvcft[idx+1]-nvcft[idx];i++)
+      //	  printf("%f %f %f\n",x[3*v[i]],x[3*v[i]+1],x[3*v[i]+2]);
+      //printf("\n");
       
       double vol=0.0;
       for(int f=0;f<ncon[idx];f++)
@@ -173,6 +176,7 @@ void cell_normals_volume(double *normals,
 	      xf[3*p  ]=x[3*v[i]];
 	      xf[3*p+1]=x[3*v[i]+1];
 	      xf[3*p+2]=x[3*v[i]+2];
+	      //printf("%f,%f,%f\n",xf[3*p  ],xf[3*p+1],xf[3*p+2]);
 	    }
 	  // pointer to the right normal
 	  // norm is not unit normal
@@ -218,7 +222,7 @@ void cell_normals_volume(double *normals,
 		  for(int d=0;d<3;d++)
 		    {
 		      // contribution to cell centroid
-		      cx[d]-=((vscal*nn[d]/12.0)
+		      cx[d]+=((vscal*nn[d]/12.0)
 			      *(xf[3*v0+d]*xf[3*v0+d]+
 				xf[3*p1+d]*xf[3*p1+d]+
 				xf[3*p2+d]*xf[3*p2+d]+
@@ -226,9 +230,8 @@ void cell_normals_volume(double *normals,
 				xf[3*v0+d]*xf[3*p2+d]+
 				xf[3*p1+d]*xf[3*p2+d]));
 		      // contribution to face centroid
-		      // factor of 2 here since vscal can be 0.5 or 0.25 depending on
-		      // triangle or quad
-		      fcx[d]+=darea*(xf[3*v0+d]+xf[3*p1+d]+xf[3*p2+d])*2*vscal/3.0;
+		      // by a given sub triangle
+		      fcx[d]+=darea*(xf[3*v0+d]+xf[3*p1+d]+xf[3*p2+d])/3.0;
 		    }
 		  area+=darea;
 		}	      
@@ -237,6 +240,7 @@ void cell_normals_volume(double *normals,
 	  face_centroid[(3*f+0)*ncells+idx]=fcx[0]/area;
 	  face_centroid[(3*f+1)*ncells+idx]=fcx[1]/area;
 	  face_centroid[(3*f+2)*ncells+idx]=fcx[2]/area;
+	  //printf("fc:%f %f %f\n",face_centroid[(3*f+0)*ncells+idx],face_centroid[(3*f+1)*ncells+idx],face_centroid[(3*f+2)*ncells+idx]);	  
 	  //
 	  normals[(3*f+0)*ncells+idx]=(norm[0]*vscal);
 	  normals[(3*f+1)*ncells+idx]=(norm[1]*vscal);
@@ -247,6 +251,8 @@ void cell_normals_volume(double *normals,
       centroid[idx]=cx[0]/volume[idx];
       centroid[ncells+idx]=cx[1]/volume[idx];
       centroid[2*ncells+idx]=cx[2]/volume[idx];
+      //printf("cc:%f %f %f\n",centroid[idx],centroid[ncells+idx],centroid[2*ncells+idx]);
+      //exit(0);
 #if !defined (FVSAND_HAS_GPU)
       totalvol+=volume[idx];
       for(int f=0;f<ncon[idx];f++)
@@ -394,7 +400,6 @@ void weighted_least_squares(double *weights, double *centroid,
 	      ww+=(dx[d]*dx[d]);
 	    }
 	    ww=0.5*(1+cos(M_PI/KlsqCosFac*sqrt(ww/wmax)));
-	    //printf("ww=%f\n",ww);
 	    double a1=dx[0]/(r11*r11);
 	    double a2=(dx[1]-r12*dx[0]/r11)/(r22*r22);
 	    double a3=(dx[2]-r23*dx[1]/r22 + b*dx[0])/(r33*r33);

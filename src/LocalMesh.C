@@ -197,15 +197,14 @@ void LocalMesh::CreateGridMetrics(int istoreJac)
   // unequal stride, 6=max faces for hex and 3 doubles per face
   normals_d=gpu::allocate_on_device<double>(sizeof(double)*18*(ncells+nhalo));
   volume_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo));
-  gradweights_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells)*18);
+  gradweights_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*18);
   // compute cell center_ds
-
   int N = ncells + nhalo;
   FVSAND_GPU_KERNEL_LAUNCH( cell_center, (N*3), center_d, x_d, nvcft_d, 
                             cell2node_d, N );
-
   // compute cell normals, centroid and volume_d
-  FVSAND_GPU_KERNEL_LAUNCH( cell_normals_volume, N, normals_d, volume_d, centroid_d, facecentroid_d,
+  FVSAND_GPU_KERNEL_LAUNCH( cell_normals_volume, N, normals_d, volume_d, centroid_d,
+			    facecentroid_d,
 			    x_d, ncon_d, cell2node_d, nvcft_d, N );
 
   // check conservation
@@ -301,13 +300,18 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  nfields_d=nfields;
  int N=ncells+nhalo;
  FVSAND_GPU_KERNEL_LAUNCH( init_q, N, 
-			   qinf_d,q,dq_d,center_d,flovar_d,nfields,scale,stride,N);
+			   qinf_d,q,dq_d,centroid_d,flovar_d,nfields,scale,stride,N);
  
  N=ncells;
  FVSAND_GPU_KERNEL_LAUNCH( weighted_least_squares, N, gradweights_d,
 			   centroid_d, facecentroid_d,
 			   cell2cell_d, nccft_d,
 			   scale, stride, N);
+
+ FVSAND_GPU_KERNEL_LAUNCH( gradients_and_limiters, N, gradweights_d, grad_d, q,
+			   flovar_d, centroid_d, facecentroid_d,cell2cell_d,nccft_d,
+			   nfields, scale, stride, N);
+			   
  
  qh = new double[(ncells+nhalo)*nfields];
  gpu::pull_from_device<double>(qh,q,sizeof(double)*(ncells+nhalo)*nfields);
@@ -717,7 +721,7 @@ double LocalMesh::ResNorm()
 void LocalMesh::WriteMesh(int label)
 {
   char fname[80];
-  int i,j,n;
+  int i,j,n,d;
   FILE *fp;
 
   sprintf(fname,"localmesh%d.dat",label);
@@ -726,12 +730,17 @@ void LocalMesh::WriteMesh(int label)
   fprintf(fp,"VARIABLES=\"X\",\"Y\",\"Z\",\"PMAP\",\"VOL\",");
   for(n=0;n<nfields_d;n++)
     fprintf(fp,"\"Q%d\",",n);
+  for(n=0;n<nfields_d;n++)
+   for(d=0;d<4;d++)
+    fprintf(fp,"\"QG%d%d\",",n,d);
   fprintf(fp,"\n");
   fprintf(fp,"ZONE T=\"VOL_MIXED\",N=%d E=%d ET=BRICK, F=FEBLOCK\n",nnodes,
           ncells+nhalo);
   fprintf(fp,"VARLOCATION = (1=NODAL, 2=NODAL, 3=NODAL, 4=CELLCENTERED, 5=CELLCENTERED, ");
   for(n=0;n<nfields_d;n++)
     fprintf(fp,"%d=CELLCENTERED, ",n+6);
+  for(n=0;n<4*nfields_d;n++)
+    fprintf(fp,"%d=CELLCENTERED, ",n+6+nfields_d);
   fprintf(fp,")\n");
   
   for(j=0;j<3;j++)
@@ -748,7 +757,12 @@ void LocalMesh::WriteMesh(int label)
   gpu::pull_from_device<double>(qh,q,sizeof(double)*nfields_d*(ncells+nhalo));
   for(n=0;n<nfields_d;n++)
     for(i=0;i<ncells+nhalo;i++)
-      fprintf(fp,"%lf\n",qh[i*nfields_d+n]);
+      fprintf(fp,"%lf\n",qh[i*scale+n*stride]);
+
+  for(n=0;n<nfields_d*4;n++)
+   for(i=0;i<ncells+nhalo;i++)
+    fprintf(fp,"%lf\n",grad_d[i*scale+n*stride]);
+
   
   for(i=0;i<ncells+nhalo;i++)
     {
