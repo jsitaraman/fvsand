@@ -44,8 +44,8 @@ class LocalMesh
   // communication maps
   std::unordered_map< int, std::vector<int>> sndmap; // map of send data (procid, local id of owned cells)
   std::unordered_map <int, std::vector<int>> rcvmap; // map of recv data (procid, localid of ghost cells)
-  std::vector<int> device2host;            // indices that needs to be pushed to host   (interior)
-  std::vector<int> host2device;            // indices that needs to be pushed to device (ghost)
+  std::vector<int> device2host,device2host_grad;      // indices that needs to be pushed to host   (interior)
+  std::vector<int> host2device,host2device_grad;     // indices that needs to be pushed to device (ghost)
 
   int *device2host_d{nullptr};               // same data on the gpu
   int *host2device_d{nullptr};               //
@@ -53,6 +53,14 @@ class LocalMesh
   double *qbuf2{nullptr};                    // storage space on host to push and pull from device
   double *qbuf_d{nullptr};                   // storage space on device
   double *qbuf_d2{nullptr};                  // storage space on device
+
+  int *device2host_grad_d{nullptr};          // same data on the gpu
+  int *host2device_grad_d{nullptr};          //
+  double *qbuf_grad{nullptr};                // storage space on host to push and pull from device
+  double *qbuf2_grad{nullptr};               // storage space on host to push and pull from device
+  double *qbuf_grad_d{nullptr};              // storage space on device
+  double *qbuf_grad_d2{nullptr};             // storage space on device
+
   //
   // solver data
   //
@@ -126,11 +134,13 @@ class LocalMesh
   void Residual_Jacobian_diag(double *qv, double dt);
   void Residual_Jacobian_diag_face(double *qv, double dt);
   void Residual_Jacobian_diag_face2(double *qv, double dt);
+  void Residual_Jacobian_diag_2nd(double *qv, double dt);
   void Jacobi(double *qv, double, int, int);
   void Update(double *qdest, double *qsrc, double fscal);
   void UpdateQ(double *qdest, double *qsrc, double fscal);
   void UpdateFringes(double *, double *);
   void UpdateFringes(double *);
+  void UpdateFringes_grad(double *);
   double ResNorm(void);
 };
   

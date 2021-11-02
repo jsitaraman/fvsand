@@ -11,7 +11,7 @@ nsteps=100		       # number of steps
 nsave=1		       # frequency to show residual 			    
 dt=0.2			       # dt						    
 nsweep=4		       # number of jacobi sweeps (=0 means explicit rk3)	    
-istoreJac=7		       # jacobian storage type
+istoreJac=12		       # jacobian storage type
 restype=0		       # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
 reOrderCells=false             # reverse cuthill-mckee reordering for bandwidth             
 # Jacobian storage types

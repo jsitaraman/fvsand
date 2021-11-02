@@ -22,8 +22,8 @@ void init_q(double *q0, double *q, double *dq,  double *center, double *flovar, 
     for(int idx=0;idx<ncells;idx++)
 #endif
       {
-	q0[0]=flovar[0]
-	  + 0.1*center[idx] + 0.2*center[idx+stride]+ 0.3*center[idx+2*stride];
+	q0[0]=flovar[0];
+	//  + 0.1*center[idx] + 0.2*center[idx+stride]+ 0.3*center[idx+2*stride];
 	q0[1]=flovar[0]*flovar[1]; 
 	q0[2]=flovar[0]*flovar[2]; 
 	q0[3]=flovar[0]*flovar[3]; 
@@ -1506,7 +1506,7 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	      qr[2]=0.0;
 	      qr[3]=0.0;
 	      qr[4]=p/GM1;
-	      
+	      /*    
 	      double fc[3];
 	      fc[0]=facecentroid[(3*(f-nccft[idx])+0)*stride+idx];
 	      fc[1]=facecentroid[(3*(f-nccft[idx])+1)*stride+idx];
@@ -1516,7 +1516,7 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	      qr[2]=flovar[0]*flovar[2]; 
 	      qr[3]=flovar[0]*flovar[3]; 
 	      qr[4]=flovar[4]/GM1 + 0.5*(qr[1]*qr[1]+qr[2]*qr[2]+qr[3]*qr[3])/qr[0];
-	      
+              */
 	    }
 	    for(int n=0;n<nfields;n++)
 	      {
@@ -1554,5 +1554,89 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 						      grad[scale*idx+(n*4+3)*stride]);
 	  }
 	}
+      }
+}
+//
+// compute residual and diagonal Jacobian by looping over all cells
+//
+FVSAND_GPU_GLOBAL
+void computeResidualJacobianDiag_2nd(double *q, double *grad, double *centroid,double *facecentroid,
+				     double *normals,double *volume,
+				     double *res, float* Dall,
+				     double *flovar,int *cell2cell, int *nccft, int nfields,
+				     int scale, int stride, int ncells, double dt)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+    for(int idx=0;idx<ncells;idx++)
+#endif
+      {
+	int index1;
+	for(int n = 0; n<nfields; n++) {
+          res[scale*idx+n*stride]=0;
+	  for(int m = 0; m<nfields; m++) {
+	    //index1 = 25*idx + n*nfields + m;
+	    index1 = (n*nfields + m)*ncells+idx;
+	    if(n==m){
+	      Dall[index1] = 1.0/dt;
+	    }
+	    else{
+	      Dall[index1] = 0.0;
+	    }
+	  }
+        }
+
+	for(int f=nccft[idx];f<nccft[idx+1];f++)
+	  {
+	    double norm[3];
+	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
+	    int idxn=cell2cell[f];
+	    // second order with limiting
+	    double ql[NEQNS];
+	    // ql = q_c + \phi \grad q . (r_f-r_c)
+	    for(int n=0;n<nfields;n++) {
+	      ql[n]=q[scale*idx+n*stride];
+              for(int d=0;d<3;d++) {
+	        ql[n]+=grad[scale*idx+(4*n+d)*stride]*grad[scale*idx+(4*n+3)*stride]*
+		(facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride] -
+		 centroid[scale*idx+d*stride]);
+                }
+            }
+
+	    double qr[NEQNS];	  
+	    if (idxn > -1) {
+	    // qr = q_c + \phi \grad q . (r_f-r_c)
+	      for(int n=0;n<nfields;n++)
+               {
+		qr[n]=q[scale*idxn+n*stride];
+                for(int d=0;d<3;d++) {
+		  qr[n]+=grad[scale*idxn+(4*n+d)*stride]*grad[scale*idxn+(4*n+3)*stride]*
+		  (facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride] -
+		   centroid[scale*idxn+d*stride]);
+                 }
+              }
+	    }
+	    if (idxn == -3) {
+	      for(int n=0;n<nfields;n++)
+		qr[n]=flovar[n];
+	    }
+	    double dres[5] = {0};
+	    double gx,gy,gz; // grid speeds
+	    //double spec;     // spectral radius
+	    gx=gy=gz=0;
+	  
+	    computeResidualJacobianDiag_f(dres[0],dres[1],dres[2],dres[3],dres[4],
+	        		      ql[0],ql[1],ql[2],ql[3],ql[4],
+	        		      qr[0],qr[1],qr[2],qr[3],qr[4],
+	        		      norm[0],norm[1],norm[2],
+	        		      gx,gy,gz,idxn,Dall,1./(float)volume[idx],idx,ncells);
+	    for(int n=0;n<nfields;n++)
+	      res[scale*idx+n*stride]-=dres[n];
+	  }
+	// divide by cell volume, this will have to move outside for
+	// deforming grids
+	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
       }
 }

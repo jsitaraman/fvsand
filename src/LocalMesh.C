@@ -180,7 +180,7 @@ void LocalMesh::CreateGridMetrics(int istoreJac)
     Dall_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*25);
   }
   if (istoreJac==5 || istoreJac==6 || istoreJac==7 || istoreJac==8 || istoreJac==9 ||
-      istoreJac==10 || istoreJac==11) {
+      istoreJac==10 || istoreJac==11 || istoreJac==12) {
     Dall_d_f=gpu::allocate_on_device<float>(sizeof(float)*(ncells+nhalo)*25);
   }
   if (istoreJac==1) {
@@ -319,17 +319,30 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  
  for(auto s: sndmap) 
     for (auto v : s.second)
-      for(int n=0;n<nfields_d;n++)
-	device2host.push_back(v*scale+n*stride);
-  
+      {
+	for(int n=0;n<nfields_d;n++)
+	  device2host.push_back(v*scale+n*stride);
+	for(int n=0;n<nfields_d*4;n++)
+	  device2host_grad.push_back(v*scale+n*stride);
+      }
+	
   for(auto r: rcvmap) 
     for (auto v : r.second)
-      for(int n=0;n<nfields;n++)
-	host2device.push_back(v*scale+n*stride);
+      {
+	for(int n=0;n<nfields;n++)
+	  host2device.push_back(v*scale+n*stride);
+	for(int n=0;n<nfields_d*4;n++)
+	  host2device_grad.push_back(v*scale+n*stride);
+      }
 
   device2host_d=gpu::push_to_device<int>(device2host.data(),sizeof(int)*device2host.size());
   host2device_d=gpu::push_to_device<int>(host2device.data(),sizeof(int)*host2device.size());
- 
+
+  device2host_grad_d=gpu::push_to_device<int>(device2host_grad.data(),
+					      sizeof(int)*device2host_grad.size());
+  host2device_grad_d=gpu::push_to_device<int>(host2device_grad.data(),
+					      sizeof(int)*host2device_grad.size());
+  
   int dsize=device2host.size();
   dsize=(dsize < host2device.size())?host2device.size():dsize;
   qbuf=new double [dsize];
@@ -337,6 +350,13 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
   qbuf_d=gpu::allocate_on_device<double>(sizeof(double)*dsize);
   qbuf_d2=gpu::allocate_on_device<double>(sizeof(double)*dsize);
 
+  int dsize_g=device2host_grad.size();
+  dsize_g=(dsize < host2device_grad.size()) ? host2device_grad.size():dsize_g;
+  qbuf_grad=new double [dsize_g];
+  qbuf2_grad=new double [dsize_g];
+  qbuf_grad_d=gpu::allocate_on_device<double>(sizeof(double)*dsize_g);
+  qbuf_grad_d2=gpu::allocate_on_device<double>(sizeof(double)*dsize_g);
+  
   ireq=new MPI_Request [sndmap.size()+rcvmap.size()];
   istatus=new MPI_Status [sndmap.size()+rcvmap.size()];
   
@@ -400,6 +420,35 @@ void LocalMesh::UpdateFringes(double *qd)
     FVSAND_GPU_KERNEL_LAUNCH( updateDevice, nthreads,
 			      qd,qbuf_d2,host2device_d,nthreads);
 }
+
+
+// New update with persistent buffers and minimum copies
+// doesn't work CUDA-Aware -- debug this
+void LocalMesh::UpdateFringes_grad(double *gd)
+{
+    nthreads=device2host_grad.size();
+    if(nthreads == 0) return;
+    FVSAND_GPU_KERNEL_LAUNCH( updateHost, nthreads,
+			      qbuf_grad_d,gd,device2host_grad_d,nthreads);
+    // separate sends and receives so that we can overlap comm and calculation
+    // in the residual and iteration loops.
+    // TODO (george) use qbuf_grad_d2_d and qbuf_grad_d instead of 
+    // qbuf_grad_d2 and qbuf_grad for cuda-aware
+    int reqcount=0;
+    pc.postRecvs_direct(qbuf_grad_d2,nfields_d,rcvmap,ireq,mycomm,&reqcount);
+    // TODO (george) with cuda-aware this pull is not required
+    // but it doesn't work now
+    gpu::pull_from_device<double>(qbuf_grad,qbuf_grad_d,sizeof(double)*device2host_grad.size());
+    pc.postSends_direct(qbuf_grad,nfields_d,sndmap,ireq,mycomm,&reqcount);
+    pc.finish_comm(reqcount,ireq,istatus);
+    // same as above
+    // not doing cuda-aware now
+    gpu::copy_to_device(qbuf_grad_d2,qbuf_grad_d2,sizeof(double)*host2device_grad.size());
+    
+    nthreads=host2device_grad.size();
+    FVSAND_GPU_KERNEL_LAUNCH( updateDevice, nthreads,
+			      gd,qbuf_grad_d2,host2device_grad_d,nthreads);
+}
     
 
 void LocalMesh::Residual(double *qv, int restype, double dt, int istoreJac)
@@ -423,6 +472,10 @@ void LocalMesh::Residual(double *qv, int restype, double dt, int istoreJac)
   if ( istoreJac == 11 ) {
     Residual_Jacobian_diag_face2(qv,dt);
     return;
+  }
+
+  if (istoreJac == 12 ) {
+    Residual_Jacobian_diag_2nd(qv,dt);
   }
 
   if (restype==0) {
@@ -476,6 +529,24 @@ void LocalMesh::Residual_Jacobian_diag(double *qv, double dt)
   nthreads=ncells;
   FVSAND_GPU_KERNEL_LAUNCH(computeResidualJacobianDiag,nthreads,
         		   qv, normals_d, volume_d,
+        		   res_d, Dall_d_f,
+        		   qinf_d, cell2cell_d,
+                           nccft_d, nfields_d, scale, stride, ncells, dt);
+  UpdateFringes(res_d);
+}
+
+void LocalMesh::Residual_Jacobian_diag_2nd(double *qv, double dt)
+{
+  nthreads=ncells;
+  FVSAND_GPU_KERNEL_LAUNCH( gradients_and_limiters, nthreads, gradweights_d, grad_d, qv,
+			   flovar_d, centroid_d, facecentroid_d,cell2cell_d,nccft_d,
+			   nfields_d, scale, stride, ncells);
+
+  UpdateFringes_grad(grad_d);
+
+  FVSAND_GPU_KERNEL_LAUNCH(computeResidualJacobianDiag_2nd,nthreads,
+        		   qv, grad_d, centroid_d, facecentroid_d,
+			   normals_d, volume_d,
         		   res_d, Dall_d_f,
         		   qinf_d, cell2cell_d,
                            nccft_d, nfields_d, scale, stride, ncells, dt);
@@ -636,7 +707,7 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 			       flovar_d, cell2cell_d,
 			       nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);
     }
-    else if(istoreJac==5 || istoreJac==7 || istoreJac==9 || istoreJac==10 || istoreJac==11) {
+    else if(istoreJac==5 || istoreJac==7 || istoreJac==9 || istoreJac==10 || istoreJac==11 || istoreJac==12) {
       FVSAND_GPU_KERNEL_LAUNCH(jacobiSweep5,nthreads,
 			       q, res_d, dq_d, dqupdate_d, normals_d, volume_d,
 			       Dall_d_f,
