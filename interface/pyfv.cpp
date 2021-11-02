@@ -4,6 +4,9 @@
 
 using namespace std;
 using namespace FVSAND;
+namespace py = pybind11;
+
+#define DO_NOT_FREE py::capsule([](){})
 
 PyFV::PyFV(string inputfile)
 {
@@ -105,4 +108,55 @@ void PyFV::step(int iter)
   }
   
   stopwatch.tock();
+}
+
+
+// self.gridData={'gridtype':'unstructured',        
+//                'tetConn':self.ndc4,              
+//                'pyraConn':self.ndc5,             
+//                'prismConn':self.ndc6,            
+//                'hexaConn':self.ndc8,             
+//                'bodyTag':self.tag,               
+//                'wallnode':self.inbcout,          
+//                'obcnode':self.iobcout,           
+//                'grid-coordinates':self.xout,                  
+//                'q-variables':self.qout,          
+//                'iblanking':self.ibout,           
+//                'iblkHasNBHole':0,                
+//                'istor':'row',       
+//                'scaling':self.scale,             
+//                'mapping':self.mapping,           
+//                'fsitag':self.fsitag,             
+//                'fsinode':self.fsinode,           
+//                'fsiforce':self.fsiforce,         
+//                'fsipforce':self.fsipforce,       
+//                'fsicoord':self.fsicoord} 
+
+py::dict PyFV::get_grid_data(){
+
+  py::dict gridData;
+  py::list l1, l2, l3, l4, l5;
+
+  double *x;
+  int nnode, ncell;
+  int *ndc4, *ndc5, *ndc6, *ndc8;
+
+  lm->GetGridData(&x, &nnode, &ncell, &ndc4, &ndc5, &ndc6, &ndc8);
+
+  l1 = py::list(1); // lists of lengh # local patches, always 1
+  l2 = py::list(1);
+
+#ifdef FVSAND_HAS_CUDA
+  l1[0] = GPUArray(lm->iblank, ncell);
+  l2[0] = GPUArray(lm->q,      nfields*ncell);
+#else
+  l1[0] = py::array_t<int   >({ncell},         {sizeof(int)},    lm->iblank, DO_NOT_FREE);
+  l2[0] = py::array_t<double>({ncell*nfields}, {sizeof(double)}, lm->q,      DO_NOT_FREE);
+#endif
+
+  gridData["iblanking"]   = l1;
+  gridData["q-variables"] = l2;
+
+  return gridData;
+
 }

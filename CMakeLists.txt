@@ -18,7 +18,7 @@ endif()
 option(FVSAND_ENABLE_CUDA "Enable CUDA support (default: on)" ON)
 
 # CUDA specific options
-set(FVSAND_CUDA_SM "70" CACHE STRING "CUDA arch option")
+set(FVSAND_CUDA_SM 60 70 CACHE STRING "CUDA arch option")
 #set(FVSAND_HIP_ARCH "gfx906,gfx908" CACHE STRING "HIP arch option")
 
 #SET(CMAKE_C_FLAGS "-fPIC -g -rdynamic")
@@ -36,7 +36,11 @@ if (FVSAND_ENABLE_CUDA)
       "Please use CUDA toolkit version 9.0 or newer")
   endif()
   set(FVSAND_CUDA_FLAGS "-lineinfo -rdynamic --Wno-deprecated-gpu-targets -m64")
-  set(FVSAND_CUDA_ARCH_FLAGS "-gencode=arch=compute_${FVSAND_CUDA_SM},code=sm_${FVSAND_CUDA_SM}")
+  foreach(SMCC IN LISTS FVSAND_CUDA_SM)
+    # set(FVSAND_CUDA_ARCH_FLAGS "-gencode=arch=compute_${FVSAND_CUDA_SM},code=sm_${FVSAND_CUDA_SM}")
+    set(FVSAND_CUDA_ARCH_FLAGS "${FVSAND_CUDA_ARCH_FLAGS} -gencode=arch=compute_${SMCC},code=sm_${SMCC}")
+    message(STATUS "-gencode=arch=compute_${SMCC},code=sm_${SMCC}")
+  endforeach()
   set(CMAKE_CUDA_STANDARD 11)
   set(CMAKE_CUDA_STANDARD_REQUIRED ON)
   set(CMAKE_CUDA_EXTENSIONS OFF)
@@ -49,7 +53,7 @@ include_directories(SYSTEM ${MPI_CXX_INCLUDE_PATH})
 include_directories(SYSTEM ${MPI_Fortran_INCLUDE_PATH})
 
 # -------------------------------------------------------
-# Common library
+# Common library of FVSAND routines
 #
 set(sources
   # Fortran sources
@@ -68,17 +72,13 @@ set(sources
 add_library(fvsand_common SHARED ${sources})
 if (FVSAND_ENABLE_CUDA)
   separate_arguments(FVSAND_CUDA_FLAGS)
-  target_compile_definitions(fvsand_common PUBLIC
-    FVSAND_HAS_GPU FVSAND_HAS_CUDA)
-  target_compile_options(fvsand_common PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:${FVSAND_CUDA_FLAGS}>)
+  target_compile_definitions(fvsand_common PUBLIC FVSAND_HAS_GPU FVSAND_HAS_CUDA)
+  target_compile_options(fvsand_common PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${FVSAND_CUDA_FLAGS}>)
   set(CMAKE_CUDA_FLAGS ${FVSAND_CUDA_ARCH_FLAGS})
-  set_target_properties(fvsand_common PROPERTIES
-    CUDA_SEPARABLE_COMPILATION ON)
+  set_target_properties(fvsand_common PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
   get_target_property(FVSANDLIB_CPP_SRC fvsand_common SOURCES)
   list(FILTER FVSANDLIB_CPP_SRC INCLUDE REGEX "\\.C")
   set_source_files_properties(${FVSANDLIB_CPP_SRC} PROPERTIES LANGUAGE CUDA)
-
   find_package(CUDAToolkit)
   target_link_libraries(fvsand_common CUDA::nvToolsExt)
 endif()
@@ -91,36 +91,14 @@ target_link_libraries(fvsand_common m gfortran ${MPI_LIBRARIES} )
 add_executable(fvsand.exe "src/fvsand.cpp")
 target_link_libraries(fvsand.exe fvsand_common)
 if (FVSAND_ENABLE_CUDA)
-  get_target_property(FVSANDEXE_CPP_SRC fvsand.exe SOURCES)
-  list(FILTER FVSANDEXE_CPP_SRC INCLUDE REGEX "\\.C")
-  set_source_files_properties(${FVSANDEXE_CPP_SRC} PROPERTIES LANGUAGE CUDA)
   target_include_directories(fvsand.exe PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
   target_link_libraries(fvsand.exe ${CUDART_LIBRARY})
 endif()
 
-# if (FVSAND_ENABLE_CUDA)
-#   separate_arguments(FVSAND_CUDA_FLAGS)
-#   target_compile_definitions(fvsand.exe PUBLIC
-#     FVSAND_HAS_GPU FVSAND_HAS_CUDA)
-#   target_compile_options(fvsand.exe PRIVATE
-#     $<$<COMPILE_LANGUAGE:CUDA>:${FVSAND_CUDA_FLAGS}>)
-#   set(CMAKE_CUDA_FLAGS ${FVSAND_CUDA_ARCH_FLAGS})
-#   set_target_properties(fvsand.exe PROPERTIES
-#     CUDA_SEPARABLE_COMPILATION ON)
-#   get_target_property(FVSANDLIB_CPP_SRC fvsand.exe SOURCES)
-#   list(FILTER FVSANDLIB_CPP_SRC INCLUDE REGEX "\\.C")
-#   set_source_files_properties(${FVSANDLIB_CPP_SRC} PROPERTIES LANGUAGE CUDA)
-
-#   find_package(CUDAToolkit)
-#   target_link_libraries(fvsand.exe CUDA::nvToolsExt)
-# endif()
-
-# TARGET_LINK_LIBRARIES(fvsand.exe m gfortran ${MPI_LIBRARIES} )
 
 # ------------------------------------------------------------------
 # Python-wrapped Library
 #
-
 file(GLOB pysrc "${CMAKE_SOURCE_DIR}/interface/*.cpp")
 
 if(NOT COMMAND pybind11_add_module)

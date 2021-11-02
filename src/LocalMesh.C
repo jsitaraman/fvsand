@@ -62,6 +62,7 @@ LocalMesh::~LocalMesh()
   FVSAND_FREE_DEVICE(qnn);
   FVSAND_FREE_DEVICE(dq_d);
   FVSAND_FREE_DEVICE(dqupdate_d);  
+  FVSAND_FREE_DEVICE(iblank);
 }
 
 LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
@@ -259,6 +260,7 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
   res_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
   dq_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
   dqupdate_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+  iblank=gpu::allocate_on_device<int>(sizeof(int)*(ncells+nhalo));
  );
  
  flovar_d=gpu::push_to_device<double>(flovar,sizeof(double)*nfields);
@@ -607,4 +609,47 @@ void LocalMesh::WriteMesh(int label)
     }
   fclose(fp);
   
+}
+
+void LocalMesh::GetGridData(double** x_out, int* nnode_out, int* ncell_out, 
+                            int** ndc4, int** ndc5, int** ndc6, int** ndc8){
+
+  x_out[0] = x_d;
+  nnode_out[0] = nnodes;
+  ncell_out[0] = ncells+nhalo;
+
+  int m, i, j;
+  int n4=0;
+  int n5=0;
+  int n6=0;
+  int n8=0;
+
+  for(i=0; i<ncells+nhalo; i++){
+      m=nvcft[i+1]-nvcft[i];
+      if      (m==4) n4++;
+      else if (m==5) n5++;
+      else if (m==6) n6++;
+      else if (m==8) n8++;
+  }
+
+  ndc4[0] = (n4>0)? new int[n4] : nullptr;
+  ndc5[0] = (n5>0)? new int[n5] : nullptr;
+  ndc6[0] = (n6>0)? new int[n6] : nullptr;
+  ndc8[0] = (n8>0)? new int[n8] : nullptr;
+
+  // n4=n5=n6=n8=0;
+
+  // for(i=0;i<ncells+nhalo;i++){
+
+  //   m=nvcft[i+1]-nvcft[i];
+
+  //   for(j=nvcft[i];j<nvcft[i+1];j++){
+  //     if      (m==4) ndc4[0][n4++]=cell2node[j];
+  //     else if (m==5) ndc5[0][n5++]=cell2node[j];
+  //     else if (m==6) ndc6[0][n6++]=cell2node[j];
+  //     else if (m==8) ndc8[0][n8++]=cell2node[j];
+  //   }
+  // }      
+  
+
 }

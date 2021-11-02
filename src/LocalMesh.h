@@ -103,6 +103,7 @@ class LocalMesh
   double *qnn{nullptr};
   double *dq_d{nullptr};
   double *dqupdate_d{nullptr}; 	// update on device 
+  int    *iblank{nullptr};
   
   LocalMesh() {}; 
   ~LocalMesh();
@@ -122,6 +123,8 @@ class LocalMesh
   void UpdateFringes(double *, double *);
   void UpdateFringes(double *);
   double ResNorm(void);
+  void GetGridData(double** x_out, int* nnode_out, int* ncell_out, 
+                   int** ndc4, int** ndc5, int** ndc6, int** ndc8);
 };
   
 }
