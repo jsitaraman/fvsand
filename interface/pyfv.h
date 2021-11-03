@@ -11,6 +11,8 @@
 #include <sstream> // for std::ostringstream
 
 #include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+
 
 class PyFV {
   Timer stopwatch;

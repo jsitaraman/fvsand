@@ -611,45 +611,17 @@ void LocalMesh::WriteMesh(int label)
   
 }
 
-void LocalMesh::GetGridData(double** x_out, int* nnode_out, int* ncell_out, 
-                            int** ndc4, int** ndc5, int** ndc6, int** ndc8){
+void LocalMesh::GetGridData(double** x_hd, int* nnode_out, int* ncell_out, 
+                            int** nvcft_hd, int** cell2node_hd, int* nc2n){
 
-  x_out[0] = x_d;
-  nnode_out[0] = nnodes;
-  ncell_out[0] = ncells+nhalo;
+  nnode_out[0]    = nnodes;
+  ncell_out[0]    = ncells+nhalo;
+  nc2n[0]         = cell2node.size();
 
-  int m, i, j;
-  int n4=0;
-  int n5=0;
-  int n6=0;
-  int n8=0;
-
-  for(i=0; i<ncells+nhalo; i++){
-      m=nvcft[i+1]-nvcft[i];
-      if      (m==4) n4++;
-      else if (m==5) n5++;
-      else if (m==6) n6++;
-      else if (m==8) n8++;
-  }
-
-  ndc4[0] = (n4>0)? new int[n4] : nullptr;
-  ndc5[0] = (n5>0)? new int[n5] : nullptr;
-  ndc6[0] = (n6>0)? new int[n6] : nullptr;
-  ndc8[0] = (n8>0)? new int[n8] : nullptr;
-
-  // n4=n5=n6=n8=0;
-
-  // for(i=0;i<ncells+nhalo;i++){
-
-  //   m=nvcft[i+1]-nvcft[i];
-
-  //   for(j=nvcft[i];j<nvcft[i+1];j++){
-  //     if      (m==4) ndc4[0][n4++]=cell2node[j];
-  //     else if (m==5) ndc5[0][n5++]=cell2node[j];
-  //     else if (m==6) ndc6[0][n6++]=cell2node[j];
-  //     else if (m==8) ndc8[0][n8++]=cell2node[j];
-  //   }
-  // }      
-  
-
+  x_hd[0]         = x.data();
+  x_hd[1]         = x_d;
+  nvcft_hd[0]     = nvcft.data();
+  nvcft_hd[1]     = nvcft_d;  
+  cell2node_hd[0] = cell2node.data();
+  cell2node_hd[1] = cell2node_d;  
 }

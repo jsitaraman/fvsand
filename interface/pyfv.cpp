@@ -135,27 +135,54 @@ void PyFV::step(int iter)
 py::dict PyFV::get_grid_data(){
 
   py::dict gridData;
-  py::list l1, l2, l3, l4, l5;
+  // lists of stuff to pass back to python
+  py::list ibl(1);
+  py::list ql(1);
+  py::list xl(1);
+  py::list xl_d(1);
+  py::list c2nl(1);
+  py::list c2nl_d(1);
+  py::list nvl(1);
+  py::list nvl_d(1);
 
-  double *x;
-  int nnode, ncell;
-  int *ndc4, *ndc5, *ndc6, *ndc8;
+  double *x_hd[2];
+  int nnode, ncell, nc2n;
+  // int *ndc4, *ndc5, *ndc6, *ndc8;
+  int* cell2node_hd[2];
+  int* nvcft_hd[2];
 
-  lm->GetGridData(&x, &nnode, &ncell, &ndc4, &ndc5, &ndc6, &ndc8);
+  lm->GetGridData(x_hd, &nnode, &ncell, nvcft_hd, cell2node_hd, &nc2n);
 
-  l1 = py::list(1); // lists of lengh # local patches, always 1
-  l2 = py::list(1);
+  c2nl[0]   = py::array_t<int   >({nc2n},          {sizeof(int)},    cell2node_hd[0], DO_NOT_FREE);
+  nvl[0]    = py::array_t<int   >({ncell+1},       {sizeof(int)},    nvcft_hd[0],     DO_NOT_FREE);
+  xl[0]     = py::array_t<double>({nnode*3},       {sizeof(double)}, x_hd[0],         DO_NOT_FREE);
 
 #ifdef FVSAND_HAS_CUDA
-  l1[0] = GPUArray(lm->iblank, ncell);
-  l2[0] = GPUArray(lm->q,      nfields*ncell);
-#else
-  l1[0] = py::array_t<int   >({ncell},         {sizeof(int)},    lm->iblank, DO_NOT_FREE);
-  l2[0] = py::array_t<double>({ncell*nfields}, {sizeof(double)}, lm->q,      DO_NOT_FREE);
+  ibl[0]    = GPUArray(lm->iblank, ncell);
+  ql[0]     = GPUArray(lm->q,      nfields*ncell);
+  c2nl_d[0] = GPUArray(cell2node_hd[1], nc2n);
+  nvl_d[0]  = GPUArray(nvcft_hd[1], ncell+1);
+  xl_d[0]   = GPUArray(x_hd[1], nnode*3);
+  gridData["memtype"] = "CUDA";
+#else     
+  ibl[0]    = py::array_t<int   >({ncell},         {sizeof(int)},    lm->iblank,      DO_NOT_FREE);
+  ql[0]     = py::array_t<double>({ncell*nfields}, {sizeof(double)}, lm->q,           DO_NOT_FREE);
+  c2nl_d[0] = c2nl[0];
+  nvl_d[0]  = nvl[0];
+  xl_d[0]   = xl[0];
+  gridData["memtype"] = "CPU";
 #endif
 
-  gridData["iblanking"]   = l1;
-  gridData["q-variables"] = l2;
+  gridData["ncell"]              = ncell;
+  gridData["nnode"]              = nnode;
+  gridData["iblanking"]          = ibl;
+  gridData["q-variables"]        = ql;
+  gridData["grid-coordinates"]   = xl;
+  gridData["grid-coordinates_d"] = xl_d;
+  gridData["cell2node"]          = c2nl;
+  gridData["cell2node_d"]        = c2nl_d;
+  gridData["nvcft_d"]            = nvl;
+  gridData["nvcft"]              = nvl_d;
 
   return gridData;
 

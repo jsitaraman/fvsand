@@ -123,8 +123,10 @@ class LocalMesh
   void UpdateFringes(double *, double *);
   void UpdateFringes(double *);
   double ResNorm(void);
-  void GetGridData(double** x_out, int* nnode_out, int* ncell_out, 
-                   int** ndc4, int** ndc5, int** ndc6, int** ndc8);
+  void GetGridData(double** x_hd, int* nnode_out, int* ncell_out, 
+                   int** nvcft_hd, int** cell2node_hd, int* nc2n);
+
+
 };
   
 }
