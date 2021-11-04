@@ -9,12 +9,13 @@ Vz=0.0			       # z-velocity
 pressure=0.7142857142857143    # pressure					    
 nsteps=1000		       # number of steps					    
 nsave=100   		       # frequency to show residual 			    
-dt=0.1  		       # dt						    
-nsweep=15		       # number of jacobi sweeps (=0 means explicit rk3)	    
-istoreJac=7		       # jacobian storage type
+dt=0.2
+nsweep=4		       # number of jacobi sweeps (=0 means explicit rk3)	    
+nsubit=1                      # number of subiterations (=1 implies steady) 
+istoreJac=5		       # jacobian storage type
 restype=0		       # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
 reOrderCells=false             # reverse cuthill-mckee reordering for bandwidth             
-rey=1000
+rey=10000
 # Jacobian storage types
 # istoreJac = 0 -> no storage, recomputed every linear sweep
 #

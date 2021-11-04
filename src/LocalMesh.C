@@ -302,6 +302,9 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  int N=ncells+nhalo;
  FVSAND_GPU_KERNEL_LAUNCH( init_q, N, 
 			   qinf_d,q,dq_d,centroid_d,flovar_d,nfields,scale,stride,N);
+
+ 
+
  
  N=ncells;
  FVSAND_GPU_KERNEL_LAUNCH( weighted_least_squares, N, gradweights_d,
@@ -312,7 +315,10 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  FVSAND_GPU_KERNEL_LAUNCH( gradients_and_limiters, N, gradweights_d, grad_d, q,
 			   flovar_d, centroid_d, facecentroid_d,cell2cell_d,nccft_d,
 			   nfields, scale, stride, N);
-			   
+
+ nthreads=(ncells+nhalo)*nfields;
+ FVSAND_GPU_KERNEL_LAUNCH(copyValues,nthreads,
+			  qn, q, dqres_d, nthreads);
  
  qh = new double[(ncells+nhalo)*nfields];
  gpu::pull_from_device<double>(qh,q,sizeof(double)*(ncells+nhalo)*nfields);
@@ -654,7 +660,8 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 			     q, normals_d, volume_d,
 			     Dall_d_f,
 			     flovar_d, cell2cell_d,
-			     nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);
+			     nccft_d, nfields_d, scale, stride, ncells, facetype_d,
+			     dt, cfl, order);
   }
   if (istoreJac==8) {
     nthreads=ncells+nhalo;
@@ -662,7 +669,8 @@ void LocalMesh::Jacobi(double *q, double dt, int nsweep, int istoreJac)
 			     q, normals_d, volume_d,
 			     Dall_d_f,
 			     flovar_d, cell2cell_d,
-			     nccft_d, nfields_d, scale, stride, ncells, facetype_d, dt);
+			     nccft_d, nfields_d, scale, stride, ncells, facetype_d,
+			     dt, cfl, order);
     FVSAND_GPU_KERNEL_LAUNCH(fillJacobians_offdiag_f,nthreads,
 			     q, normals_d, volume_d,
 			     rmatall_d_f,
@@ -890,3 +898,28 @@ void LocalMesh::WriteMesh(int label)
   fclose(fp);
   
 }
+
+void LocalMesh::update_time(void)
+{
+  nthreads=(ncells+nhalo)*nfields_d;
+  FVSAND_GPU_KERNEL_LAUNCH(copyValues,nthreads,
+			   qnn, qn, dqres_d, nthreads);
+
+  FVSAND_GPU_KERNEL_LAUNCH(copyValues,nthreads,
+			   qn, q, dqres_d, nthreads);
+}
+
+void LocalMesh::add_time_source(int iter, double dt, double *q, double *qn, double *qnn)
+{
+  nthreads=(ncells+nhalo)*nfields_d;
+  if (iter==0) {
+    FVSAND_GPU_KERNEL_LAUNCH(bdf1source,nthreads,
+			     dt, q, qn, res_d, nthreads);
+    order=1.0;
+  } else {
+    FVSAND_GPU_KERNEL_LAUNCH(bdf2source,nthreads,
+                             dt, q, qn, qnn, res_d, nthreads);
+    order=2.0;
+  }
+}
+    

@@ -13,6 +13,7 @@ void parseInputs(char *inputfile,
 		 double *dt,
                  bool &reOrderCells,
 		 int *nsweep,
+		 int *nsubit,
 		 int *istoreJac,
 		 int *restype)
 {
@@ -37,6 +38,7 @@ void parseInputs(char *inputfile,
   fgets(line,256,fp);  sscanf(line,"nsave=%d",nsave);
   fgets(line,256,fp);  sscanf(line,"dt=%lf",dt);
   fgets(line,256,fp);  sscanf(line,"nsweep=%d",nsweep);
+  fgets(line,256,fp);  sscanf(line,"nsubit=%d",nsubit);
   fgets(line,256,fp);  sscanf(line,"istoreJac=%d",istoreJac);
   fgets(line,256,fp);  sscanf(line,"restype=%d",restype);
   fgets(line,256,fp);  

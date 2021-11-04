@@ -1169,7 +1169,7 @@ FVSAND_GPU_DEVICE
 void computeJacobianDiag_f2( real_f& ql1, real_f& ql2, real_f& ql3, real_f& ql4, real_f& ql5,
 			     real_f& qr1, real_f& qr2, real_f& qr3, real_f& qr4, real_f& qr5,
 			     real_f& nxd, real_f& nyd, real_f& nzd,
-			     int & faceID,
+			     int & faceID, real_f &spec,
 			     real_f *lmatout, real_f scaling,int idx,int ncells)
 {
 
@@ -1567,6 +1567,7 @@ for( int i = 0; i < 5 ; i++ )
        int index1 = ncells*(i*5+j)+idx;
        lmatout[index1] += (lmat[i][j]*scaling);
      }
+ spec+=((eig3 > eig2)?eig3:eig2)*area;
 
 }
 

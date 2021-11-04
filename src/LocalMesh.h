@@ -98,6 +98,8 @@ class LocalMesh
   int nthreads,n_blocks;
   int block_size{128};  
   int istor{1};
+  double order{1.0};
+  double cfl{1000};
   int scale,stride;
 
   MPI_Request *ireq{nullptr};
@@ -140,6 +142,8 @@ class LocalMesh
   void UpdateFringes(double *);
   void UpdateFringes_grad(double *);
   double ResNorm(double *);
+  void update_time(void);
+  void add_time_source(int, double , double *, double *, double *);
 };
   
 }
