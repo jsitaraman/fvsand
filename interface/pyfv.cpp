@@ -181,8 +181,8 @@ py::dict PyFV::get_grid_data(){
   gridData["grid-coordinates_d"] = xl_d;
   gridData["cell2node"]          = c2nl;
   gridData["cell2node_d"]        = c2nl_d;
-  gridData["nvcft_d"]            = nvl;
-  gridData["nvcft"]              = nvl_d;
+  gridData["nvcft"]              = nvl;
+  gridData["nvcft_d"]            = nvl_d;
 
   return gridData;
 
