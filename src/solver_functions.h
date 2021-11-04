@@ -8,7 +8,9 @@
 #include <stdio.h>
 #include "roe_flux3d.h"
 #include "roe_flux3d_f.h"
+#include "roe_flux3d_f2.h"
 #include "mathops.h"
+#include "viscous_flux.h"
 //
 // initialize flow field
 //
@@ -28,6 +30,7 @@ void init_q(double *q0, double *q, double *dq,  double *center, double *flovar, 
 	q0[2]=flovar[0]*flovar[2]; 
 	q0[3]=flovar[0]*flovar[3]; 
 	q0[4]=flovar[4]/GM1 + 0.5*(q0[1]*q0[1]+q0[2]*q0[2]+q0[3]*q0[3])/q0[0];
+	q0[5]=flovar[5];
 	for(int n=0;n<nfields;n++){
 	  q[idx*scale+n*stride]=q0[n];
 	  dq[idx*scale+n*stride] = 0.0; 
@@ -43,6 +46,7 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 		     int stride, int ncells)
 {
 #if defined (FVSAND_HAS_GPU)
+
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < ncells) 
 #else
@@ -77,6 +81,109 @@ void computeResidual(double *res, double *q, double *center, double *normals,dou
 				   qr[0],qr[1],qr[2],qr[3],qr[4],
 				   norm[0],norm[1],norm[2],
 				   gx,gy,gz,spec,idxn);
+	    for(int n=0;n<nfields;n++)
+	      res[scale*idx+n*stride]-=dres[n];
+
+	  }
+	// divide by cell volume, this will have to move outside for
+	// deforming grids
+	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
+      }
+}
+//
+// compute residual by looping over all cells
+//
+FVSAND_GPU_GLOBAL
+void computeResidual_2nd(double *res, double *q, double *center, double *normals,double *volume,
+			 double *grad, double *centroid,double *facecentroid,
+			 double *flovar,int *cell2cell, int *nccft, int nfields, int scale, 
+			 int stride, int ncells)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+    for(int idx=0;idx<ncells;idx++)
+#endif
+      {
+	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]=0;
+	for(int f=nccft[idx];f<nccft[idx+1];f++)
+	  {
+	    double norm[3];
+	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
+	    int idxn=cell2cell[f];
+	    // first order now
+	    double ql[NEQNS],qr[NEQNS];
+	    double grad_avg[NEQNS*5],centroid_rht[3];
+	    
+	    for(int n=0;n<nfields;n++) ql[n]=q[scale*idx+n*stride];
+	    ql[1]/=ql[0];
+	    ql[2]/=ql[0];
+	    ql[3]/=ql[0];
+	    ql[4]=0.4*(ql[4]-0.5*ql[0]*(ql[1]*ql[1]+ql[2]*ql[2]+ql[3]*ql[3]));
+	    for(int n=0;n<nfields;n++) {
+	      for(int d=0;d<3;d++) {
+	        ql[n]+=grad[scale*idx+(4*n+d)*stride]*grad[scale*idx+(4*n+3)*stride]*
+		  (facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride] -
+		   centroid[scale*idx+d*stride]);
+		grad_avg[n*3+d]=grad[scale*idx+(4*n+d)*stride];
+	      }
+	    }
+	    if (idxn > -1) {
+	      for(int n=0;n<nfields;n++) {
+		qr[n]=q[scale*idxn+n*stride];
+	       }
+	      qr[1]/=qr[0];
+	      qr[2]/=qr[0];
+	      qr[3]/=qr[0];
+	      qr[4]=0.4*(qr[4]-0.5*qr[0]*(qr[1]*qr[1]+qr[2]*qr[2]+qr[3]*qr[3]));
+	      for(int n=0;n<nfields;n++) {
+		for(int d=0;d<3;d++) {
+		  qr[n]+=grad[scale*idxn+(4*n+d)*stride]*grad[scale*idxn+(4*n+3)*stride]*
+		    (facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride] -
+		     centroid[scale*idxn+d*stride]);
+		  grad_avg[n*3+d]+=grad[scale*idxn+(4*n+d)*stride];
+		  grad_avg[n*3+d]*=0.5;
+		}
+	      }
+	      for(int d=0;d<3;d++) centroid_rht[d]=centroid[scale*idxn+d*stride];
+	    }
+	    if (idxn == -2) {
+	      qr[0]=ql[0];
+	      qr[1]=0;
+	      qr[2]=0;
+	      qr[3]=0;
+	      qr[4]=ql[4]-0.5*(ql[1]*ql[1]+ql[2]*ql[2]+ql[3]*ql[3])/ql[0];
+	      for(int d=0;d<3;d++) centroid_rht[d]=facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride];
+	    }
+	    if (idxn == -3) {
+	      qr[0]=flovar[0];
+	      qr[1]=flovar[1]/flovar[0];
+	      qr[2]=flovar[2]/flovar[0];
+	      qr[3]=flovar[3]/flovar[0];
+	      qr[4]=0.4*(flovar[4]-0.5*qr[0]*(qr[1]*qr[1]+qr[2]*qr[2]+qr[3]*qr[3]));
+	      for(int d=0;d<3;d++) centroid_rht[d]=facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride];
+	    }
+	    double dres[5];
+	    double gx,gy,gz; // grid speeds
+	    double spec;     // spectral radius
+	    gx=gy=gz=0;
+	  
+	    InterfaceFlux_Inviscid_fp(dres[0],dres[1],dres[2],dres[3],dres[4],
+				      ql[0],ql[1],ql[2],ql[3],ql[4],
+				      qr[0],qr[1],qr[2],qr[3],qr[4],
+				      norm[0],norm[1],norm[2],
+				      gx,gy,gz,spec,idxn);
+	    
+	    viscous_flux_fp(dres[0],dres[1],dres[2],dres[3],dres[4],
+			    ql[0],ql[1],ql[2],ql[3],ql[4],
+			    qr[0],qr[1],qr[2],qr[3],qr[4],
+			    grad_avg,
+			    centroid[scale*idx+0*stride],centroid[scale*idx+1*stride],centroid[scale*idx+2*stride],
+			    centroid_rht[0],centroid_rht[1],centroid_rht[2],
+			    flovar[5], // reynolds number
+			    norm[0],norm[1],norm[2]);
+	    
 	    for(int n=0;n<nfields;n++)
 	      res[scale*idx+n*stride]-=dres[n];
 
@@ -312,6 +419,120 @@ void computeResidualJacobianDiag(double *q, double *normals,double *volume,
 	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
       }
 }
+//
+// compute residual and diagonal Jacobian by looping over all cells
+//
+FVSAND_GPU_GLOBAL
+void computeResidualJacobianDiag_v(double *q, double *normals,double *volume,
+		     double *res, float* Dall,
+		     double *flovar,int *cell2cell, int *nccft, int nfields,
+                     int scale, int stride, int ncells, double dt)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+    for(int idx=0;idx<ncells;idx++)
+#endif
+      {
+	int index1;
+	for(int n = 0; n<nfields; n++) {
+          res[scale*idx+n*stride]=0;
+	  for(int m = 0; m<nfields; m++) {
+	    //index1 = 25*idx + n*nfields + m;
+	    index1 = (n*nfields + m)*ncells+idx;
+	    if(n==m){
+	      Dall[index1] = 1.0/dt;
+	    }
+	    else{
+	      Dall[index1] = 0.0;
+	    }
+	  }
+        }
+	for(int f=nccft[idx];f<nccft[idx+1];f++)
+	  {
+	    double norm[3];
+	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
+	    int idxn=cell2cell[f];
+	    // first order now
+	    double ql[NEQNS+1],qr[NEQNS+1];	  
+	    for(int n=0;n<nfields;n++)
+	      ql[n]=q[scale*idx+n*stride];
+	    ql[5]=0.0;
+	    if (idxn > -1) {
+	      for(int n=0;n<nfields;n++)
+		qr[n]=q[scale*idxn+n*stride];
+	      qr[5]=0;
+	    }
+	    if (idxn == -3) {
+	      for(int n=0;n<nfields;n++)
+		qr[n]=flovar[n];
+	      qr[5]=0;
+	    }
+	    if (idxn == -2) {
+              qr[0]=ql[0];
+	      qr[1]=qr[2]=qr[3]=0;
+	      qr[4]=ql[4]-0.5*(ql[1]*ql[1]+ql[2]*ql[2]+ql[3]*ql[3])/ql[0];
+	    }
+	    double dres[5] = {0};
+	    double gx,gy,gz; // grid speeds
+	    //double spec;     // spectral radius
+	    gx=gy=gz=0;
+	  
+	    computeResidualJacobianDiag_f(dres[0],dres[1],dres[2],dres[3],dres[4],
+	        		      ql[0],ql[1],ql[2],ql[3],ql[4],
+	        		      qr[0],qr[1],qr[2],qr[3],qr[4],
+	        		      norm[0],norm[1],norm[2],
+	        		      gx,gy,gz,idxn,Dall,1./(float)volume[idx],idx,ncells);
+	    for(int n=0;n<nfields;n++)
+	      {
+		res[scale*idx+n*stride]-=dres[n];
+		dres[n]=0;
+	      }
+	    double dfluxl[6][6],dfluxr[6][6];
+	    viscousFluxAndJacobian(norm,gx,ql,qr,dres,dfluxl,dfluxr,flovar[5]);
+	    for(int n=0;n<nfields;n++)
+	      {
+		for(int m=0;m<nfields;m++)
+		  {
+		    index1 = (n*nfields + m)*ncells+idx;
+		    Dall[index1]-=(float)(dfluxl[n][m]/volume[idx]);
+		  }
+		for(int n=0;n<nfields;n++) res[scale*idx+n*stride]+=dres[n];
+	      }	    
+//	    InterfaceFlux_Inviscid(dres[0],dres[1],dres[2],dres[3],dres[4],
+//				   ql[0],ql[1],ql[2],ql[3],ql[4],
+//				   qr[0],qr[1],qr[2],qr[3],qr[4],
+//				   norm[0],norm[1],norm[2],
+//				   gx,gy,gz,spec,idxn);
+//	    for(int n=0;n<nfields;n++)
+//	      res[scale*idx+n*stride]-=dres[n];
+//
+//	    float ql_f[5],qr_f[5];	  
+//	    for(int n=0;n<nfields;n++)
+//	      ql_f[n]=(float)q[scale*idx+n*stride];
+//	    if (idxn > -1) {
+//	      for(int n=0;n<nfields;n++)
+//		qr_f[n]=(float)q[scale*idxn+n*stride];
+//	    }
+//	    if (idxn == -3) {
+//	      for(int n=0;n<nfields;n++)
+//		qr_f[n]=(float)flovar[n];
+//	    }
+//	    float norm_f[3];
+//	    for(int d=0;d<3;d++) norm_f[d]=(float)normals[(3*(f-nccft[idx])+d)*stride+idx];
+//	    computeJacobianDiag_f2(ql_f[0], ql_f[1],  ql_f[2],  ql_f[3],  ql_f[4],
+//				   qr_f[0], qr_f[1],  qr_f[2],  qr_f[3],  qr_f[4],
+//				   norm_f[0],norm_f[1],norm_f[2],
+//				   idxn,Dall, 1./(float)volume[idx],idx,ncells);
+//
+	  }
+	// divide by cell volume, this will have to move outside for
+	// deforming grids
+	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
+      }
+}
+
 //
 // compute residual and diagonal Jacobian by looping over all faces
 //
@@ -606,6 +827,7 @@ void jacobiSweep(double *q, double *res, double *dq, double *dqupdate, double *n
 // 
 FVSAND_GPU_GLOBAL
 void fillJacobians(double *q, double *normals,double *volume,
+		   double *grad,double *centroid, double *facecentroid,
 		   double *rmatall, double* Dall,
 		   double *flovar, int *cell2cell, int *nccft, int nfields, int scale, int stride, int ncells, 
 		   int* facetype, double dt)
@@ -639,9 +861,22 @@ void fillJacobians(double *q, double *normals,double *volume,
 	    double ql[NEQNS],qr[NEQNS];
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=q[scale*idx+n*stride];
+	      for(int d=0;d<3;d++) {
+	        ql[n]+=grad[scale*idx+(4*n+d)*stride]*grad[scale*idx+(4*n+3)*stride]*
+		(facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride] -
+		 centroid[scale*idx+d*stride]);
+	      }
 	    }
 	    if (idxn > -1) {
-	      for(int n=0;n<nfields;n++) qr[n]=q[scale*idxn+n*stride];
+	      for(int n=0;n<nfields;n++)
+		{
+		  qr[n]=q[scale*idxn+n*stride];
+		  for(int d=0;d<3;d++) {
+		    qr[n]+=grad[scale*idxn+(4*n+d)*stride]*grad[scale*idxn+(4*n+3)*stride]*
+		      (facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride] -
+		       centroid[scale*idxn+d*stride]);
+		  }		  
+		}
 	    }
 	    if (idxn == -3) {
 	      for(int n=0;n<nfields;n++) qr[n]=flovar[n];
@@ -1250,6 +1485,7 @@ void jacobiSweep5(double *q, double *res, double *dq, double *dqupdate,
 		  double *flovar, int *cell2cell, int *nccft, int nfields, int scale, int stride, int ncells, 
 		  int* facetype, double dt)
 {
+  double omega=1.0;
 #if defined (FVSAND_HAS_GPU)
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < ncells) 
@@ -1305,9 +1541,100 @@ void jacobiSweep5(double *q, double *res, double *dq, double *dqupdate,
 	//invertMat5_f(D,B,dqtemp);
 	invertMat5_f2(Dall,B,dqtemp,idx,ncells);
 	//solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
+	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = omega*(double)dqtemp[n] +
+	       (1-omega)*dq[scale*idx+n*stride];	
+      } // loop over cells 
+}
+
+
+//
+// Use precomputed diagonal blocks and compute off-diagonal contribution as
+// a matrix vector product using exact derivative of the flux function
+// this is a reimplementation of jacobiSweep4 in single precision.
+// It is however slower than double precision ??
+//
+FVSAND_GPU_GLOBAL
+void jacobiSweep6(double *q, double *res, double *dq, double *dqupdate,
+		  double *normals,double *volume,
+		  double *grad, double *centroid, double *facecentroid,
+		  float* Dall,
+		  double *flovar, int *cell2cell, int *nccft, int nfields,
+		  int scale, int stride, int ncells, 
+		  int* facetype, double dt)
+{
+#if defined (FVSAND_HAS_GPU)
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+    for(int idx=0;idx<ncells;idx++)
+#endif
+      {
+	float dqtemp[5]; 
+ 	float B[5];  
+
+	for(int n = 0; n<nfields; n++) {
+	  dqtemp[n] = dq[scale*idx+n*stride]; 
+	  B[n] = (float)res[scale*idx+n*stride];
+	}
+ 	// Loop over neighbors
+        for(int f=nccft[idx];f<nccft[idx+1];f++)
+	  {
+	    int idxn=cell2cell[f];
+	    float ql[NEQNS],qr[NEQNS];
+	    for(int n=0;n<nfields;n++) {
+	      ql[n]=(float)q[scale*idx+n*stride];
+	      
+	      for(int d=0;d<3;d++) {
+	        ql[n]+=grad[scale*idx+(4*n+d)*stride]*grad[scale*idx+(4*n+3)*stride]*
+		  (facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride] -
+		   centroid[scale*idx+d*stride]);
+		}
+	    }
+	    if (idxn > -1) {
+	      for(int n=0;n<nfields;n++) {
+		qr[n]=(float)q[scale*idxn+n*stride];
+		
+		for(int d=0;d<3;d++) {
+		  qr[n]+=grad[scale*idxn+(4*n+d)*stride]*grad[scale*idxn+(4*n+3)*stride]*
+		  (facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride] -
+		   centroid[scale*idxn+d*stride]);
+		 }
+	      }
+	    }
+	    if (idxn == -3) {
+	      for(int n=0;n<nfields;n++) qr[n]=(float)flovar[n];
+	    }
+	    
+	    //Get neighbor dq and compute O_ij*dq_j
+	    for(int n=0; n<5; n++) {
+	      if (idxn > -1) {
+		dqtemp[n] = (float)dq[scale*idxn+n*stride];
+	      }
+	      else {
+		dqtemp[n] = 0.0;
+	      }
+	    }
+	    float gx,gy,gz; // grid speeds
+	    gx=gy=gz=0;
+            float nx=(float)normals[(3*(f-nccft[idx])+0)*stride+idx];
+	    float ny=(float)normals[(3*(f-nccft[idx])+1)*stride+idx];
+	    float nz=(float)normals[(3*(f-nccft[idx])+2)*stride+idx];
+            InterfaceFlux_Inviscid_d_f(B[0],B[1],B[2],B[3],B[4],
+				     ql[0],ql[1],ql[2],ql[3],ql[4],
+				     qr[0],qr[1],qr[2],qr[3],qr[4],
+				     dqtemp[0],dqtemp[1],dqtemp[2],dqtemp[3],dqtemp[4],
+				     nx,ny,nz,
+				     gx,gy,gz,idxn,(float)(1.0/volume[idx]));
+	    
+	  }
+	//float *D = Dall + idx*25;
+	//invertMat5_f(D,B,dqtemp);
+	invertMat5_f2(Dall,B,dqtemp,idx,ncells);
+	//solveAxb5(D,B,dqtemp); // compute dqtemp = inv(D)*B
 	for(int n=0;n<nfields;n++) dqupdate[scale*idx+n*stride] = (double)dqtemp[n]; 
       } // loop over cells 
 }
+
 
 FVSAND_GPU_GLOBAL
 void setValues(double *qdest, double qsrc, int ndof)
@@ -1324,7 +1651,7 @@ void setValues(double *qdest, double qsrc, int ndof)
 }
 
 FVSAND_GPU_GLOBAL
-void copyValues(double *qdest, double *qsrc, int ndof)
+void copyValues(double *qdest, double *qsrc, double *dqres,int ndof)
 {
 #if defined (FVSAND_HAS_GPU)
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
@@ -1333,6 +1660,7 @@ void copyValues(double *qdest, double *qsrc, int ndof)
     for(int idx=0;idx<ndof;idx++)
 #endif
       {
+	dqres[idx]=qsrc[idx]-qdest[idx];
 	qdest[idx]=qsrc[idx];
       }
 }
@@ -1477,12 +1805,19 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 #endif
       {
 	// set gradients to zero and limiter value to 1
-	for(int n=0;n<nfields*4;n++) grad[scale*idx+n*stride]=((n+1)%4==0)?1:0;
+	for(int n=0;n<nfields*4;n++) grad[scale*idx+n*stride]=((n+1)%4==0)?1.0:0;
 	// max and min values for each field in the fn1 neighborhood
 	double qmax[NEQNS],qmin[NEQNS],ql[NEQNS];
 	// set qmax, qmin initially to cell centroid value
 	for(int n=0;n<nfields;n++) {
 	  ql[n]=q[scale*idx+n*stride];
+	}
+	ql[1]/=ql[0];
+	ql[2]/=ql[0];
+	ql[3]/=ql[0];
+	ql[4]=0.4*(ql[4]-0.5*ql[0]*(ql[1]*ql[1]+ql[2]*ql[2]+ql[3]*ql[3]));
+	
+	for(int n=0;n<nfields;n++) {
 	  qmax[n]=ql[n];
 	  qmin[n]=ql[n];
 	}
@@ -1493,19 +1828,25 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	    if (idxn > -1) {
 	      for(int n=0;n<nfields;n++)
 		qr[n]=q[scale*idxn+n*stride];
+	      qr[1]/=qr[0];
+	      qr[2]/=qr[0];
+	      qr[3]/=qr[0];
+	      qr[4]=0.4*(qr[4]-0.5*qr[0]*(qr[1]*qr[1]+qr[2]*qr[2]+qr[3]*qr[3]));
 	    }
 	    if (idxn == -3) {
 	      // free stream BC
-	      for(int n=0;n<nfields;n++)
-		qr[n]=flovar[n];
+	      qr[0]=flovar[0];
+	      qr[1]=flovar[1]/flovar[0];
+	      qr[2]=flovar[2]/flovar[0];
+	      qr[3]=flovar[3]/flovar[0];
+	      qr[4]=0.4*(flovar[4]-0.5*qr[0]*(qr[1]*qr[1]+qr[2]*qr[2]+qr[3]*qr[3]));
 	    } else if (idxn==-2) {
 	      // wall boundary	      
-	      double p=GM1*(ql[4]-0.5*(ql[1]*ql[1]+ql[2]*ql[2]+ql[3]*ql[3])/ql[0]);
 	      qr[0]=ql[0];
 	      qr[1]=0.0;
 	      qr[2]=0.0;
 	      qr[3]=0.0;
-	      qr[4]=p/GM1;
+	      qr[4]=ql[4];
 	      /*    
 	      double fc[3];
 	      fc[0]=facecentroid[(3*(f-nccft[idx])+0)*stride+idx];
@@ -1551,9 +1892,10 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	    phival=(d1-ql[n])/d2;
 	    phival=tanh(0.1*pow(phival,4)+phival);
 	    grad[scale*idx+(n*4+3)*stride]=fvsand_min(phival,
-						      grad[scale*idx+(n*4+3)*stride]);
+	    					      grad[scale*idx+(n*4+3)*stride]);
 	  }
 	}
+	//for(int n=0;n<nfields;n++) grad[scale*idx+(n*4+3)*stride]*=1.0;
       }
 }
 //
@@ -1598,11 +1940,13 @@ void computeResidualJacobianDiag_2nd(double *q, double *grad, double *centroid,d
 	    // ql = q_c + \phi \grad q . (r_f-r_c)
 	    for(int n=0;n<nfields;n++) {
 	      ql[n]=q[scale*idx+n*stride];
+	      
               for(int d=0;d<3;d++) {
 	        ql[n]+=grad[scale*idx+(4*n+d)*stride]*grad[scale*idx+(4*n+3)*stride]*
 		(facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride] -
 		 centroid[scale*idx+d*stride]);
                 }
+	     
             }
 
 	    double qr[NEQNS];	  
@@ -1611,11 +1955,13 @@ void computeResidualJacobianDiag_2nd(double *q, double *grad, double *centroid,d
 	      for(int n=0;n<nfields;n++)
                {
 		qr[n]=q[scale*idxn+n*stride];
+		
                 for(int d=0;d<3;d++) {
 		  qr[n]+=grad[scale*idxn+(4*n+d)*stride]*grad[scale*idxn+(4*n+3)*stride]*
 		  (facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride] -
 		   centroid[scale*idxn+d*stride]);
                  }
+		
               }
 	    }
 	    if (idxn == -3) {
@@ -1631,12 +1977,12 @@ void computeResidualJacobianDiag_2nd(double *q, double *grad, double *centroid,d
 	        		      ql[0],ql[1],ql[2],ql[3],ql[4],
 	        		      qr[0],qr[1],qr[2],qr[3],qr[4],
 	        		      norm[0],norm[1],norm[2],
-	        		      gx,gy,gz,idxn,Dall,1./(float)volume[idx],idx,ncells);
+	        		      gx,gy,gz,idxn,Dall,float(1.0/volume[idx]),idx,ncells);
 	    for(int n=0;n<nfields;n++)
 	      res[scale*idx+n*stride]-=dres[n];
 	  }
 	// divide by cell volume, this will have to move outside for
 	// deforming grids
-	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
+	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]*=(1.0/volume[idx]);
       }
 }

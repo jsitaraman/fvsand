@@ -44,6 +44,7 @@ void parseInputs(char *inputfile,
     reOrderCells = true;
   else
     reOrderCells = false;
+  fgets(line,256,fp);  sscanf(line,"rey=%lf",&flovar[5]);
   fclose(fp);
 }
 

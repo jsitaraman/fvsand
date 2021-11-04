@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
   double stretch=1.1;
   int nlevels=30;
   int nfields=5;
-  std::vector<double> flovar = { 1.0, 0.2, 0.0, 0.0, 1./1.4};
+  std::vector<double> flovar = { 1.0, 0.2, 0.0, 0.0, 1./1.4, 100.0};
   int nsteps=2000;
   int nsave=100;
   double dt=0.03;
@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
      }
 
      if ((iter+1)%nsave ==0 || iter==0) {
-	double rnorm=lm->ResNorm();
+	double rnorm=lm->ResNorm(lm->res_d);
         if (myid==0) printf("iter:%6d  %16.8e\n",iter+1,rnorm);
       }
 

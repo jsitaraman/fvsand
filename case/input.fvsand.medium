@@ -1,5 +1,5 @@
 meshfile=medium.tri            # mesh file name					    
-dsmin=0.01		       # surface spacing					    
+dsmin=0.001		       # surface spacing					    
 stretch=1.2		       # stretch ratio					    
 nlevels=50		       # number of levels				    
 density=1.0		       # density						    
@@ -9,11 +9,12 @@ Vz=0.0			       # z-velocity
 pressure=0.7142857142857143    # pressure					    
 nsteps=2000		       # number of steps					    
 nsave=100		       # frequency to show residual 			    
-dt=0.4			       # dt						    
-nsweep=4		       # number of jacobi sweeps (=0 means explicit rk3)	    
-istoreJac=7		       # jacobian storage type
-restype=0		       # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
+dt=0.01  		       # dt						    
+nsweep=0		       # number of jacobi sweeps (=0 means explicit rk3)	    
+istoreJac=5		       # jacobian storage type
+restype=2		       # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
 reOrderCells=false             # reverse cuthill-mckee reordering for bandwidth
+rey=1000
 
 # Jacobian storage types
 # istoreJac = 0 -> no storage, recomputed every linear sweep

@@ -44,22 +44,18 @@ class LocalMesh
   // communication maps
   std::unordered_map< int, std::vector<int>> sndmap; // map of send data (procid, local id of owned cells)
   std::unordered_map <int, std::vector<int>> rcvmap; // map of recv data (procid, localid of ghost cells)
-  std::vector<int> device2host,device2host_grad;      // indices that needs to be pushed to host   (interior)
-  std::vector<int> host2device,host2device_grad;     // indices that needs to be pushed to device (ghost)
+  std::vector<int> device2host,device2host_grad;     // indices that needs to be pushed to host   (interior)
+  std::vector<int> host2device,host2device_grad;    // indices that needs to be pushed to device (ghost)
 
   int *device2host_d{nullptr};               // same data on the gpu
   int *host2device_d{nullptr};               //
+  int *device2host_grad_d{nullptr};          // 
+  int *host2device_grad_d{nullptr};          //
+  int buffer_size{0};
   double *qbuf{nullptr};                     // storage space on host to push and pull from device
   double *qbuf2{nullptr};                    // storage space on host to push and pull from device
   double *qbuf_d{nullptr};                   // storage space on device
   double *qbuf_d2{nullptr};                  // storage space on device
-
-  int *device2host_grad_d{nullptr};          // same data on the gpu
-  int *host2device_grad_d{nullptr};          //
-  double *qbuf_grad{nullptr};                // storage space on host to push and pull from device
-  double *qbuf2_grad{nullptr};               // storage space on host to push and pull from device
-  double *qbuf_grad_d{nullptr};              // storage space on device
-  double *qbuf_grad_d2{nullptr};             // storage space on device
 
   //
   // solver data
@@ -80,7 +76,6 @@ class LocalMesh
   double *facecentroid_d{nullptr};// face centroid (device)
   double *normals_d{nullptr};     // cell normals (device)
   double *volume_d{nullptr};      // cell volume  (device)
-  double *res_d{nullptr};         // residual (host and device)
   double *grad_d{nullptr};        // gradients (device)
   double *gradweights_d{nullptr}; // gradient weights
 
@@ -117,6 +112,8 @@ class LocalMesh
   double *qnn{nullptr};
   double *dq_d{nullptr};
   double *dqupdate_d{nullptr}; 	// update on device 
+  double *res_d{nullptr};         // residual (host and device)
+  double *dqres_d{nullptr};       // linear residual (host and device)
   
   LocalMesh() {}; 
   ~LocalMesh();
@@ -129,6 +126,7 @@ class LocalMesh
   void InitSolution(double *, int);
   void Residual(double * qv, int restype, double dt=0.0, int istoreJac=0);
   void Residual_cell(double *qv);
+  void Residual_cell_2nd(double *qv);
   void Residual_face(double *qv);
   void Residual_Jacobian(double *qv, double dt);
   void Residual_Jacobian_diag(double *qv, double dt);
@@ -141,7 +139,7 @@ class LocalMesh
   void UpdateFringes(double *, double *);
   void UpdateFringes(double *);
   void UpdateFringes_grad(double *);
-  double ResNorm(void);
+  double ResNorm(double *);
 };
   
 }
