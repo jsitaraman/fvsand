@@ -41,7 +41,8 @@ void init_q(double *q0, double *q, double *dq,  double *center, double *flovar, 
 // compute residual by looping over all cells
 //
 FVSAND_GPU_GLOBAL
-void computeResidual(double *res, double *q, double *center, double *normals,double *volume,
+void computeResidual(double *res, double *q, double *center, double *normals,
+		     double *volume,
 		     double *flovar,int *cell2cell, int *nccft, int nfields, int scale, 
 		     int stride, int ncells)
 {
@@ -99,9 +100,9 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 			 double *flovar,int *cell2cell, int *nccft, int nfields, int scale, 
 			 int stride, int ncells)
 {
-  //  double qlmax=0.0;
-  //double qrmax=0.0;
-  //int indx,nindx,indx2,nindx2;
+  double qlmax=0.0;
+  double qrmax=0.0;
+  int indx,nindx,indx2,nindx2;
 #if defined (FVSAND_HAS_GPU)
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < ncells) 
@@ -117,7 +118,7 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 	    int idxn=cell2cell[f];
 	    // first order now
 	    double ql[NEQNS],qr[NEQNS];
-	    //double ql0[NEQNS],qr0[NEQNS];
+	    double ql0[NEQNS],qr0[NEQNS];
 	    double grad_avg[NEQNS*5],centroid_rht[3];
 	    
 	    for(int n=0;n<nfields;n++) ql[n]=q[scale*idx+n*stride];
@@ -125,7 +126,7 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 	    ql[2]/=ql[0];
 	    ql[3]/=ql[0];
 	    ql[4]=0.4*(ql[4]-0.5*ql[0]*(ql[1]*ql[1]+ql[2]*ql[2]+ql[3]*ql[3]));
-	    //for(int n=0;n<nfields;n++) ql0[n]=ql[n];
+	    for(int n=0;n<nfields;n++) ql0[n]=ql[n];
 
 	    for(int n=0;n<nfields;n++) {
 	      for(int d=0;d<3;d++) {
@@ -134,13 +135,11 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 		   centroid[scale*idx+d*stride]);
 		grad_avg[n*3+d]=grad[scale*idx+(4*n+d)*stride];
 	      }
-	     /* for(int n=0;nfields;n++) {  */
-             /*   if (qlmax < abs(ql0[n]-ql[n]))  { */
-	     /* 	 qlmax=abs(ql0[n]-ql[n]); */
-	     /* 	 indx=idx; */
-	     /* 	 nindx=n; */
-	     /*   } */
-	     /* } */
+	      if (qlmax < abs(ql0[n]-ql[n])) {
+               qlmax=abs(ql0[n]-ql[n]);
+               indx=idx;
+	       nindx=n;
+	      }
 	    }
 	    if (idxn > -1) {
 	      for(int n=0;n<nfields;n++) {
@@ -150,7 +149,7 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 	      qr[2]/=qr[0];
 	      qr[3]/=qr[0];
 	      qr[4]=0.4*(qr[4]-0.5*qr[0]*(qr[1]*qr[1]+qr[2]*qr[2]+qr[3]*qr[3]));
-	      //for(int n=0;n<nfields;n++) qr0[n]=qr[n];
+	      for(int n=0;n<nfields;n++) qr0[n]=qr[n];
 	      for(int n=0;n<nfields;n++) {
 		for(int d=0;d<3;d++) {
 		  qr[n]+=grad[scale*idxn+(4*n+d)*stride]*grad[scale*idxn+(4*n+3)*stride]*
@@ -159,14 +158,12 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 		  grad_avg[n*3+d]+=grad[scale*idxn+(4*n+d)*stride];
 		  grad_avg[n*3+d]*=0.5;
 		}
+		if (qrmax < abs(qr0[n]-qr[n])) {
+		  qrmax=abs(qr0[n]-qr[n]);
+		  indx2=idxn;
+		  nindx2=n;
+		}
 	      }
-	      /* for(int n=0;nfields;n++) { */
-	      /* 	if (qrmax < abs(qr0[n]-qr[n])) { */
-	      /* 	  qrmax=abs(qr0[n]-qr[n]); */
-	      /* 	  indx2=idxn; */
-	      /* 	  nindx2=n; */
-	      /* 	} */
-	      /* } */
 	      for(int d=0;d<3;d++) centroid_rht[d]=centroid[scale*idxn+d*stride];
 	    }
 	    if (idxn == -2) {
@@ -176,6 +173,7 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 	      qr[3]=0;
 	      qr[4]=ql[4];
 	      for(int d=0;d<3;d++) centroid_rht[d]=facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride];
+	      for(int n=0;n<nfields;n++) qr0[n]=qr[n];
 	    }
 	    if (idxn == -3) {
 	      qr[0]=flovar[0];
@@ -184,12 +182,27 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 	      qr[3]=flovar[3]/flovar[0];
 	      qr[4]=0.4*(flovar[4]-0.5*qr[0]*(qr[1]*qr[1]+qr[2]*qr[2]+qr[3]*qr[3]));
 	      for(int d=0;d<3;d++) centroid_rht[d]=facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride];
+	      for(int n=0;n<nfields;n++) qr0[n]=qr[n];
 	    }
 	    double dres[5];
 	    double gx,gy,gz; // grid speeds
 	    double spec;     // spectral radius
 	    gx=gy=gz=0;
-	  
+#if 0
+	    if (idx==1915) {
+	      printf("idxn=%d\n",idxn);	    
+	      int n=1;
+	      printf("%f %f %f %f\n",grad[scale*idx+(4*n+0)*stride],
+	         	                grad[scale*idx+(4*n+1)*stride],
+					grad[scale*idx+(4*n+2)*stride],
+					grad[scale*idx+(4*n+3)*stride]);
+	      printf("%f %f %f %f %f\n",ql0[0],ql0[1],ql0[2],ql0[3],ql0[4]);
+	      printf("%f %f %f %f %f\n",ql[0],ql[1],ql[2],ql[3],ql[4]);
+	      printf("%f %f %f %f %f\n",qr[0],qr[1],qr[2],qr[3],qr[4]);
+	      printf("%f %f %f %f %f\n",qr0[0],qr0[1],qr0[2],qr0[3],qr0[4]);
+	      printf("\n");	    
+	    }
+#endif
 	    InterfaceFlux_Inviscid_fp(dres[0],dres[1],dres[2],dres[3],dres[4],
 				      ql[0],ql[1],ql[2],ql[3],ql[4],
 				      qr[0],qr[1],qr[2],qr[3],qr[4],
@@ -215,8 +228,10 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 	// deforming grids
 	for(int n=0;n<nfields;n++) res[scale*idx+n*stride]/=volume[idx];
       }
-  //printf("%f %d %d\n",qlmax,indx,nindx);
-  //printf("%f %d %d\n",qrmax,indx2,nindx2);
+#if 0  
+  printf("%f %d %d\n",qlmax,indx,nindx);
+  printf("%f %d %d\n",qrmax,indx2,nindx2);
+#endif
 }
 //
 // set residual to zero 
@@ -1834,8 +1849,9 @@ void computeResidualFace(double *res, double *faceflux, double *volume,
 // the limiter function per field for the gradients
 //
 FVSAND_GPU_GLOBAL
-void gradients_and_limiters(double *weights, double *grad, double *q,
-			    double *flovar, double *centroid, double *facecentroid,
+void gradients_and_limiters(double *weights, double *grad, double *q, 
+			    double *flovar, double *normals,
+			    double *vol, double *centroid, double *facecentroid, 
 			    int *cell2cell, int *nccft, int nfields, int scale, 
 			    int stride, int ncells)
 {
@@ -1878,10 +1894,10 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	    if (idxn == -3) {
 	      // free stream BC
 	      qr[0]=flovar[0];
-	      qr[1]=flovar[1]/flovar[0];
-	      qr[2]=flovar[2]/flovar[0];
-	      qr[3]=flovar[3]/flovar[0];
-	      qr[4]=0.4*(flovar[4]-0.5*qr[0]*(qr[1]*qr[1]+qr[2]*qr[2]+qr[3]*qr[3]));
+	      qr[1]=flovar[1];
+	      qr[2]=flovar[2];
+	      qr[3]=flovar[3];
+	      qr[4]=flovar[4];
 	    } else if (idxn==-2) {
 	      // wall boundary	      
 	      qr[0]=ql[0];
@@ -1901,12 +1917,16 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	      qr[4]=flovar[4]/GM1 + 0.5*(qr[1]*qr[1]+qr[2]*qr[2]+qr[3]*qr[3])/qr[0];
               */
 	    }
+	    double norm[3];
+	    for(int d=0;d<3;d++) norm[d]=normals[(3*(f-nccft[idx])+d)*stride+idx];
 	    for(int n=0;n<nfields;n++)
 	      {
 		for(int d=0;d<3;d++)
 		  {
+		    // set gradients to zer to debug for now
 		    grad[scale*idx+(n*4+d)*stride]+=(qr[n]-ql[n])*
 		      (weights[scale*idx+(3*(f-nccft[idx])+d)*stride]);
+		    //grad[scale*idx+(n*4+d)*stride]=0.5*(qr[n]+ql[n])*norm[d]/vol[idx];
 		  }
 		qmax[n]=fvsand_max(qmax[n],qr[n]);
 		qmin[n]=fvsand_min(qmin[n],qr[n]);
@@ -1928,7 +1948,7 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	    for(int d=0;d<3;d++)
 	      d2=grad[scale*idx+(n*4+d)*stride]*dx[d];	    
 	    // differentiable form of Barth-Jesperson limiter
-	    if (abs(d2) < lim_eps) continue;
+	    if (fabs(d2) < lim_eps) continue;
 	    ds2=0.5*((d2>=0)?1:-1);
 	    d1=(ds2+0.5)*qmax[n]+(0.5-ds2)*qmin[n];
 	    phival=(d1-ql[n])/d2;
@@ -1937,7 +1957,7 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	    					      grad[scale*idx+(n*4+3)*stride]);
 	  }
 	}
-	//for(int n=0;n<nfields;n++) grad[scale*idx+(n*4+3)*stride]=1.0;
+	//for(int n=0;n<nfields;n++) grad[scale*idx+(n*4+3)*stride]=0.0;
       }
 }
 //
@@ -2052,5 +2072,43 @@ void bdf1source(const double dt, double *q, double *qn, double *res, int ndof)
 #endif
       {
 	res[idx]-=((q[idx]-qn[idx])/dt);
+      }
+}
+
+FVSAND_GPU_GLOBAL
+void regulate_dq(double *dq, double *q, int nfields, int scale, int stride , int ncells)
+{
+  double q_threshold=1e-2;
+#if defined (FVSAND_HAS_GPU)  
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (idx < ncells) 
+#else
+    for(int idx=0;idx<ncells;idx++)
+#endif
+      {
+	double scal[NEQNS]{1};
+	// clip the update to be less than 10% of current q value
+	double qc[NEQNS];
+	for(int n=0;n<nfields;n++) {
+	  if (fabs(q[scale*idx+n*stride]) > q_threshold) {
+	    if (fabs(dq[scale*idx+n*stride]) > 0.1*fabs(q[scale*idx+n*stride])) scal[n]=0.1;
+	  }
+	  qc[n]=q[scale*idx+n*stride]+scal[n]*dq[scale*idx+n*stride];
+	}
+	// ensure density and pressure are always greater than the threshold
+	bool physical=false;
+	while(!physical) {
+	  for(int n=0;n<nfields;n++) {
+	    qc[n]=q[scale*idx+n*stride]+scal[n]*dq[scale*idx+n*stride];
+	  }
+	  double p=GM1*(qc[4]
+			-0.5*(qc[1]*qc[1]+qc[2]*qc[2]+qc[3]*qc[3])/qc[0]);
+	  if ( p < q_threshold || qc[0] < q_threshold) {
+	    for(int n=0;n<nfields;n++) scal[n]*=0.5;
+	  } else {
+	    physical=true;
+	  }		   
+	}
+	for (int n=0;n<nfields;n++) dq[scale*idx+n*stride]*=scal[n];
       }
 }

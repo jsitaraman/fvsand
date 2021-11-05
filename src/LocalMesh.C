@@ -313,7 +313,8 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
 			   scale, stride, N);
 
  FVSAND_GPU_KERNEL_LAUNCH( gradients_and_limiters, N, gradweights_d, grad_d, q,
-			   flovar_d, centroid_d, facecentroid_d,cell2cell_d,nccft_d,
+			   flovar_d, normals_d,
+			   volume_d,centroid_d, facecentroid_d,cell2cell_d,nccft_d,
 			   nfields, scale, stride, N);
 
  nthreads=(ncells+nhalo)*nfields;
@@ -490,8 +491,9 @@ void LocalMesh::Residual_cell_2nd(double *qv)
 {
   nthreads=ncells;
   FVSAND_GPU_KERNEL_LAUNCH( gradients_and_limiters, nthreads, gradweights_d, grad_d, qv,
-			   flovar_d, centroid_d, facecentroid_d,cell2cell_d,nccft_d,
-			   nfields_d, scale, stride, ncells);
+			    flovar_d, normals_d, volume_d,centroid_d, facecentroid_d,
+			    cell2cell_d,nccft_d,
+			    nfields_d, scale, stride, ncells);
 
   UpdateFringes_grad(grad_d);
 
@@ -558,8 +560,9 @@ void LocalMesh::Residual_Jacobian_diag_2nd(double *qv, double dt)
 {
   nthreads=ncells;
   FVSAND_GPU_KERNEL_LAUNCH( gradients_and_limiters, nthreads, gradweights_d, grad_d, qv,
-			   flovar_d, centroid_d, facecentroid_d,cell2cell_d,nccft_d,
-			   nfields_d, scale, stride, ncells);
+			    flovar_d, normals_d, volume_d, centroid_d, facecentroid_d,
+			    cell2cell_d,nccft_d,
+			    nfields_d, scale, stride, ncells);
 
   UpdateFringes_grad(grad_d);
 
@@ -776,6 +779,13 @@ void LocalMesh::UpdateQ(double *qdest, double *qsrc, double fscal)
   nthreads=(ncells+nhalo)*nfields_d;
   FVSAND_GPU_KERNEL_LAUNCH(updateFields,nthreads,
 			 dq_d, qdest, qsrc, fscal, nthreads);
+}
+
+void LocalMesh::RegulateDQ(double *q)
+{
+  nthreads=(ncells+nhalo);
+  FVSAND_GPU_KERNEL_LAUNCH(regulate_dq,nthreads,
+			   dq_d,q,nfields_d,scale, stride, nthreads);
 }
 
 #if defined(FVSAND_HAS_GPU) && defined(FVSAND_HAS_CUDA) && !defined(FVSAND_FAKE_GPU)

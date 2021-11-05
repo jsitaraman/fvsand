@@ -114,7 +114,8 @@ int main(int argc, char *argv[])
 	for(int it=0;it < nsubit;it++) {
 	  lm->Residual(lm->q,restype,dt,istoreJac); // computes res_d
 	  if (nsubit > 1) lm->add_time_source(iter,dt, lm->q,lm->qn,lm->qnn);
-	  lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with 
+	  lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with
+	  //if (nsubit > 1) lm->RegulateDQ(lm->q);
 	  lm->UpdateQ(lm->q,lm->q,1);            // adds dqtilde (in res_d)
 	  if (nsubit > 1) {
     	   double rnorm=lm->ResNorm(lm->res_d);

@@ -99,7 +99,7 @@ class LocalMesh
   int block_size{128};  
   int istor{1};
   double order{1.0};
-  double cfl{1000};
+  double cfl{10};
   int scale,stride;
 
   MPI_Request *ireq{nullptr};
@@ -138,6 +138,7 @@ class LocalMesh
   void Jacobi(double *qv, double, int, int);
   void Update(double *qdest, double *qsrc, double fscal);
   void UpdateQ(double *qdest, double *qsrc, double fscal);
+  void RegulateDQ(double *q);
   void UpdateFringes(double *, double *);
   void UpdateFringes(double *);
   void UpdateFringes_grad(double *);
