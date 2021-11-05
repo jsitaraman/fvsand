@@ -1,5 +1,5 @@
-meshtype=0                     # =0 strand =1 cartesian
-meshfile=coarse.tri            # mesh file name					    
+meshtype=1                     # 0=strand, 1=cart
+meshfile=cart.dat              # mesh file name					    
 dsmin=0.01		       # surface spacing					    
 stretch=1.1		       # stretch ratio					    
 nlevels=50		       # number of levels				    
@@ -8,12 +8,12 @@ Vx=0.2			       # x-velocity
 Vy=0.0			       # y-velocity					    
 Vz=0.0			       # z-velocity					    
 pressure=0.7142857142857143    # pressure					    
-nsteps=1000		       # number of steps					    
-nsave=100   		       # frequency to show residual 			    
+nsteps=10		       # number of steps					    
+nsave=1   		       # frequency to show residual 			    
 dt=0.2
 nsweep=4		       # number of jacobi sweeps (=0 means explicit rk3)	    
 nsubit=1                      # number of subiterations (=1 implies steady) 
-istoreJac=5		       # jacobian storage type
+istoreJac=4		       # jacobian storage type
 restype=0		       # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
 reOrderCells=false             # reverse cuthill-mckee reordering for bandwidth             
 rey=100

@@ -116,6 +116,8 @@ class LocalMesh
   double *dqupdate_d{nullptr}; 	// update on device 
   double *res_d{nullptr};         // residual (host and device)
   double *dqres_d{nullptr};       // linear residual (host and device)
+  int *iblank{nullptr};   // iblanking on host
+  int *iblank_d{nullptr}; // iblanking on device
   
   LocalMesh() {}; 
   ~LocalMesh();

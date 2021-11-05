@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
   //printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid);
 #endif
   // default parameters
+  int meshtype=0;
   char fname[64]="data.tri";
   double dsmin=0.01;
   double stretch=1.1;
@@ -78,7 +79,7 @@ int main(int argc, char *argv[])
   int restype=0;    // restype = 0 (cell-based) 1 (face-based)
   int nsubit=10;
   if (argc > 1) {
-   parseInputs(argv[1],fname,&dsmin,&stretch,&nlevels,
+   parseInputs(argv[1],&meshtype,fname,&dsmin,&stretch,&nlevels,
 	      flovar,&nsteps,&nsave,&dt,reOrderCells,&nsweep,&nsubit,
 	      &istoreJac,&restype);
   }
@@ -86,19 +87,30 @@ int main(int argc, char *argv[])
   // runge-kutta tableue
   double rk[4]={0.25,8./15,5./12,3./4};
 
-  // create strand mesh
-  StrandMesh *sm;
-  sm=new StrandMesh(fname,dsmin,stretch,nlevels,myid);
-  if (reOrderCells) sm->ReOrderCells();
-  sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);
-  //sm->WriteMesh(myid);
-
-  // create local mesh partitions
-  // and compute grid metrics
+  // create cartesian or strand mesh
   LocalMesh *lm;
-  lm= new LocalMesh(sm,myid,MPI_COMM_WORLD);
+  int ncells;
+  if (meshtype==1) {
+    CartesianMesh *cm;
+    cm= new CartesianMesh(fname,numprocs);
+    cm->WriteMesh(myid);
+    lm= new LocalMesh(cm,myid,MPI_COMM_WORLD);
+    ncells=cm->ncells;
+  }
+  else
+    {
+      StrandMesh *sm;
+      sm=new StrandMesh(fname,dsmin,stretch,nlevels,myid);
+      if (reOrderCells) sm->ReOrderCells();
+      sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);      
+      // create local mesh partitions
+      // and compute grid metrics
+      lm= new LocalMesh(sm,myid,MPI_COMM_WORLD);
+      ncells=sm->ncells;
+    }
+  
   lm->CreateGridMetrics(istoreJac);
-
+  
   // initialize solution
   lm->InitSolution(flovar.data(),nfields);
 
@@ -149,7 +161,7 @@ int main(int argc, char *argv[])
    printf("# ----------------------------------\n");
    printf("# Elapsed time: %13.4f s\n", elapsed);
    printf("# Through-put : %13.4f [million-elements/sec/iteration]\n",
-		   sm->ncells/(elapsed/nsteps/nsubit)/1e6);
+		   ncells/(elapsed/nsteps/nsubit)/1e6);
    printf("# ----------------------------------\n");
   }
 

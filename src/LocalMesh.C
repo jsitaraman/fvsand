@@ -68,7 +68,9 @@ LocalMesh::~LocalMesh()
   FVSAND_FREE_DEVICE(qn);
   FVSAND_FREE_DEVICE(qnn);
   FVSAND_FREE_DEVICE(dq_d);
-  FVSAND_FREE_DEVICE(dqupdate_d);  
+  FVSAND_FREE_DEVICE(dqupdate_d);
+  if (iblank) delete [] iblank;  
+  FVSAND_FREE_DEVICE(iblank_d);
 }
 
 LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)

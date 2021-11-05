@@ -3,6 +3,7 @@
 #include<vector>
 
 void parseInputs(char *inputfile,
+		 int *meshtype,
 		 char *meshfile,
 		 double *dsmin,
 		 double *stretch,
@@ -25,6 +26,7 @@ void parseInputs(char *inputfile,
     printf("Could not open file [%s]\n", inputfile );
     MPI_Abort( MPI_COMM_WORLD, -1 );
   }
+  fgets(line,256,fp);  sscanf(line,"meshtype=%d",meshtype);
   fgets(line,256,fp);  sscanf(line,"meshfile=%s",meshfile);
   fgets(line,256,fp);  sscanf(line,"dsmin=%lf",dsmin);
   fgets(line,256,fp);  sscanf(line,"stretch=%lf",stretch);
