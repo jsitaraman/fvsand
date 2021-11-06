@@ -4,6 +4,7 @@
 #define real_d double
 #define FOR2(i,n1,j,n2) for(int i = 0 ; i < n1 ; i++) for(int j = 0 ; j < n2 ; j++)
 #define roe_max(a,b) (a>b)?a:b
+#define roe_sgn(a) ((a)<0?-1:1)
 FVSAND_GPU_DEVICE
 void InterfaceFlux_Inviscid_f( real_f & f1, real_f & f2, real_f & f3, real_f & f4, real_f & f5,
 			     real_f & ql1, real_f& ql2, real_f & ql3, real_f & ql4, real_f & ql5,
@@ -2515,6 +2516,10 @@ void InterfaceFlux_Inviscid_d_f( real_f & f1d, real_f & f2d, real_f & f3d, real_
       auud  = uu*uud/auu;
       aupcd = (uu+cav)*(uud+cavd)/aupc;
       aumcd = (uu-cav)*(uud-cavd)/aumc;
+
+      auud  = roe_sgn(uu)*uud;
+      aupcd = roe_sgn(uu+cav)*(uud+cavd);
+      aumcd = roe_sgn(uu-cav)*(uud-cavd);
 
       uulft = r1*ulft + r2*vlft + r3*wlft + r4;
       uurht = r1*urht + r2*vrht + r3*wrht + r4;

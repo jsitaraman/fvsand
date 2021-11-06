@@ -1923,10 +1923,14 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	      {
 		for(int d=0;d<3;d++)
 		  {
-		    // set gradients to zer to debug for now
-		    grad[scale*idx+(n*4+d)*stride]+=(qr[n]-ql[n])*
-		      (weights[scale*idx+(3*(f-nccft[idx])+d)*stride]);
+		    // set gradients to zero to debug for now
+		    //grad[scale*idx+(n*4+d)*stride]+=(qr[n]-ql[n])*
+		    //  (weights[scale*idx+(3*(f-nccft[idx])+d)*stride]);
+		    //
+		    //  GG gradients
+		    //  
 		    //grad[scale*idx+(n*4+d)*stride]=0.5*(qr[n]+ql[n])*norm[d]/vol[idx];
+		    grad[scale*idx+(n*4+d)*stride]=0;
 		  }
 		qmax[n]=fvsand_max(qmax[n],qr[n]);
 		qmin[n]=fvsand_min(qmin[n],qr[n]);
@@ -1957,7 +1961,7 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	    					      grad[scale*idx+(n*4+3)*stride]);
 	  }
 	}
-	//for(int n=0;n<nfields;n++) grad[scale*idx+(n*4+3)*stride]=0.0;
+	//for(int n=0;n<nfields;n++) grad[scale*idx+(n*4+3)*stride]=0.5;
       }
 }
 //
