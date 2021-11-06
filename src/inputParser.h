@@ -3,6 +3,7 @@
 #include<vector>
 
 void parseInputs(const char *inputfile,
+		 int *meshtype,
 		 char *meshfile,
 		 double *dsmin,
 		 double *stretch,
@@ -13,6 +14,7 @@ void parseInputs(const char *inputfile,
 		 double *dt,
                  bool &reOrderCells,
 		 int *nsweep,
+		 int *nsubit,
 		 int *istoreJac,
 		 int *restype)
 {
@@ -24,6 +26,7 @@ void parseInputs(const char *inputfile,
     printf("Could not open file [%s]\n", inputfile );
     MPI_Abort( MPI_COMM_WORLD, -1 );
   }
+  fgets(line,256,fp);  sscanf(line,"meshtype=%d",meshtype);
   fgets(line,256,fp);  sscanf(line,"meshfile=%s",meshfile);
   fgets(line,256,fp);  sscanf(line,"dsmin=%lf",dsmin);
   fgets(line,256,fp);  sscanf(line,"stretch=%lf",stretch);
@@ -37,6 +40,7 @@ void parseInputs(const char *inputfile,
   fgets(line,256,fp);  sscanf(line,"nsave=%d",nsave);
   fgets(line,256,fp);  sscanf(line,"dt=%lf",dt);
   fgets(line,256,fp);  sscanf(line,"nsweep=%d",nsweep);
+  fgets(line,256,fp);  sscanf(line,"nsubit=%d",nsubit);
   fgets(line,256,fp);  sscanf(line,"istoreJac=%d",istoreJac);
   fgets(line,256,fp);  sscanf(line,"restype=%d",restype);
   fgets(line,256,fp);  
@@ -44,6 +48,7 @@ void parseInputs(const char *inputfile,
     reOrderCells = true;
   else
     reOrderCells = false;
+  fgets(line,256,fp);  sscanf(line,"rey=%lf",&flovar[5]);
   fclose(fp);
 }
 

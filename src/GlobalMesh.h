@@ -68,6 +68,16 @@ class StrandMesh : public GlobalMesh
   void PartitionSphereMesh(int, int, MPI_Comm);
   ~StrandMesh() {};
 };
+
+class CartesianMesh : public GlobalMesh
+{
+  public:
+  CartesianMesh(char *cart_file, int numprocs);
+  void WriteMesh(int label);
+  void WriteBoundaries(int label);
+  void PartitionCartesianMesh(int, int, MPI_Comm);
+  ~CartesianMesh() {};
+};
   
 }
 #endif /* GLOBALMESH_H */

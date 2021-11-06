@@ -1,6 +1,8 @@
 #include <stdio.h>
 //#define UNIT_CHECK
 #define REAL double
+#define fvsand_max(a,b) ((a) > (b)) ? (a) :(b)
+#define fvsand_min(a,b) ((a) < (b)) ? (a) :(b)
 
 FVSAND_GPU_DEVICE void solveAxb5(double *A, double *b, double *x) {
   // double s;
@@ -238,6 +240,59 @@ FVSAND_GPU_DEVICE void invertMat5_f(float *A, float *f, float *x)
   x[0]=d1-u12*x[1]-u13*x[2]-u14*x[3]-u15*d5;
 }
 
+//
+// perform x = inv (A)*f
+// currently set for 5x5 matrix
+//
+//
+FVSAND_GPU_DEVICE void invertMat5_f2(float *A, float *f, float *x,int idx,int ncells)
+{
+  float b11,b21,b22,b31,b32,b33,b41,b42,b43,b44,b51,b52,b53,b54,b55;
+  float u12,u13,u14,u15,u23,u24,u25,u34,u35,u45;
+  float d1,d2,d3,d4,d5;
+  //
+  // decompose A into L and U
+  //
+  //
+  b11=1./A[0*ncells+idx];
+  u12=A[1*ncells+idx]*b11;
+  u13=A[2*ncells+idx]*b11;
+  u14=A[3*ncells+idx]*b11;
+  u15=A[4*ncells+idx]*b11;
+  b21=A[5*ncells+idx];
+  b22=1./(A[6*ncells+idx]-b21*u12);
+  u23=(A[7*ncells+idx]-b21*u13)*b22;
+  u24=(A[8*ncells+idx]-b21*u14)*b22;
+  u25=(A[9*ncells+idx]-b21*u15)*b22;
+  b31=A[10*ncells+idx];
+  b32=A[11*ncells+idx]-b31*u12;
+  b33=1./(A[12*ncells+idx]-b31*u13-b32*u23);
+  u34=(A[13*ncells+idx]-b31*u14-b32*u24)*b33;
+  u35=(A[14*ncells+idx]-b31*u15-b32*u25)*b33;
+  b41=A[15*ncells+idx];
+  b42=A[16*ncells+idx]-b41*u12;
+  b43=A[17*ncells+idx]-b41*u13-b42*u23;
+  b44=1./(A[18*ncells+idx]-b41*u14-b42*u24-b43*u34);
+  u45=(A[19*ncells+idx]-b41*u15-b42*u25-b43*u35)*b44;
+  b51=A[20*ncells+idx];
+  b52=A[21*ncells+idx]-b51*u12;
+  b53=A[22*ncells+idx]-b51*u13-b52*u23;
+  b54=A[23*ncells+idx]-b51*u14-b52*u24-b53*u34;
+  b55=1./(A[24*ncells+idx]-b51*u15-b52*u25-b53*u35-b54*u45);
+  //
+  d1=f[0]*b11;
+  d2=(f[1]-b21*d1)*b22;
+  d3=(f[2]-b31*d1-b32*d2)*b33;
+  d4=(f[3]-b41*d1-b42*d2-b43*d3)*b44;
+  d5=(f[4]-b51*d1-b52*d2-b53*d3-b54*d4)*b55;
+  //
+  x[4]=d5;
+  x[3]=d4-u45*d5;
+  x[2]=d3-u34*x[3]-u35*d5;
+  x[1]=d2-u23*x[2]-u24*x[3]-u25*d5;
+  x[0]=d1-u12*x[1]-u13*x[2]-u14*x[3]-u15*d5;
+}
+
 
 //
 // perform b=fac*A*x
@@ -262,6 +317,30 @@ void axb1s(double A[25], double *x, double *b, double fac, int N) {
   for (j = 0; j < N; j++) {
     for (k = 0; k < N; k++) {
       index1 = j * N + k;
+      b[j] -= (fac * A[index1] * x[k]);
+    }
+  }
+}
+
+FVSAND_GPU_DEVICE
+void axb1s_f(float A[25], float *x, float *b, float fac, int N) {
+  int j, k;
+  int index1;
+  for (j = 0; j < N; j++) {
+    for (k = 0; k < N; k++) {
+      index1 = j * N + k;
+      b[j] -= (fac * A[index1] * x[k]);
+    }
+  }
+}
+
+FVSAND_GPU_DEVICE
+void axb1s_f2(float *A, float *x, float *b, float fac, int N, int f, int nNeighs) {
+  int j, k;
+  int index1;
+  for (j = 0; j < N; j++) {
+    for (k = 0; k < N; k++) {
+      index1 = (j * N + k)*nNeighs + f;
       b[j] -= (fac * A[index1] * x[k]);
     }
   }

@@ -1,22 +1,22 @@
-meshfile=medium.tri            # mesh file name					    
-dsmin=0.001		       # surface spacing					    
-stretch=1.2		       # stretch ratio					    
+meshtype=1                     # 0=strand, 1=cart
+meshfile=cart.dat              # mesh file name					    
+dsmin=0.01		       # surface spacing					    
+stretch=1.1		       # stretch ratio					    
 nlevels=50		       # number of levels				    
 density=1.0		       # density						    
 Vx=0.2			       # x-velocity					    
 Vy=0.0			       # y-velocity					    
 Vz=0.0			       # z-velocity					    
 pressure=0.7142857142857143    # pressure					    
-nsteps=100		       # number of steps					    
-nsave=100 		       # frequency to show residual 			    
-dt=0.001  		       # dt						    
+nsteps=1000		       # number of steps					    
+nsave=100   		       # frequency to show residual 			    
+dt=0.2
 nsweep=4		       # number of jacobi sweeps (=0 means explicit rk3)	    
-nsubit=10                      # number of subiterations (=1 steady-state)
+nsubit=1                       # number of subiterations (=1 implies steady) 
 istoreJac=5		       # jacobian storage type
 restype=2		       # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
-reOrderCells=false             # reverse cuthill-mckee reordering for bandwidth
-rey=1000
-
+reOrderCells=false             # reverse cuthill-mckee reordering for bandwidth             
+rey=100
 # Jacobian storage types
 # istoreJac = 0 -> no storage, recomputed every linear sweep
 #
