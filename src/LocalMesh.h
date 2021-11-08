@@ -143,7 +143,6 @@ class LocalMesh
   void RegulateDQ(double *q);
   void UpdateFringes(double *, double *);
   void UpdateFringes(double *);
-  double ResNorm(void);
   void GetGridData(double** x_hd, int* nnode_out, int* ncell_out, 
                    int** nvcft_hd, int** cell2node_hd, int* nc2n);
 

@@ -61,6 +61,10 @@ set(sources
   src/partSphere.f90
   # CXX sources
   # src/fvsand.cpp
+  src/divide1D.f90
+  src/clust.f
+  src/findfact.f90
+  src/CartesianMesh.cpp
   src/StrandMesh.cpp
   src/LocalMesh.C
   src/utils.c

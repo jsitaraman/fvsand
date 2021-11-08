@@ -17,6 +17,7 @@
 class PyFV {
   Timer stopwatch;
   int myid, mydeviceid, numprocs,numdevices;
+  int meshtype, nsubit;
 
   // default params
   double dsmin,stretch,dt;

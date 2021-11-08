@@ -45,9 +45,9 @@ int main(int argc, char *argv[])
   int restype=0;    // restype = 0 (cell-based) 1 (face-based)
   int nsubit=10;
   if (argc > 1) {
-   parseInputs(argv[1],&meshtype,fname,&dsmin,&stretch,&nlevels,
-	      flovar,&nsteps,&nsave,&dt,reOrderCells,&nsweep,&nsubit,
-	      &istoreJac,&restype);
+    parseInputs(argv[1],&meshtype,fname,&dsmin,&stretch,&nlevels,
+                flovar,&nsteps,&nsave,&dt,reOrderCells,&nsweep,&nsubit,
+                &istoreJac,&restype);
   }
   
   // runge-kutta tableue
@@ -64,16 +64,16 @@ int main(int argc, char *argv[])
     ncells=cm->ncells;
   }
   else
-    {
-      StrandMesh *sm;
-      sm=new StrandMesh(fname,dsmin,stretch,nlevels,myid);
-      if (reOrderCells) sm->ReOrderCells();
-      sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);      
-      // create local mesh partitions
-      // and compute grid metrics
-      lm= new LocalMesh(sm,myid,MPI_COMM_WORLD);
-      ncells=sm->ncells;
-    }
+  {
+    StrandMesh *sm;
+    sm=new StrandMesh(fname,dsmin,stretch,nlevels,myid);
+    if (reOrderCells) sm->ReOrderCells();
+    sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);      
+    // create local mesh partitions
+    // and compute grid metrics
+    lm= new LocalMesh(sm,myid,MPI_COMM_WORLD);
+    ncells=sm->ncells;
+  }
   
   lm->CreateGridMetrics(istoreJac);
   

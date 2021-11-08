@@ -11,6 +11,7 @@ namespace py = pybind11;
 PyFV::PyFV(string inputfile)
 {
 
+  this->meshtype=0;
   this->dsmin=0.01;
   this->stretch=1.1;
   this->nlevels=30;
@@ -23,6 +24,8 @@ PyFV::PyFV(string inputfile)
   this->nsweep = 2;   // Jacobi Sweeps (=0 means explict)
   this->istoreJac =3; // Jacobian storage or not 
   this->restype=0;    // restype = 0 (cell-based) 1 (face-based)
+  this->nsubit=10;
+
 
   char fname[]="data.tri";
 
@@ -36,8 +39,8 @@ PyFV::PyFV(string inputfile)
   gpu::listdev(myid);
 #endif
 
-  parseInputs(inputfile.c_str(),fname,&dsmin,&stretch,&nlevels,
-	      flovar,&nsteps,&nsave,&dt,reOrderCells,&nsweep,
+  parseInputs(inputfile.c_str(),&meshtype,fname,&dsmin,&stretch,&nlevels,
+              flovar,&nsteps,&nsave,&dt,reOrderCells,&nsweep,&nsubit,
 	      &istoreJac,&restype);
 
   // create strand mesh
@@ -76,37 +79,46 @@ void PyFV::step(int iter)
 
   stopwatch.tick();
 
-  std::ostringstream timestep_name;
-  timestep_name << "TimeStep-" << iter;
-  if(nsweep)
-  { // implicit 
-    FVSAND_NVTX_SECTION( timestep_name.str(),
-                         lm->Residual(lm->q,restype);           // computes res_d
-                         lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with dqtilde
-                         lm->UpdateQ(lm->q,lm->q,1);            // adds dqtilde (in res_d) to q XX is this dt or 1?
-                         );
-  } 
-  else 
+  for(int iter=0;iter<nsteps;iter++)
   {
-    FVSAND_NVTX_SECTION( timestep_name.str(), 
-                         lm->Residual(lm->q,restype);
-                         lm->Update(lm->qn,lm->q,rk[1]*dt);
-                         lm->Update(lm->q,lm->q,rk[0]*dt);
-                         
-                         lm->Residual(lm->qn,restype);
-                         lm->Update(lm->qn,lm->q,rk[2]*dt);
-                         
-                         lm->Residual(lm->qn,restype);      
-                         lm->Update(lm->q,lm->q,rk[3]*dt);
-                         );
+    std::ostringstream timestep_name;
+    timestep_name << "TimeStep-" << iter;
+    if(nsweep){ // implicit 
+      //FVSAND_NVTX_SECTION(timestep_name.str(),
+      if (nsubit > 1) lm->update_time();
+      for(int it=0;it < nsubit;it++) {
+        lm->Residual(lm->q,restype,dt,istoreJac); // computes res_d
+        if (nsubit > 1) lm->add_time_source(iter,dt, lm->q,lm->qn,lm->qnn);
+        lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with
+        //if (nsubit > 1) lm->RegulateDQ(lm->q);
+        lm->UpdateQ(lm->q,lm->q,1);            // adds dqtilde (in res_d)
+        if (nsubit > 1) {
+          double rnorm=lm->ResNorm(lm->res_d);
+          if (myid==0) printf("%6d %6d  %16.8e\n",iter, it,rnorm);
+        }
+      }
+      //);
+    }else {
+      FVSAND_NVTX_SECTION( timestep_name.str(), 
+                           lm->Residual(lm->q,restype);
+                           lm->Update(lm->qn,lm->q,rk[1]*dt);
+                           lm->Update(lm->q,lm->q,rk[0]*dt);
+
+                           lm->Residual(lm->qn,restype);
+                           lm->Update(lm->qn,lm->q,rk[2]*dt);
+
+                           lm->Residual(lm->qn,restype);      
+                           lm->Update(lm->q,lm->q,rk[3]*dt);
+                           );
+    }
+    if (nsubit==1) {
+      if ((iter+1)%nsave ==0 || iter==0) {
+	double rnorm=lm->ResNorm(lm->res_d);
+        if (myid==0) printf("iter:%6d  %16.8e\n",iter+1,rnorm);
+      }
+    }
   }
-  
-  if ((iter+1)%nsave ==0 || iter==0) 
-  {
-    double rnorm=lm->ResNorm();
-    if (myid==0) printf("iter:%6d  %16.8e\n",iter+1,rnorm);
-  }
-  
+
   stopwatch.tock();
 }
 
