@@ -16,7 +16,7 @@ PyFV::PyFV(string inputfile)
   this->stretch=1.1;
   this->nlevels=30;
   this->nfields=5;
-  this->flovar = { 1.0, 0.2, 0.0, 0.0, 1./1.4};
+  this->flovar = { 1.0, 0.2, 0.0, 0.0, 1./1.4, 100};
   this->nsteps=2000;
   this->nsave=100;
   this->dt=0.03;
@@ -43,17 +43,30 @@ PyFV::PyFV(string inputfile)
               flovar,&nsteps,&nsave,&dt,reOrderCells,&nsweep,&nsubit,
 	      &istoreJac,&restype);
 
-  // create strand mesh
-  sm=new StrandMesh(fname,dsmin,stretch,nlevels,myid);
-  if (reOrderCells) sm->ReOrderCells();
-  sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);
-
-  lm= new LocalMesh(sm,myid,MPI_COMM_WORLD);
+  // create cartesian or strand mesh
+  //
+  if (meshtype==1) {
+    CartesianMesh *cm;
+    cm= new CartesianMesh(fname,numprocs);
+    cm->WriteMesh(myid);
+    lm= new LocalMesh(cm,myid,MPI_COMM_WORLD);
+    ncells=cm->ncells;
+  }
+  else
+  {
+    StrandMesh *sm;
+    sm=new StrandMesh(fname,dsmin,stretch,nlevels,myid);
+    if (reOrderCells) sm->ReOrderCells();
+    sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);      
+    // create local mesh partitions
+    // and compute grid metrics
+    lm= new LocalMesh(sm,myid,MPI_COMM_WORLD);
+ 
+    ncells=sm->ncells;
+  }
   lm->CreateGridMetrics(istoreJac);
-
   // initialize solution
   lm->InitSolution(flovar.data(),nfields);
-
 }
 
 PyFV::~PyFV()
@@ -64,7 +77,7 @@ PyFV::~PyFV()
     printf("# ----------------------------------\n");
     printf("# Elapsed time: %13.4f s\n", elapsed);
     printf("# Through-put : %13.4f [million-elements/sec/iteration]\n",
-           sm->ncells/(elapsed/nsteps)/1e6);
+           ncells/(elapsed/nsteps)/1e6);
     printf("# ----------------------------------\n");
   }
 

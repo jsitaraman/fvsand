@@ -23,6 +23,7 @@ class PyFV {
   double dsmin,stretch,dt;
   int nlevels,nfields,nsteps,nsave,nsweep,istoreJac,restype;
   bool reOrderCells;
+  int ncells;
   std::vector<double> flovar;
 
   double rk[4]={0.25,8./15,5./12,3./4};

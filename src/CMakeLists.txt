@@ -56,12 +56,12 @@ target_sources(fvsand.exe PRIVATE
   findfact.f90
   divide1D.f90
   # CXX sources
-  fvsand.C
-  StrandMesh.C
-  CartesianMesh.C
+  fvsand.cpp
+  StrandMesh.cpp
+  CartesianMesh.cpp
   LocalMesh.C
   utils.c
-  timer.C
+  timer.cpp
   Range.C
   rcm.cpp
 )
