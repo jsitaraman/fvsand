@@ -165,27 +165,51 @@ py::dict PyFV::get_grid_data(){
   py::list xl_d(1);
   py::list c2nl(1);
   py::list c2nl_d(1);
+  py::list c2cl(1);
+  py::list c2cl_d(1);
   py::list nvl(1);
   py::list nvl_d(1);
+  py::list ncl(1);
+  py::list ncl_d(1);
+  py::list obcnode(1);
+  py::list obcnode_d(1);
+  py::list wbcnode(1);
+  py::list wbcnode_d(1);
 
   double *x_hd[2];
-  int nnode, ncell, nc2n;
+  int nnode, ncell, nc2n,nc2c,nobc,nwbc;
   // int *ndc4, *ndc5, *ndc6, *ndc8;
   int* cell2node_hd[2];
+  int *cell2cell_hd[2];
+  int *nccft_hd[2];
+  int *obcnode_hd[2];
+  int *wbcnode_hd[2];
   int* nvcft_hd[2];
 
-  lm->GetGridData(x_hd, &nnode, &ncell, nvcft_hd, cell2node_hd, &nc2n);
+  lm->GetGridData(x_hd, &nnode, &ncell, nvcft_hd, nccft_hd,
+		  	cell2node_hd, &nc2n, 
+		  	cell2cell_hd, &nc2c, 
+			obcnode_hd, &nobc, 
+			wbcnode_hd, &nwbc);
 
   c2nl[0]   = py::array_t<int   >({nc2n},          {sizeof(int)},    cell2node_hd[0], DO_NOT_FREE);
+  c2cl[0]   = py::array_t<int   >({nc2c},          {sizeof(int)},    cell2cell_hd[0], DO_NOT_FREE);
   nvl[0]    = py::array_t<int   >({ncell+1},       {sizeof(int)},    nvcft_hd[0],     DO_NOT_FREE);
+  ncl[0]    = py::array_t<int   >({ncell+1},       {sizeof(int)},    nccft_hd[0],     DO_NOT_FREE);
   xl[0]     = py::array_t<double>({nnode*3},       {sizeof(double)}, x_hd[0],         DO_NOT_FREE);
+  obcnode[0]= py::array_t<int >  ({nobc},          {sizeof(int)},    obcnode_hd[0],   DO_NOT_FREE);
+  wbcnode[0]= py::array_t<int >  ({nwbc},          {sizeof(int)},    wbcnode_hd[0],   DO_NOT_FREE); 
 
 #ifdef FVSAND_HAS_CUDA
   ibl[0]    = GPUArray(lm->iblank, ncell);
   ql[0]     = GPUArray(lm->q,      nfields*ncell);
   c2nl_d[0] = GPUArray(cell2node_hd[1], nc2n);
   nvl_d[0]  = GPUArray(nvcft_hd[1], ncell+1);
+  ncl_d[0]  = GPUArray(nccft_hd[1], ncell+1);
   xl_d[0]   = GPUArray(x_hd[1], nnode*3);
+  c2cl_d[0]  = GPUArray(cell2cell_hd[1],nc2c);
+  obcnode_d[0]= GPUArray(nccft_hd[1],ncell+1);
+  wbcnode_d[0]= GPUArray(wbcnode_hd[1],nwbc+1);
   gridData["memtype"] = "CUDA";
 #else     
   ibl[0]    = py::array_t<int   >({ncell},         {sizeof(int)},    lm->iblank,      DO_NOT_FREE);
@@ -193,11 +217,17 @@ py::dict PyFV::get_grid_data(){
   c2nl_d[0] = c2nl[0];
   nvl_d[0]  = nvl[0];
   xl_d[0]   = xl[0];
+  c2cl_d[0]  = c2cl[0];
+  obcnode_d[0] = obcnode[0];
+  wbcnode_d[0] = wbcnode[0];
+  ncl_d[0]     = ncl[0];
   gridData["memtype"] = "CPU";
 #endif
 
   gridData["ncell"]              = ncell;
   gridData["nnode"]              = nnode;
+  gridData["nobc"]               = nobc;
+  gridData["nwbc"]               = nwbc;
   gridData["iblanking"]          = ibl;
   gridData["q-variables"]        = ql;
   gridData["grid-coordinates"]   = xl;
@@ -206,6 +236,14 @@ py::dict PyFV::get_grid_data(){
   gridData["cell2node_d"]        = c2nl_d;
   gridData["nvcft"]              = nvl;
   gridData["nvcft_d"]            = nvl_d;
+  gridData["cell2cell"]          = c2cl;
+  gridData["cell2cell_d"]        = c2cl_d;
+  gridData["nccft"]              = ncl;
+  gridData["nccft_d"]            = ncl_d;
+  gridData["obcnode"]            = obcnode;
+  gridData["obcnode_d"]          = obcnode_d;
+  gridData["wbcnode"]            = wbcnode;
+  gridData["wbcnode_d"]          = wbcnode_d;
 
   return gridData;
 

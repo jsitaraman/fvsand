@@ -279,7 +279,7 @@ void CartesianMesh::WriteBoundaries(int label)
     for(int j=0;j<6;j++)
       if (cell2cell[6*i+j] < 0) {
 	for(int k=0;k<4;k++)
-	  fprintf(fp,"%ld ",cell2node[8*i+face2node[3][4*j+k]-1]+1);
+	  fprintf(fp,"%ld ",cell2node[8*i+face2node_h[3][4*j+k]-1]+1);
 	fprintf(fp,"\n");
       }
   fclose(fp);

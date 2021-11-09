@@ -171,7 +171,7 @@ void LocalMesh::CreateGridMetrics(int istoreJac)
   cell2cell_d=gpu::push_to_device<int>(cell2cell.data(),sizeof(int)*cell2cell.size());
 
   // create cell frequency table
-  nccft_h=new int[ncon.size()+1];
+  nccft_h=new int [ncon.size()+1];
   nccft_h[0]=0;
   for(int i=0;i<ncells+nhalo;i++)
     nccft_h[i+1]=nccft_h[i]+ncon[i];  
@@ -213,8 +213,38 @@ void LocalMesh::CreateGridMetrics(int istoreJac)
                             cell2cell_d, N );
 
   CreateFaces();
+  CreateBoundaryNodeLists();
 }
-
+void LocalMesh::CreateBoundaryNodeLists()
+{
+  std::vector<int>iflag(ncells,0);
+  std::unordered_map<int,int> vmap;
+  vmap[4]=0;
+  vmap[5]=1;
+  vmap[6]=2;
+  vmap[8]=3;
+  for (int idx=0;idx<ncells;idx++) {
+    int nvert=nvcft[idx+1]-nvcft[idx];
+    for(int f=nccft_h[idx];f < nccft_h[idx+1];f++) {
+      if (cell2cell[f] < -1) {
+	int iface=f-nccft_h[idx];
+	for(int v=0;v < numverts_h[vmap[nvert]][iface];v++) {
+	  int itype=vmap[nvert];
+          int inode=nvcft[idx]+face2node_h[itype][4*iface+v]-1;
+	  iflag[cell2node[inode]]=cell2cell[f];
+	}
+      }
+    }
+  }
+  for(int inode=0;inode<nnodes;inode++) {
+    if (iflag[inode]==-2) wbcnode.push_back(inode);
+    if (iflag[inode]==-3) obcnode.push_back(inode);
+  }
+  nobc=obcnode.size();
+  nwbc=wbcnode.size();
+  obcnode_d=gpu::push_to_device<int>(obcnode.data(),sizeof(int)*obcnode.size());
+  wbcnode_d=gpu::push_to_device<int>(wbcnode.data(),sizeof(int)*wbcnode.size());
+}
 void LocalMesh::CreateFaces(void)
 {
   // find cell2face connectivity
@@ -912,18 +942,33 @@ void LocalMesh::WriteMesh(int label)
 }
 
 void LocalMesh::GetGridData(double** x_hd, int* nnode_out, int* ncell_out, 
-                            int** nvcft_hd, int** cell2node_hd, int* nc2n){
+                            int** nvcft_hd, int **nccft_hd,
+			    int** cell2node_hd, int* nc2n,
+			    int** cell2cell_hd, int* nc2c,
+			    int** obcnode_hd,   int* nobc_out,
+			    int** wbcnode_hd,   int* nwbc_out) {
 
   nnode_out[0]    = nnodes;
   ncell_out[0]    = ncells+nhalo;
   nc2n[0]         = cell2node.size();
-
+  nc2c[0]         = cell2cell.size();
+  nobc_out[0]     = nobc;
+  nwbc_out[0]     = nwbc;
+  
   x_hd[0]         = x.data();
   x_hd[1]         = x_d;
   nvcft_hd[0]     = nvcft.data();
   nvcft_hd[1]     = nvcft_d;  
+  nccft_hd[0]     = nccft_h;
+  nccft_hd[1]     = nccft_d;
   cell2node_hd[0] = cell2node.data();
-  cell2node_hd[1] = cell2node_d;  
+  cell2node_hd[1] = cell2node_d;
+  cell2cell_hd[0] = cell2cell.data();
+  cell2cell_hd[1] = cell2cell_d;
+  obcnode_hd[0]   = obcnode.data();
+  obcnode_hd[1]   = obcnode_d;
+  wbcnode_hd[0]   = wbcnode.data();
+  wbcnode_hd[1]   = wbcnode_d;
 }
 
 void LocalMesh::update_time(void)

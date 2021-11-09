@@ -167,9 +167,9 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
         if (cell2cell[5*i+j] < 0) {
 	  int check_wall, check_outside;
 	  check_wall=check_outside=1;
-	  for(int v=0;v<numverts[itype][j];v++)
+	  for(int v=0;v<numverts_h[itype][j];v++)
 	    {
-	      int f=face2node[itype][4*j+v]-1;
+	      int f=face2node_h[itype][4*j+v]-1;
 	      check_wall = (check_wall && (cell2node[6*i+f] < nsurfnodes));
 	      check_outside=(check_outside && (cell2node[6*i+f] > nsurfnodes*nlevels-1));
 	    }
@@ -291,7 +291,7 @@ void StrandMesh::WriteBoundaries(int label)
     for(int j=0;j<5;j++)
       if (cell2cell[5*i+j] < 0) {
 	for(int k=0;k<4;k++)
-	  fprintf(fp,"%ld ",cell2node[6*i+face2node[2][4*j+k]-1]+1);
+	  fprintf(fp,"%ld ",cell2node[6*i+face2node_h[2][4*j+k]-1]+1);
 	fprintf(fp,"\n");
       }
   fclose(fp);

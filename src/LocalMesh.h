@@ -24,6 +24,8 @@ class LocalMesh
   int nfaces{0};       // < total number of faces
   int procid{0};       // < process id where this mesh belongs
   int meshtag{0};      // < meshtag
+  int nobc{0};         // < number of overset boundary nodes
+  int nwbc{0};         // < number of wall boundary nodes
   MPI_Comm mycomm;     // < communicator for this mesh
   int myid;            // < rank in this mesh group
   int ngroup;          // < number of ranks in this group
@@ -37,6 +39,8 @@ class LocalMesh
   std::vector<int>  nvcft;      // < vertex connectivity location for each cell
   std::vector<int> cell2node;   // < cell2node connectivity
   std::vector<int> cell2cell;   // < cell2cell connectivity
+  std::vector<int> obcnode;     // < overset boundary node list
+  std::vector<int> wbcnode;     // < wall boundary node list
   
   std::vector<int> ncon;        // < number of neighbors per cell
   std::vector<uint64_t> local2global;    // local2global numbering including ghost cells
@@ -70,6 +74,8 @@ class LocalMesh
   int *nccft_d{nullptr};               // cell to cell cumulative frequency table (device)
   int *ncon_d{nullptr};                // number of connections per cell in cell to cell (device)
   int *cell2cell_d{nullptr};           // cell to cell connectivity graph
+  int *obcnode_d{nullptr};             // overset boundary node list on device
+  int *wbcnode_d{nullptr};             // wall boundary node list on device
 
   double *center_d{nullptr};      // cell center  (device)
   double *centroid_d{nullptr};    // cell centroid (device)
@@ -104,6 +110,8 @@ class LocalMesh
 
   MPI_Request *ireq{nullptr};
   MPI_Status *istatus{nullptr};
+
+#include "faceOrder.h"
   
  public:
 
@@ -144,13 +152,18 @@ class LocalMesh
   void UpdateFringes(double *, double *);
   void UpdateFringes(double *);
   void GetGridData(double** x_hd, int* nnode_out, int* ncell_out, 
-                   int** nvcft_hd, int** cell2node_hd, int* nc2n);
+                   int** nvcft_hd, int ** nccft_hd,
+		   int** cell2node_hd, int* nc2n,
+		   int **cell2cell_hd, int *nc2c,
+		   int **obcnode_hd,   int *nobc_out,
+		   int **wbcnode_hd,   int *nwbc_out);
 
 
   void UpdateFringes_grad(double *);
   double ResNorm(double *);
   void update_time(void);
   void add_time_source(int, double , double *, double *, double *);
+  void CreateBoundaryNodeLists();
 };
   
 }
