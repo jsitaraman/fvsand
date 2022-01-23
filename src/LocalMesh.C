@@ -22,10 +22,10 @@ LocalMesh::~LocalMesh()
   FVSAND_FREE_DEVICE(device2host_d);
   FVSAND_FREE_DEVICE(host2device_d);
   //
-  if (qbuf) delete [] qbuf;
-  if (qbuf2) delete [] qbuf2;  
-  FVSAND_FREE_DEVICE(qbuf_d);
-  FVSAND_FREE_DEVICE(qbuf_d2);
+  gpu::deallocate_host_pinned(&qbuf);
+  gpu::deallocate_host_pinned(&qbuf2);
+  gpu::deallocate_host_pinned(&qbuf_d);
+  gpu::deallocate_host_pinned(&qbuf_d2);
   //
   FVSAND_FREE_DEVICE(x_d);
   FVSAND_FREE_DEVICE(flovar_d);
@@ -41,7 +41,7 @@ LocalMesh::~LocalMesh()
   FVSAND_FREE_DEVICE(center_d);
   FVSAND_FREE_DEVICE(normals_d);
   FVSAND_FREE_DEVICE(volume_d);
-  FVSAND_FREE_DEVICE(res_d);
+  gpu::deallocate_host_pinned(&res_d);
   //
   FVSAND_FREE_DEVICE(rmatall_d);
   FVSAND_FREE_DEVICE(Dall_d);
@@ -60,7 +60,7 @@ LocalMesh::~LocalMesh()
   FVSAND_FREE_DEVICE(q);
   FVSAND_FREE_DEVICE(qn);
   FVSAND_FREE_DEVICE(qnn);
-  FVSAND_FREE_DEVICE(dq_d);
+  gpu::deallocate_host_pinned(&dq_d);
   FVSAND_FREE_DEVICE(dqupdate_d);  
 }
 
@@ -256,8 +256,8 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
   q=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
   qn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
   qnn=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
-  res_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
-  dq_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
+  res_d=gpu::allocate_host_pinned<double>(sizeof(double)*(ncells+nhalo)*nfields);
+  dq_d=gpu::allocate_host_pinned<double>(sizeof(double)*(ncells+nhalo)*nfields);
   dqupdate_d=gpu::allocate_on_device<double>(sizeof(double)*(ncells+nhalo)*nfields);
  );
  
@@ -291,10 +291,10 @@ void LocalMesh::InitSolution(double *flovar, int nfields)
  
   int dsize=device2host.size();
   dsize=(dsize < host2device.size())?host2device.size():dsize;
-  qbuf=new double [dsize];
-  qbuf2=new double [dsize];
-  qbuf_d=gpu::allocate_on_device<double>(sizeof(double)*dsize);
-  qbuf_d2=gpu::allocate_on_device<double>(sizeof(double)*dsize);
+  qbuf=gpu::allocate_host_pinned<double>(sizeof(double)*dsize);
+  qbuf2=gpu::allocate_host_pinned<double>(sizeof(double)*dsize);
+  qbuf_d=gpu::allocate_host_pinned<double>(sizeof(double)*dsize);
+  qbuf_d2=gpu::allocate_host_pinned<double>(sizeof(double)*dsize);
 
   ireq=new MPI_Request [sndmap.size()+rcvmap.size()];
   istatus=new MPI_Status [sndmap.size()+rcvmap.size()];
@@ -337,27 +337,32 @@ void LocalMesh::UpdateFringes(double *qh, double *qd)
 // doesn't work CUDA-Aware -- debug this
 void LocalMesh::UpdateFringes(double *qd)
 {
+    FVSAND_NVTX_FUNCTION("UpdateFringes");
+
     nthreads=device2host.size();
     if(nthreads == 0) return;
-    FVSAND_GPU_KERNEL_LAUNCH( updateHost, nthreads,
-			      qbuf_d,qd,device2host_d,nthreads);
+
+    FVSAND_NVTX_SECTION( "pack", 
+      FVSAND_GPU_KERNEL_LAUNCH( updateHost, nthreads,
+			                          qbuf_d,qd,device2host_d,nthreads);
+    );
+
     // separate sends and receives so that we can overlap comm and calculation
     // in the residual and iteration loops.
     // TODO (george) use qbuf2_d and qbuf_d instead of qbuf2 and qbuf for cuda-aware
     int reqcount=0;
     pc.postRecvs_direct(qbuf2,nfields_d,rcvmap,ireq,mycomm,&reqcount);
-    // TODO (george) with cuda-aware this pull is not required
-    // but it doesn't work now
-    gpu::pull_from_device<double>(qbuf,qbuf_d,sizeof(double)*device2host.size());
-    pc.postSends_direct(qbuf,nfields_d,sndmap,ireq,mycomm,&reqcount);
-    pc.finish_comm(reqcount,ireq,istatus);
-    // same as above
-    // not doing cuda-aware now
-    gpu::copy_to_device(qbuf_d2,qbuf2,sizeof(double)*host2device.size());
     
+    gpu::synchronize();
+    pc.postSends_direct(qbuf_d,nfields_d,sndmap,ireq,mycomm,&reqcount);
+    pc.finish_comm(reqcount,ireq,istatus);
+
     nthreads=host2device.size();
-    FVSAND_GPU_KERNEL_LAUNCH( updateDevice, nthreads,
-			      qd,qbuf_d2,host2device_d,nthreads);
+    FVSAND_NVTX_SECTION( "unpack",
+      FVSAND_GPU_KERNEL_LAUNCH( updateDevice, nthreads,
+			                          qd,qbuf2,host2device_d,nthreads );
+    );
+
 }
     
 

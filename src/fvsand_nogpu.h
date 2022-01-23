@@ -28,6 +28,12 @@ inline T* allocate_on_device(const size_t size)
 }
 
 template <typename T>
+inline T* allocate_host_pinned(const size_t size)
+{
+    return static_cast<T*>(std::malloc(size));
+}
+
+template <typename T>
 inline void copy_to_device(T* dptr, const T* hptr, const size_t size)
 {
     std::memcpy(dptr, hptr, size);
@@ -52,6 +58,13 @@ inline void deallocate_device(T** dptr)
 {
     std::free(*dptr);
     *dptr = nullptr;
+}
+
+template < typename T>
+inline void deallocate_host_pinned(T** ptr)
+{
+    std::free(*ptr);
+    *ptr = nullptr;
 }
 
 template <typename T>
