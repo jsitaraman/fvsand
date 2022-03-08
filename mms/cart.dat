@@ -1,0 +1,14 @@
+# dimensions in axis x, y and z
+33 33 33
+# x-axis distribution
+1   33
+-2  2
+0.2 0.2
+# y-axis distribution
+1   33
+-2  2
+0.2 0.2
+# z-axis distribution
+1   33
+-2  2
+0.2 0.2

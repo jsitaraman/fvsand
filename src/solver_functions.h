@@ -208,7 +208,7 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 				      qr[0],qr[1],qr[2],qr[3],qr[4],
 				      norm[0],norm[1],norm[2],
 				      gx,gy,gz,spec,idxn);
-	    	    
+	    /* 	    
 	    viscous_flux_fp(dres[0],dres[1],dres[2],dres[3],dres[4],
 			    ql[0],ql[1],ql[2],ql[3],ql[4],
 			    qr[0],qr[1],qr[2],qr[3],qr[4],
@@ -219,6 +219,7 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 			    centroid_rht[0],centroid_rht[1],centroid_rht[2],
 			    flovar[5], // reynolds number
 			    norm[0],norm[1],norm[2]);
+	    */
 	    			    
 	    for(int n=0;n<nfields;n++)
 	      res[scale*idx+n*stride]-=dres[n];
@@ -1929,7 +1930,7 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 		    //
 		    //  GG gradients
 		    //  
-		    //grad[scale*idx+(n*4+d)*stride]=0.5*(qr[n]+ql[n])*norm[d]/vol[idx];
+		    //grad[scale*idx+(n*4+d)*stride]+=0.5*(qr[n]+ql[n])*norm[d]/vol[idx];
 		    grad[scale*idx+(n*4+d)*stride]=0;
 		  }
 		qmax[n]=fvsand_max(qmax[n],qr[n]);

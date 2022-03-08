@@ -55,11 +55,13 @@ target_sources(fvsand.exe PRIVATE
   clust.f
   findfact.f90
   divide1D.f90
+  navier_stokes_mms.f90
   # CXX sources
   fvsand.C
   StrandMesh.C
   CartesianMesh.C
   LocalMesh.C
+  mms.C
   utils.c
   timer.C
   Range.C

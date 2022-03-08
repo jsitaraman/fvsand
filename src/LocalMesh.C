@@ -215,6 +215,21 @@ void LocalMesh::CreateGridMetrics(int istoreJac)
 
   CreateFaces();
 }
+void LocalMesh::RecomputeMetrics(void)
+{
+  // compute cell center_ds
+  int N = ncells + nhalo;
+  FVSAND_GPU_KERNEL_LAUNCH( cell_center, (N*3), center_d, x_d, nvcft_d, 
+                            cell2node_d, N );
+  // compute cell normals, centroid and volume_d
+  FVSAND_GPU_KERNEL_LAUNCH( cell_normals_volume, N, normals_d, volume_d, centroid_d,
+			    facecentroid_d,
+			    x_d, ncon_d, cell2node_d, nvcft_d, N );
+
+  // check conservation
+  FVSAND_GPU_KERNEL_LAUNCH( check_conservation, N, normals_d, x_d, nccft_d, 
+                            cell2cell_d, N );
+}
 
 void LocalMesh::CreateFaces(void)
 {

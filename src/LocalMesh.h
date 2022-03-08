@@ -147,6 +147,9 @@ class LocalMesh
   double ResNorm(double *);
   void update_time(void);
   void add_time_source(int, double , double *, double *, double *);
+  void mms_init(double);
+  void mms_compute(double &, double);
+  void RecomputeMetrics(void);
 };
   
 }

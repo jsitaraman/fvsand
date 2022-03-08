@@ -83,10 +83,15 @@ CartesianMesh::CartesianMesh(char *cart_file,int numprocs)
   for(int d=0;d<3;d++)
     {
       xc[d]=(double *)malloc(sizeof(double)*NN[d]);
+      if (idiv[d]==2) {
+        for(int i=0;i<NN[d];i++)
+	  xc[d][i]=(arc[d][0]+i*(arc[d][1]-arc[d][0])/(NN[d]-1));
+      } else {
       distrib_(&idiv[d],idim[d],arc[d],ds[d],xc[d]);
+      }
     }
-  // for(int i=0;i<NN[0];i++)
-  //  printf("%lf %lf %lf\n",xc[0][i],xc[1][i],xc[2][i]);
+  for(int i=0;i<NN[0];i++)
+    printf("%lf %lf %lf\n",xc[0][i],xc[1][i],xc[2][i]);
 
   // create a hexahedral unstructured mesh
   nnodes=NN[0]*NN[1]*NN[2]; 
@@ -282,5 +287,50 @@ void CartesianMesh::WriteBoundaries(int label)
 	  fprintf(fp,"%ld ",cell2node[8*i+face2node[3][4*j+k]-1]+1);
 	fprintf(fp,"\n");
       }
+  fclose(fp);
+}
+
+void CartesianMesh::WriteUgrid(int label)
+{
+  char fname[80];
+  int k2[3]={0,2,3};
+  
+  int nsurfcells=0;
+  for(int i=0;i<ncells;i++)
+    for(int j=0;j<6;j++)
+      if (cell2cell[6*i+j] < 0) nsurfcells++;
+
+  sprintf(fname,"cartmesh%d.ugrid",label);
+  FILE *fp=fopen(fname,"w");
+  fprintf(fp,"%ld %d %d %d %d %d %d %ld\n",nnodes,0,nsurfcells,0,0,0,0,ncells);
+  for(int i=0;i<nnodes;i++) {    
+    for(int j=0;j<3;j++)
+      fprintf(fp,"%.14e ",x[3*i+j]);
+    fprintf(fp,"\n");
+  }
+  for(int i=0;i<ncells;i++)
+    for(int j=0;j<6;j++)
+      if (cell2cell[6*i+j] < 0) {
+	{
+	  for(int k=0;k<4;k++)
+	    fprintf(fp,"%ld ",cell2node[8*i+face2node[3][4*j+k]-1]+1);
+	  fprintf(fp,"\n");
+	}
+      }
+  for(int i=0;i<nsurfcells;i++) {
+      fprintf(fp,"%d\n",1);
+   }
+
+  for(int i=0;i<ncells;i++) {
+    fprintf(fp,"%ld %ld %ld %ld %ld %ld %ld %ld\n",	    
+	    cell2node[8*i+0]+1,
+	    cell2node[8*i+1]+1,
+	    cell2node[8*i+2]+1,
+	    cell2node[8*i+3]+1,
+	    cell2node[8*i+4]+1,
+	    cell2node[8*i+5]+1,
+	    cell2node[8*i+6]+1,
+	    cell2node[8*i+7]+1);
+  }
   fclose(fp);
 }

@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
   int istoreJac =3; // Jacobian storage or not 
   int restype=0;    // restype = 0 (cell-based) 1 (face-based)
   int nsubit=10;
+  bool mms=false;
   if (argc > 1) {
    parseInputs(argv[1],&meshtype,fname,&dsmin,&stretch,&nlevels,
 	      flovar,&nsteps,&nsave,&dt,reOrderCells,&nsweep,&nsubit,
@@ -94,6 +95,7 @@ int main(int argc, char *argv[])
     CartesianMesh *cm;
     cm= new CartesianMesh(fname,numprocs);
     cm->WriteMesh(myid);
+    cm->WriteUgrid(myid);
     lm= new LocalMesh(cm,myid,MPI_COMM_WORLD);
     ncells=cm->ncells;
   }
@@ -101,6 +103,8 @@ int main(int argc, char *argv[])
     {
       StrandMesh *sm;
       sm=new StrandMesh(fname,dsmin,stretch,nlevels,myid);
+      sm->WriteBoundaries(myid);
+      sm->WriteUgrid(myid);
       if (reOrderCells) sm->ReOrderCells();
       sm->PartitionSphereMesh(myid,numprocs,MPI_COMM_WORLD);      
       // create local mesh partitions
@@ -113,56 +117,68 @@ int main(int argc, char *argv[])
   
   // initialize solution
   lm->InitSolution(flovar.data(),nfields);
-
-  stopwatch.tick();
-
-  for(int iter=0;iter<nsteps;iter++)
-    {
-      std::ostringstream timestep_name;
-      timestep_name << "TimeStep-" << iter;
-      if(nsweep){ // implicit 
-	//FVSAND_NVTX_SECTION(timestep_name.str(),
-	if (nsubit > 1) lm->update_time();
-	for(int it=0;it < nsubit;it++) {
-	  lm->Residual(lm->q,restype,dt,istoreJac); // computes res_d
-	  if (nsubit > 1) lm->add_time_source(iter,dt, lm->q,lm->qn,lm->qnn);
-	  lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with
-	  //if (nsubit > 1) lm->RegulateDQ(lm->q);
-	  lm->UpdateQ(lm->q,lm->q,1);            // adds dqtilde (in res_d)
+  //
+  mms=true;
+  if (mms) {
+    double scale=1;
+    double inverror,viscerror;
+    for(int p=0;p<1;p++) {
+      lm->mms_init(scale);
+      lm->mms_compute(inverror,dt);
+      printf("%d %f\n",p,inverror);
+      scale=scale/1.1;
+    }
+  }
+  else {
+    stopwatch.tick();
+    for(int iter=0;iter<nsteps;iter++)
+      {
+	std::ostringstream timestep_name;
+	timestep_name << "TimeStep-" << iter;
+	if(nsweep){ // implicit 
+	  //FVSAND_NVTX_SECTION(timestep_name.str(),
+	  if (nsubit > 1) lm->update_time();
+	  for(int it=0;it < nsubit;it++) {
+	    lm->Residual(lm->q,restype,dt,istoreJac); // computes res_d
+	    if (nsubit > 1) lm->add_time_source(iter,dt, lm->q,lm->qn,lm->qnn);
+	    lm->Jacobi(lm->q,dt,nsweep,istoreJac); // runs sweeps and replaces res_d with
+	    //if (nsubit > 1) lm->RegulateDQ(lm->q);
+	    lm->UpdateQ(lm->q,lm->q,1);            // adds dqtilde (in res_d)
 	  if (nsubit > 1) {
-    	   double rnorm=lm->ResNorm(lm->res_d);
-	   if (myid==0) printf("%6d %6d  %16.8e\n",iter, it,rnorm);
+	    double rnorm=lm->ResNorm(lm->res_d);
+	    if (myid==0) printf("%6d %6d  %16.8e\n",iter, it,rnorm);
+	  }
+	  }
+	  //);
+	}else {
+	  FVSAND_NVTX_SECTION( timestep_name.str(), 
+			       lm->Residual(lm->q,restype);
+			       lm->Update(lm->qn,lm->q,rk[1]*dt);
+			       lm->Update(lm->q,lm->q,rk[0]*dt);
+			       
+			       lm->Residual(lm->qn,restype);
+			       lm->Update(lm->qn,lm->q,rk[2]*dt);
+			       
+			       lm->Residual(lm->qn,restype);      
+			       lm->Update(lm->q,lm->q,rk[3]*dt);
+			       );
+	}
+	if (nsubit==1) {
+	  if ((iter+1)%nsave ==0 || iter==0) {
+	    double rnorm=lm->ResNorm(lm->res_d);
+	    if (myid==0) printf("iter:%6d  %16.8e\n",iter+1,rnorm);
 	  }
 	}
-	 //);
-      }else {
-      FVSAND_NVTX_SECTION( timestep_name.str(), 
-        lm->Residual(lm->q,restype);
-        lm->Update(lm->qn,lm->q,rk[1]*dt);
-        lm->Update(lm->q,lm->q,rk[0]*dt);
-
-        lm->Residual(lm->qn,restype);
-        lm->Update(lm->qn,lm->q,rk[2]*dt);
-
-        lm->Residual(lm->qn,restype);      
-        lm->Update(lm->q,lm->q,rk[3]*dt);
-      );
-     }
-     if (nsubit==1) {
-      if ((iter+1)%nsave ==0 || iter==0) {
-	double rnorm=lm->ResNorm(lm->res_d);
-        if (myid==0) printf("iter:%6d  %16.8e\n",iter+1,rnorm);
-       }
-     }
+      }
+    
+    double elapsed = stopwatch.tock();
+    if (myid == 0) {
+      printf("# ----------------------------------\n");
+      printf("# Elapsed time: %13.4f s\n", elapsed);
+      printf("# Through-put : %13.4f [million-elements/sec/iteration]\n",
+	     ncells/(elapsed/nsteps/nsubit)/1e6);
+      printf("# ----------------------------------\n");
     }
-  
-  double elapsed = stopwatch.tock();
-  if (myid == 0) {
-   printf("# ----------------------------------\n");
-   printf("# Elapsed time: %13.4f s\n", elapsed);
-   printf("# Through-put : %13.4f [million-elements/sec/iteration]\n",
-		   ncells/(elapsed/nsteps/nsubit)/1e6);
-   printf("# ----------------------------------\n");
   }
 
   lm->WriteMesh(myid);  

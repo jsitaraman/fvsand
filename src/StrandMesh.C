@@ -132,7 +132,7 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
       ds*=stretch;
     }
   if (myid==0) printf("Generated volume mesh ..\n");
-  if (myid==0) printf("Total Prizmatic Elements: %d\n",ncells);
+  if (myid==0) printf("Total Prizmatic Elements: %ld\n",ncells);
 
   /* call canned f90 to get the neighbor information for all cells */
   
@@ -357,4 +357,41 @@ void StrandMesh::WriteMesh(int label)
   fclose(fp);
   
 }
-    
+
+void StrandMesh::WriteUgrid(int label)
+{
+  char fname[80];
+  int nsurfcells=0;
+  for(int i=0;i<ncells;i++)
+    for(int j=0;j<5;j++)
+      if (cell2cell[5*i+j] < 0) nsurfcells++;
+
+  sprintf(fname,"strandmesh%d.ugrid",label);
+  FILE *fp=fopen(fname,"w");
+  fprintf(fp,"%ld %d %d %d %d %ld %d\n",nnodes,nsurfcells,0,0,0,ncells,0);
+  for(int i=0;i<nnodes;i++) {    
+    for(int j=0;j<3;j++)
+      fprintf(fp,"%.14e ",x[3*i+j]);
+    fprintf(fp,"\n");
+  }
+  for(int i=0;i<ncells;i++)
+    for(int j=0;j<5;j++)
+      if (cell2cell[5*i+j] < 0) {
+	for(int k=0;k<3;k++)
+	  fprintf(fp,"%ld ",cell2node[6*i+face2node[2][4*j+k]-1]+1);
+	fprintf(fp,"\n");
+      }  
+  for(int i=0;i<nsurfcells/2;i++)
+    fprintf(fp,"%d\n",1);
+  for(int i=0;i<nsurfcells/2;i++)
+    fprintf(fp,"%d\n",2);
+  for(int i=0;i<ncells;i++)
+    fprintf(fp,"%ld %ld %ld %ld %ld %ld\n",	    
+	    cell2node[6*i+4]+1,
+	    cell2node[6*i+3]+1,
+	    cell2node[6*i+5]+1,
+	    cell2node[6*i+1]+1,
+	    cell2node[6*i+0]+1,
+	    cell2node[6*i+2]+1);
+  fclose(fp);
+}
