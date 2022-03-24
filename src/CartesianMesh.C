@@ -90,8 +90,8 @@ CartesianMesh::CartesianMesh(char *cart_file,int numprocs)
       distrib_(&idiv[d],idim[d],arc[d],ds[d],xc[d]);
       }
     }
-  for(int i=0;i<NN[0];i++)
-    printf("%lf %lf %lf\n",xc[0][i],xc[1][i],xc[2][i]);
+  //for(int i=0;i<NN[0];i++)
+  //  printf("%lf %lf %lf\n",xc[0][i],xc[1][i],xc[2][i]);
 
   // create a hexahedral unstructured mesh
   nnodes=NN[0]*NN[1]*NN[2]; 
@@ -206,8 +206,8 @@ CartesianMesh::CartesianMesh(char *cart_file,int numprocs)
   	 k++;
         }
       }
-  printf("k=%d\n",k);
-  WriteBoundaries(0);
+  //printf("k=%d\n",k);
+  //WriteBoundaries(0);
   
   //for(int i=0;i<numprocs;i++) printf("%d\n",cellcount[i]);
 

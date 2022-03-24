@@ -34,7 +34,7 @@ void viscous_flux_fp( real & f1, real & f2, real & f3, real & f4, real & f5,
   rz=dz-cz;
   // tangential component of the centroid vector
   nmag2=nx*nx+ny*ny+nz*nz;
-  dot=rx*nx+ry*ny*rz*nz;
+  dot=rx*nx+ry*ny+rz*nz;
   tx=rx - (dot)*nx/nmag2;
   ty=ry - (dot)*ny/nmag2;
   tz=rz - (dot)*nz/nmag2;

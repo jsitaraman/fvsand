@@ -10,6 +10,7 @@
 #include "NVTXMacros.h"
 #include <sstream> // for std::ostringstream
 #include "inputParser.h"
+#include <math.h>
 using namespace FVSAND;
 
 // -----------------------------------------------------------------------------
@@ -120,13 +121,24 @@ int main(int argc, char *argv[])
   //
   mms=true;
   if (mms) {
-    double scale=1;
+    double scale=1.0;
     double inverror,viscerror;
+    double dx=0.2;
+    double inverrorold;
+    double dxold;
     for(int p=0;p<1;p++) {
       lm->mms_init(scale);
       lm->mms_compute(inverror,dt);
-      printf("%d %f\n",p,inverror);
-      scale=scale/1.1;
+      scale=0.5;
+      if (p==0) {   
+       printf("%d %e\n",p,inverror);
+      }
+      else {
+       printf("%d %e %f\n",p,inverror,(log(inverrorold)-log(inverror))/(log(dxold)-log(dx)));
+     } 
+     dxold=dx;
+     inverrorold=inverror;
+     dx*=0.5; 
     }
   }
   else {

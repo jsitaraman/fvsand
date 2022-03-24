@@ -16,7 +16,7 @@ nsubit=1                       # number of subiterations (=1 implies steady)
 istoreJac=5		       # jacobian storage type
 restype=2		       # residual algorithm (=0 ->cell-wise, =1 -> face-wise)
 reOrderCells=false             # reverse cuthill-mckee reordering for bandwidth             
-rey=100
+rey=1000
 # Jacobian storage types
 # istoreJac = 0 -> no storage, recomputed every linear sweep
 #

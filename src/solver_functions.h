@@ -103,6 +103,7 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
   double qlmax=0.0;
   double qrmax=0.0;
   int indx,nindx,indx2,nindx2;
+  double xx[3]={-0.4375,-0.4375,-0.4375};
 #if defined (FVSAND_HAS_GPU)
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (idx < ncells) 
@@ -184,7 +185,7 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 	      for(int d=0;d<3;d++) centroid_rht[d]=facecentroid[scale*idx+(3*(f-nccft[idx])+d)*stride];
 	      for(int n=0;n<nfields;n++) qr0[n]=qr[n];
 	    }
-	    double dres[5];
+	    double dres[5]{0};
 	    double gx,gy,gz; // grid speeds
 	    double spec;     // spectral radius
 	    gx=gy=gz=0;
@@ -208,10 +209,10 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 				      qr[0],qr[1],qr[2],qr[3],qr[4],
 				      norm[0],norm[1],norm[2],
 				      gx,gy,gz,spec,idxn);
-	    /* 	    
+
 	    viscous_flux_fp(dres[0],dres[1],dres[2],dres[3],dres[4],
-			    ql[0],ql[1],ql[2],ql[3],ql[4],
-			    qr[0],qr[1],qr[2],qr[3],qr[4],
+			    ql0[0],ql0[1],ql0[2],ql0[3],ql0[4],
+			    qr0[0],qr0[1],qr0[2],qr0[3],qr0[4],
 			    grad_avg,
 			    centroid[scale*idx+0*stride],
 			    centroid[scale*idx+1*stride],
@@ -219,8 +220,7 @@ void computeResidual_2nd(double *res, double *q, double *center, double *normals
 			    centroid_rht[0],centroid_rht[1],centroid_rht[2],
 			    flovar[5], // reynolds number
 			    norm[0],norm[1],norm[2]);
-	    */
-	    			    
+
 	    for(int n=0;n<nfields;n++)
 	      res[scale*idx+n*stride]-=dres[n];
 
@@ -1850,6 +1850,7 @@ void computeResidualFace(double *res, double *faceflux, double *volume,
 // the limiter function per field for the gradients
 //
 FVSAND_GPU_GLOBAL
+
 void gradients_and_limiters(double *weights, double *grad, double *q, 
 			    double *flovar, double *normals,
 			    double *vol, double *centroid, double *facecentroid, 
@@ -1925,13 +1926,13 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 		for(int d=0;d<3;d++)
 		  {
 		    // set gradients to zero to debug for now
-		    //grad[scale*idx+(n*4+d)*stride]+=(qr[n]-ql[n])*
-		    //  (weights[scale*idx+(3*(f-nccft[idx])+d)*stride]);
+		    grad[scale*idx+(n*4+d)*stride]+=(qr[n]-ql[n])*
+		      (weights[scale*idx+(3*(f-nccft[idx])+d)*stride]);
 		    //
 		    //  GG gradients
 		    //  
 		    //grad[scale*idx+(n*4+d)*stride]+=0.5*(qr[n]+ql[n])*norm[d]/vol[idx];
-		    grad[scale*idx+(n*4+d)*stride]=0;
+		    //grad[scale*idx+(n*4+d)*stride]=0;
 		  }
 		qmax[n]=fvsand_max(qmax[n],qr[n]);
 		qmin[n]=fvsand_min(qmin[n],qr[n]);
@@ -1962,7 +1963,7 @@ void gradients_and_limiters(double *weights, double *grad, double *q,
 	    					      grad[scale*idx+(n*4+3)*stride]);
 	  }
 	}
-	//for(int n=0;n<nfields;n++) grad[scale*idx+(n*4+3)*stride]=0.5;
+	for(int n=0;n<nfields;n++) grad[scale*idx+(n*4+3)*stride]=1.0;
       }
 }
 //

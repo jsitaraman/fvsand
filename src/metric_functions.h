@@ -269,7 +269,7 @@ void cell_normals_volume(double *normals,
 #endif
     }
 #if !defined(FVSAND_HAS_GPU)
-  printf("normalsum: %lf %lf %lf %lf\n",normsum[0],normsum[1],normsum[2],totalvol);
+  //printf("normalsum: %lf %lf %lf %lf\n",normsum[0],normsum[1],normsum[2],totalvol);
 #endif
 }    
 
@@ -315,7 +315,7 @@ void check_conservation(double *normals,
 	}
     }
 #if !defined (FVSAND_HAS_GPU)
-  printf("conscheck=%f\n",conscheck);
+  //printf("conscheck=%f\n",conscheck);
 #endif
   //fclose(fp);
 }

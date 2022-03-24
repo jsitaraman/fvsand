@@ -35,7 +35,7 @@ void InterfaceFlux_Inviscid_fp( real & f1, real & f2, real & f3, real & f4, real
       //
       // first executable statement
       //
-      eps = 1.e-6;
+      eps = 1.e-12;
  
       faceSpeed = (gx*dsx + gy*dsy + gz*dsz)/sqrt(dsx*dsx + dsy*dsy + dsz*dsz);
 
@@ -154,11 +154,11 @@ void InterfaceFlux_Inviscid_fp( real & f1, real & f2, real & f3, real & f4, real
       eprht = erht + prht;
       //fssub = rr*r4;
       //fssub = 0.0;
-      f1 = aj*(  rlft*uulft +  rrht*uurht           - 0*aq1 );
-      f2 = aj*( rulft*uulft + rurht*uurht + r1*plar - 0*aq2 );
-      f3 = aj*( rvlft*uulft + rvrht*uurht + r2*plar - 0*aq3 );
-      f4 = aj*( rwlft*uulft + rwrht*uurht + r3*plar - 0*aq4 );
-      f5 = aj*( eplft*uulft + eprht*uurht - r4*plar - 0*aq5 );
+      f1 = aj*(  rlft*uulft +  rrht*uurht           - aq1 );
+      f2 = aj*( rulft*uulft + rurht*uurht + r1*plar - aq2 );
+      f3 = aj*( rvlft*uulft + rvrht*uurht + r2*plar - aq3 );
+      f4 = aj*( rwlft*uulft + rwrht*uurht + r3*plar - aq4 );
+      f5 = aj*( eplft*uulft + eprht*uurht - r4*plar - aq5 );
     }
 }
 
