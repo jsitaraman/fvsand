@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
   //printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid);
 #endif
   // default parameters
-  char fname[]="data.tri";
+  char fname[64]="data.tri";
   double dsmin=0.01;
   double stretch=1.1;
   int nlevels=30;
