@@ -48,7 +48,7 @@ Range::~Range() { stop(); }
 void Range::start()
 {
   assert(!m_active);
-
+#if 0
 #if defined(FVSAND_HAS_GPU) && !defined(FVSAND_FAKE_GPU)
   nvtxEventAttributes_t eventAttrib = {0};
   eventAttrib.version = NVTX_VERSION;
@@ -61,6 +61,7 @@ void Range::start()
 
   nvtxRangePushEx(&eventAttrib);
 #endif
+#endif
 
   m_active = true;
 }
@@ -70,8 +71,10 @@ void Range::stop()
 {
   if(m_active)
   {
+#if 0
 #if defined(FVSAND_HAS_GPU) && !defined(FVSAND_FAKE_GPU)
     nvtxRangePop();
+#endif
 #endif
     m_active = false;
   }

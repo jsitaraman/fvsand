@@ -25,8 +25,8 @@ set(FVSAND_CUDA_SM "70" CACHE STRING "CUDA arch option")
 #SET(CMAKE_CXX_FLAGS "-fPIC -g -rdynamic -O0")
 #SET(CMAKE_Fortran_FLAGS "-fbounds-check -fbacktrace -g")
 
-SET(CMAKE_C_FLAGS "-fPIC -rdynamic -O2")
-SET(CMAKE_CXX_FLAGS "-fPIC -rdynamic -O2")
+SET(CMAKE_C_FLAGS "-fPIC -O2")
+SET(CMAKE_CXX_FLAGS "-fPIC -O2")
 SET(CMAKE_Fortran_FLAGS "-O2")
 
 if (FVSAND_ENABLE_CUDA)
@@ -35,7 +35,7 @@ if (FVSAND_ENABLE_CUDA)
     message(FATAL_ERROR "Your nvcc version is ${CMAKE_CUDA_COMPILER_VERSION}. "
       "Please use CUDA toolkit version 9.0 or newer")
   endif()
-  set(FVSAND_CUDA_FLAGS "-lineinfo -rdynamic --Wno-deprecated-gpu-targets -m64")
+  set(FVSAND_CUDA_FLAGS "-lineinfo --Wno-deprecated-gpu-targets -m64")
   set(FVSAND_CUDA_ARCH_FLAGS "-gencode=arch=compute_${FVSAND_CUDA_SM},code=sm_${FVSAND_CUDA_SM}")
   set(CMAKE_CUDA_STANDARD 11)
   set(CMAKE_CUDA_STANDARD_REQUIRED ON)
@@ -78,8 +78,8 @@ if (FVSAND_ENABLE_CUDA)
   list(FILTER FVSANDLIB_CPP_SRC INCLUDE REGEX "\\.C")
   set_source_files_properties(${FVSANDLIB_CPP_SRC} PROPERTIES LANGUAGE CUDA)
 
-  find_package(CUDAToolkit)
-  target_link_libraries(fvsand.exe CUDA::nvToolsExt)
+  #find_package(CUDAToolkit)
+  #target_link_libraries(fvsand.exe CUDA::nvToolsExt)
   
 endif()
 
