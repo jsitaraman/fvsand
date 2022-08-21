@@ -9,6 +9,7 @@
 #include <string>
 #include "NVTXMacros.h"
 #include <sstream> // for std::ostringstream
+#include <cstring> // for std::strcmp()
 #include "inputParser.h"
 using namespace FVSAND;
 
@@ -76,10 +77,22 @@ int main(int argc, char *argv[])
   int nsweep = 2;   // Jacobi Sweeps (=0 means explict)
   int istoreJac =3; // Jacobian storage or not 
   int restype=0;    // restype = 0 (cell-based) 1 (face-based)
-  if (argc > 1) {
-   parseInputs(argv[1],fname,&dsmin,&stretch,&nlevels,
-	      flovar,&nsteps,&nsave,&dt,reOrderCells,&nsweep,
-	      &istoreJac,&restype);
+  bool usecudampi = false; // optional argument to fvsand
+  if (argc > 1) 
+  {
+    parseInputs(argv[1],fname,&dsmin,&stretch,&nlevels,
+	        flovar,&nsteps,&nsave,&dt,reOrderCells,&nsweep,
+	        &istoreJac,&restype);
+
+    for ( int iarg=2; iarg < argc; ++iarg )
+    {
+      if ( std::strcmp(argv[iarg], "--usecudampi" ) == 0 )
+      {
+        usecudampi = true;
+      }
+
+    } // end for all command line arguments
+
   }
   
   // runge-kutta tableue
@@ -95,7 +108,7 @@ int main(int argc, char *argv[])
   // create local mesh partitions
   // and compute grid metrics
   LocalMesh *lm;
-  lm= new LocalMesh(sm,myid,MPI_COMM_WORLD);
+  lm= new LocalMesh(sm,myid,MPI_COMM_WORLD,usecudampi);
   lm->CreateGridMetrics(istoreJac);
 
   // initialize solution

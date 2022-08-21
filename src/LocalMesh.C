@@ -64,13 +64,14 @@ LocalMesh::~LocalMesh()
   FVSAND_FREE_DEVICE(dqupdate_d);  
 }
 
-LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm)
+LocalMesh::LocalMesh(GlobalMesh *g, int myid, MPI_Comm comm, bool usecuda)
 {
   Timer stopwatch;
   mycomm=comm;
   int ierr=MPI_Comm_rank(comm,&myid);
   ierr=MPI_Comm_size(comm,&ngroup);
   parallelComm pc;
+  usecudampi = usecuda;
   
   // create communication patterns and ghost cells
   stopwatch.tick(); 
@@ -339,25 +340,47 @@ void LocalMesh::UpdateFringes(double *qd)
 {
     nthreads=device2host.size();
     if(nthreads == 0) return;
-    FVSAND_GPU_KERNEL_LAUNCH( updateHost, nthreads,
+
+    if ( usecudampi )
+    {
+      // uses CUDA-aware MPI and passes device pointers to MPI
+      FVSAND_GPU_KERNEL_LAUNCH( updateHost, nthreads,
+                                qbuf_d, qd,device2host_d,nthreads);
+      // separate sends and receives so that we can overlap comm and calculation
+      // in the residual and iteration loops.
+      int reqcount=0;
+      pc.postRecvs_direct(qbuf_d2,nfields_d,rcvmap,ireq,mycomm,&reqcount);
+
+      // wait for pack kernel to finish packing buffers?
+      FVSAND::gpu::synchronize();
+
+      pc.postSends_direct(qbuf_d,nfields_d,sndmap,ireq,mycomm,&reqcount);
+      pc.finish_comm(reqcount,ireq,istatus);
+      
+      // unpack
+      FVSAND_GPU_KERNEL_LAUNCH( updateDevice, nthreads, qd, 
+                                qbuf_d2, host2device_d, nthreads );
+    }
+    else
+    {
+      // does memcpy from/to global memory and only passes host-pointers to MPI
+      FVSAND_GPU_KERNEL_LAUNCH( updateHost, nthreads,
 			      qbuf_d,qd,device2host_d,nthreads);
-    // separate sends and receives so that we can overlap comm and calculation
-    // in the residual and iteration loops.
-    // TODO (george) use qbuf2_d and qbuf_d instead of qbuf2 and qbuf for cuda-aware
-    int reqcount=0;
-    pc.postRecvs_direct(qbuf2,nfields_d,rcvmap,ireq,mycomm,&reqcount);
-    // TODO (george) with cuda-aware this pull is not required
-    // but it doesn't work now
-    gpu::pull_from_device<double>(qbuf,qbuf_d,sizeof(double)*device2host.size());
-    pc.postSends_direct(qbuf,nfields_d,sndmap,ireq,mycomm,&reqcount);
-    pc.finish_comm(reqcount,ireq,istatus);
-    // same as above
-    // not doing cuda-aware now
-    gpu::copy_to_device(qbuf_d2,qbuf2,sizeof(double)*host2device.size());
-    
-    nthreads=host2device.size();
-    FVSAND_GPU_KERNEL_LAUNCH( updateDevice, nthreads,
-			      qd,qbuf_d2,host2device_d,nthreads);
+
+      int reqcount=0;
+      pc.postRecvs_direct(qbuf2,nfields_d,rcvmap,ireq,mycomm,&reqcount);
+      gpu::pull_from_device<double>(qbuf,qbuf_d,sizeof(double)*device2host.size());
+      
+      pc.postSends_direct(qbuf,nfields_d,sndmap,ireq,mycomm,&reqcount);
+      pc.finish_comm(reqcount,ireq,istatus);
+ 
+      gpu::copy_to_device(qbuf_d2,qbuf2,sizeof(double)*host2device.size());
+
+      nthreads=host2device.size();
+      FVSAND_GPU_KERNEL_LAUNCH( updateDevice, nthreads,
+		  	      qd,qbuf_d2,host2device_d,nthreads);
+    } 
+
 }
     
 
