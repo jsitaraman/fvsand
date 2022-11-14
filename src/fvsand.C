@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
   int istoreJac =3; // Jacobian storage or not 
   int restype=0;    // restype = 0 (cell-based) 1 (face-based)
   int nsubit=10;
-  bool mms=false;
+  bool mms=true;
   if (argc > 1) {
    parseInputs(argv[1],&meshtype,fname,&dsmin,&stretch,&nlevels,
 	      flovar,&nsteps,&nsave,&dt,reOrderCells,&nsweep,&nsubit,

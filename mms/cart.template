@@ -1,14 +1,14 @@
 # dimensions in axis x, y and z
-29 29 29
+<idim> <idim> <idim>
 # x-axis distribution
-1   29
+1   <idim>
 -2  2
 0.4 0.4
 # y-axis distribution
-1   29
+1   <idim>
 -2  2
 0.4 0.4
 # z-axis distribution
-1   29
+1   <idim>
 -2  2
 0.4 0.4
