@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
    printf("# ----------------------------------\n");
   }
 
-  lm->WriteMesh(myid);  
+  // lm->WriteMesh(myid);  
 
   MPI_Finalize();
 
