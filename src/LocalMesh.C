@@ -524,7 +524,8 @@ double LocalMesh::ResNorm()
   rnorm[0]=0.0;
   rnorm[1]=ncells;
 
-#if defined(FVSAND_HAS_GPU) && defined(FVSAND_HAS_CUDA) && !defined(FVSAND_FAKE_GPU)
+#if 0 
+#defined(FVSAND_HAS_GPU) && defined(FVSAND_HAS_CUDA) && !defined(FVSAND_FAKE_GPU)
   fvsand_square_op<double> unary_op;
   thrust::plus<double> binary_op;
   const int N = nfields_d * ncells; 
