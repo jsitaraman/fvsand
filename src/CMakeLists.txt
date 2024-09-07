@@ -1,6 +1,7 @@
 PROJECT(fvsand)
 ENABLE_LANGUAGE(Fortran C CXX)
 CMAKE_MINIMUM_REQUIRED(VERSION 3.8)
+find_package(MPI REQUIRED)
 
 # If CMAKE_BUILD_TYPE is not specified, default to "Debug"
 if( NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES )
@@ -15,7 +16,8 @@ if( NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES )
 
 endif()
 
-option(FVSAND_ENABLE_CUDA "Enable CUDA support (default: off)" ON)
+option(FVSAND_ENABLE_CUDA "Enable CUDA support (default: off)" OFF)
+option(FVSAND_ENABLE_HIP "Enable CUDA support (default: off)" ON)
 
 # CUDA specific options
 set(FVSAND_CUDA_SM "70" CACHE STRING "CUDA arch option")
@@ -41,6 +43,13 @@ if (FVSAND_ENABLE_CUDA)
   set(CMAKE_CUDA_STANDARD_REQUIRED ON)
   set(CMAKE_CUDA_EXTENSIONS OFF)
 endif()
+
+if (FVSAND_ENABLE_HIP)
+ set(CMAKE_CXX_COMPILER hipcc)
+ set(CMAKE_C_COMPILER hipcc)
+endif()
+
+
 
 find_package(MPI REQUIRED)
 include_directories(SYSTEM ${MPI_C_INCLUDE_PATH})
@@ -81,6 +90,11 @@ if (FVSAND_ENABLE_CUDA)
   find_package(CUDAToolkit)
   target_link_libraries(fvsand.exe CUDA::nvToolsExt)
   
+endif()
+
+if (FVSAND_ENABLE_HIP)
+   target_compile_definitions(fvsand.exe PUBLIC
+    FVSAND_HAS_GPU FVSAND_HAS_HIP)
 endif()
 
 TARGET_LINK_LIBRARIES(fvsand.exe m gfortran ${MPI_LIBRARIES} )

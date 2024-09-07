@@ -13,7 +13,7 @@
 using namespace FVSAND;
 
 // -----------------------------------------------------------------------------
-#if FVSAND_HAS_GPU
+#if FVSAND_HAS_CUDA
 #include "cuda_runtime.h"
 void listdev( int rank )
 {
@@ -55,12 +55,16 @@ int main(int argc, char *argv[])
   
   Timer stopwatch;
   
-#if FVSAND_HAS_GPU
+#if FVSAND_HAS_CUDA
   FVSAND_GPU_CHECK_ERROR(cudaGetDeviceCount(&numdevices));
   mydeviceid = myid % numdevices;
   FVSAND_GPU_CHECK_ERROR(cudaSetDevice(mydeviceid));
   listdev(myid);
-  //printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid);
+#else if FVSAND_HAS_HIP
+  hipGetDeviceCount(&numdevices);
+  mydeviceid = myid % numdevices;
+  printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid);
+  hipSetDevice(mydeviceid);
 #endif
   // default parameters
   char fname[64]="data.tri";

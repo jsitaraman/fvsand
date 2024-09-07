@@ -4,7 +4,7 @@
 #include <cassert>
 
 // CUDA NVTX includes
-#if defined(FVSAND_HAS_GPU) && !defined(FVSAND_FAKE_GPU)
+#if defined(FVSAND_HAS_CUDA) && !defined(FVSAND_FAKE_GPU)
   #include <cuda.h>
   #include <nvToolsExt.h>
   #include <nvToolsExtCuda.h>
@@ -49,7 +49,7 @@ void Range::start()
 {
   assert(!m_active);
 
-#if defined(FVSAND_HAS_GPU) && !defined(FVSAND_FAKE_GPU)
+#if defined(FVSAND_HAS_CUDA) && !defined(FVSAND_FAKE_GPU)
   nvtxEventAttributes_t eventAttrib = {0};
   eventAttrib.version = NVTX_VERSION;
   eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
@@ -70,7 +70,7 @@ void Range::stop()
 {
   if(m_active)
   {
-#if defined(FVSAND_HAS_GPU) && !defined(FVSAND_FAKE_GPU)
+#if defined(FVSAND_HAS_CUDA) && !defined(FVSAND_FAKE_GPU)
     nvtxRangePop();
 #endif
     m_active = false;
