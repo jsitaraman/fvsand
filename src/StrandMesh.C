@@ -132,7 +132,7 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
       ds*=stretch;
     }
   if (myid==0) printf("Generated volume mesh ..\n");
-  if (myid==0) printf("Total Prizmatic Elements: %d\n",ncells);
+  if (myid==0) printf("Total Prizmatic Elements: %ld\n",ncells);
 
   /* call canned f90 to get the neighbor information for all cells */
   
@@ -181,6 +181,7 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
   if (myid==0) printf("Assigned Boundary Conditions..\n");
   //printf("k=%d\n",k);
   //WriteBoundaries(0);
+  WriteUgrid(0);
 
   delete [] ctmp;
   delete [] ftmp;
@@ -357,4 +358,88 @@ void StrandMesh::WriteMesh(int label)
   fclose(fp);
   
 }
-    
+
+void mwrite(int input,FILE *fp)
+{
+ union temp {
+  int value;
+  char c[4];
+ } in,out;
+ in.value=input;
+ out.c[0]=in.c[3];
+ out.c[1]=in.c[2];
+ out.c[2]=in.c[1];
+ out.c[3]=in.c[0];
+ fwrite(&out.value,sizeof(int),1,fp); 	
+}
+
+void dwrite(double input,FILE *fp)
+{
+  union temp {
+    double value;
+    char c[8];
+  } in,out;
+
+  in.value = input;
+  out.c[0] = in.c[7];
+  out.c[1] = in.c[6];
+  out.c[2] = in.c[5];
+  out.c[3] = in.c[4];
+  out.c[4] = in.c[3];
+  out.c[5] = in.c[2];
+  out.c[6] = in.c[1];
+  out.c[7] = in.c[0];
+  fwrite(&out.value,sizeof(out.value),1,fp);
+}  
+
+void StrandMesh::WriteUgrid(int label)
+{
+  char fname[80];
+  int nsurfcells=0;
+  for(int i=0;i<ncells;i++)
+    for(int j=0;j<5;j++)
+      if (cell2cell[5*i+j] < 0) nsurfcells++;
+
+  sprintf(fname,"strandmesh%d.b8.ugrid",label);
+  FILE *fp=fopen(fname,"wb");
+  mwrite(nnodes,fp);
+  mwrite(nsurfcells,fp);
+  mwrite(0,fp);
+  mwrite(0,fp);
+  mwrite(0,fp);
+  mwrite(ncells,fp);
+  mwrite(0,fp);
+  for(int i=0;i<nnodes;i++) {    
+    for(int j=0;j<3;j++)
+      dwrite(x[3*i+j],fp);
+  }
+  for(int i=0;i<ncells;i++)
+    for(int j=0;j<5;j++)
+      if (cell2cell[5*i+j] < 0) {
+	for(int k=0;k<3;k++) {
+	  int indx=cell2node[6*i+face2node[2][4*j+k]-1]+1;
+	  mwrite(indx,fp);
+	 }
+      }  
+  for(int i=0;i<nsurfcells/2;i++) {
+    int indx=1;
+    mwrite(indx,fp);
+  }
+  for(int i=0;i<nsurfcells/2;i++)
+  {
+    int indx=2;
+    mwrite(indx,fp);
+  }
+  for(int i=0;i<ncells;i++) {
+    int indx[6];
+    indx[0]=cell2node[6*i+4]+1;
+    indx[1]=cell2node[6*i+3]+1;
+    indx[2]=cell2node[6*i+5]+1;
+    indx[3]=cell2node[6*i+1]+1;
+    indx[4]=cell2node[6*i+0]+1;
+    indx[5]=cell2node[6*i+2]+1;
+    for(int k=0;k<6;k++)
+      mwrite(indx[k],fp);
+  }
+  fclose(fp);
+}

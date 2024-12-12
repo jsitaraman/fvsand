@@ -67,6 +67,7 @@ class StrandMesh : public GlobalMesh
   void WriteBoundaries(int label);
   void PartitionSphereMesh(int, int, MPI_Comm);
   ~StrandMesh() {};
+  void WriteUgrid(int label);
 };
   
 }
