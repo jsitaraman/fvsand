@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
   mydeviceid = myid % numdevices;
   FVSAND_GPU_CHECK_ERROR(cudaSetDevice(mydeviceid));
   listdev(myid);
-#else if FVSAND_HAS_HIP
+#elseif FVSAND_HAS_HIP
   hipGetDeviceCount(&numdevices);
   mydeviceid = myid % numdevices;
   printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid);

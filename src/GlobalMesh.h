@@ -43,8 +43,8 @@ class GlobalMesh
       nnodes=0;
       ncells=0;
       ntypes=0;
-      nv=NULL;
-      nc=NULL;
+      nv=nullptr;
+      nc=nullptr;
     };
   virtual ~GlobalMesh() {
     delete [] x;

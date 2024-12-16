@@ -17,7 +17,7 @@ if( NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES )
 endif()
 
 option(FVSAND_ENABLE_CUDA "Enable CUDA support (default: off)" OFF)
-option(FVSAND_ENABLE_HIP "Enable CUDA support (default: off)" ON)
+option(FVSAND_ENABLE_HIP "Enable CUDA support (default: off)" OFF)
 
 # CUDA specific options
 set(FVSAND_CUDA_SM "70" CACHE STRING "CUDA arch option")
