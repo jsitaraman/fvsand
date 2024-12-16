@@ -69,26 +69,60 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
   int k=0;
   int offset=0;
   std::vector<double> normals(3*nsurfnodes,0);
-
+  //
   // create the storage for the mesh
-  
-  x=new double [3*nnodes];
+  // use shared memory allocation with only
+  // one rank per node doing all the memory
+  // allocation and work
+  //
+  int nprocs,rank,nodesize,noderank;
+  MPI_Win wintable1,wintable2,wintable3,wintable4,wintable5;
+  MPI_Comm nodecomm;
+  int windisp1,windisp2,windisp3,windisp4,windisp5;
+  //
+  MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, rank,
+              MPI_INFO_NULL, &nodecomm);
+  MPI_Comm_size(nodecomm,&nodesize);
+  MPI_Comm_rank(nodecomm,&noderank);
+  MPI_Aint xsize=0;
+  MPI_Aint nsize=0;
+  if (noderank==0) {
+     xsize=3*nnodes;
+     nsize=6*ncells;
+   }
+   windisp1=sizeof(double);
+   MPI_Win_allocate_shared(xsize*sizeof(double), windisp1,
+              MPI_INFO_NULL, nodecomm, &x, &wintable1);
+   windisp2=sizeof(uint64_t);
+   MPI_Win_allocate_shared(nsize*sizeof(uint64_t), windisp2,
+              MPI_INFO_NULL, nodecomm, &cell2node, &wintable2);
+   if (noderank!=0) {
+        MPI_Win_shared_query(wintable1, 0, &xsize, &windisp1, &x);
+        MPI_Win_shared_query(wintable2, 0, &nsize, &windisp2, &cell2node);
+   }
+   MPI_Win_fence(0,wintable1);
+   MPI_Win_fence(0,wintable2);
+	
+  //x=new double [3*
+  //	  nnodes];
   ntypes=1;
   nv=new int [ntypes];
   nv[0]=6;
   nc=new uint64_t [ntypes];
   nc[0]=ncells;
   procmap=new int [ncells];
-  cell2node=new uint64_t [6*ncells];
-  
-  for(int i=0;i<nsurfnodes;i++)
-    {
+  //cell2node=new uint64_t [6*ncells];
+  if (noderank==0) { 
+   for(int i=0;i<nsurfnodes;i++)
+     {
       for(int j=0;j<3;j++)
 	x[3*m+j]=xsurf[3*i+j];
       m++;
-    }
+     }
 		     
-  for(int l=0;l<nlevels;l++)
+   for(int l=0;l<nlevels;l++)
     {
       for(int i=0;i<nsurfcells;i++)
 	{
@@ -131,37 +165,63 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
       offset+=nsurfnodes;
       ds*=stretch;
     }
+  }
   if (myid==0) printf("Generated volume mesh ..\n");
   if (myid==0) printf("Total Prizmatic Elements: %ld\n",ncells);
-
+  MPI_Win_fence(0,wintable1);
+  MPI_Win_fence(0,wintable2);
   /* call canned f90 to get the neighbor information for all cells */
-  
-  int *ndc6,ntri,nquad;
-  ndc6=new int[6*ncells];
-  for(int i=0;i<6*ncells;i++) ndc6[i]=(int)cell2node[i];
-  int ncells1=(int) ncells;	
-  
-  get_exposed_faces_prizms_(ndc6,&ncells1);
-  get_face_count_(&ntri,&nquad);
-  nfaces=ntri+nquad;
+  MPI_Aint csize_m=0;
+  MPI_Aint fsize_m=0;
+  MPI_Aint ncells_m = 0;
   int *ctmp,*ftmp;
-  int csize=5*ncells;
-  int fsize=8*nfaces;
-  ctmp=new int[csize];
-  ftmp=new int[fsize];
-  get_graph_(ctmp,ftmp,&csize,&fsize);
-  cell2cell = new int64_t[csize];
-  faceInfo  = new int64_t[fsize];
-  nconn     = new int[ncells];
-
-  for(int i=0;i<csize;i++) cell2cell[i]=(int64_t)(ctmp[i]);
-  for(int i=0;i<fsize;i++) faceInfo[i]=(int64_t)(ftmp[i]);
-  for(int i=0;i<ncells;i++) nconn[i]=5;
-
-  k=0;
-  int itype=2; // prizms
+  int *ndc6,ntri,nquad;
+  int csize,fsize;
+  //
+  if (noderank==0) {
+   ndc6=new int[6*ncells];
+   for(int i=0;i<6*ncells;i++) ndc6[i]=(int)cell2node[i];
+   int ncells1=(int) ncells;	
   
-  for(int i=0;i<ncells;i++)
+   get_exposed_faces_prizms_(ndc6,&ncells1);
+   get_face_count_(&ntri,&nquad);
+   nfaces=ntri+nquad;
+   csize=5*ncells;
+   fsize=8*nfaces;
+   ctmp=new int[csize];
+   ftmp=new int[fsize];
+   get_graph_(ctmp,ftmp,&csize,&fsize);
+   ncells_m=ncells;
+   csize_m=csize;
+   fsize_m=fsize;
+  }
+  windisp3=sizeof(int64_t);
+  MPI_Win_allocate_shared(csize_m*sizeof(int64_t), windisp3,
+              MPI_INFO_NULL, nodecomm, &cell2cell, &wintable3);
+  windisp4=sizeof(uint64_t);
+  MPI_Win_allocate_shared(fsize_m*sizeof(uint64_t), windisp4,
+              MPI_INFO_NULL, nodecomm, &faceInfo, &wintable4);
+  windisp5=sizeof(int);
+  MPI_Win_allocate_shared(ncells_m*sizeof(int), windisp5,
+              MPI_INFO_NULL, nodecomm, &nconn, &wintable5);
+  if (noderank!=0) {
+     MPI_Win_shared_query(wintable3, 0, &csize_m, &windisp3, &cell2cell);
+     MPI_Win_shared_query(wintable4, 0, &fsize_m, &windisp4, &faceInfo);
+     MPI_Win_shared_query(wintable5, 0, &ncells_m, &windisp5, &nconn);
+   }
+  MPI_Win_fence(0,wintable3);
+  MPI_Win_fence(0,wintable4);
+  MPI_Win_fence(0,wintable5);
+  //cell2cell = new int64_t[csize];
+  //faceInfo  = new int64_t[fsize];
+  //nconn     = new int[ncells];
+  if (noderank==0) {
+   for(int i=0;i<csize;i++) cell2cell[i]=(int64_t)(ctmp[i]);
+   for(int i=0;i<fsize;i++) faceInfo[i]=(int64_t)(ftmp[i]);
+   for(int i=0;i<ncells;i++) nconn[i]=5;
+   k=0;
+   int itype=2; // prizms
+   for(int i=0;i<ncells;i++)
     for(int j=0;j<5;j++)
       {
         if (cell2cell[5*i+j] < 0) {
@@ -178,15 +238,19 @@ StrandMesh::StrandMesh(char* surface_file,double ds, double stretch, int nlevels
   	 k++;
         }
       }
+   WriteUgrid(0);
+  }
   if (myid==0) printf("Assigned Boundary Conditions..\n");
+  MPI_Win_fence(0,wintable3);
+  MPI_Win_fence(0,wintable4);
+  MPI_Win_fence(0,wintable5);
   //printf("k=%d\n",k);
   //WriteBoundaries(0);
-  WriteUgrid(0);
-
-  delete [] ctmp;
-  delete [] ftmp;
-  delete [] ndc6;
-
+  if (noderank==0) {
+    delete [] ctmp;
+    delete [] ftmp;
+    delete [] ndc6;
+  }
 }
 
 void StrandMesh::ReOrderCells(void) {

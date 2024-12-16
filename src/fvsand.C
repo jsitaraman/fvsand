@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 #elseif FVSAND_HAS_HIP
   hipGetDeviceCount(&numdevices);
   mydeviceid = myid % numdevices;
-  printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid);
+  printf( "[rank %d, cnt %d, deviceid %d]\n", myid, numdevices, mydeviceid); fflush(stdout);
   hipSetDevice(mydeviceid);
 #endif
   // default parameters
@@ -133,7 +133,10 @@ int main(int argc, char *argv[])
 
      if ((iter+1)%nsave ==0 || iter==0) {
 	double rnorm=lm->ResNorm();
-        if (myid==0) printf("iter:%6d  %16.8e\n",iter+1,rnorm);
+        if (myid==0) {
+	 printf("iter:%6d  %16.8e\n",iter+1,rnorm);
+	 fflush(stdout);
+	}
       }
 
     }
