@@ -9,25 +9,28 @@ Finite volume sand box code to be used as mini-app for hackathon.
 - verified single GPU execution
 
 
-To build on scout:
+To build:
 
 ```
-export CREATE_HOME=/p/app/restricted/create
-export MODULEPATH=${CREATE_HOME}/modulefiles:$MODULEPATH
-module purge
-module load BCT
-module load compiler/gcc/8.3.1
-module load cuda/11.1
-module load cmake/3.19
-module load av/helios/miniconda/3.8
-module load av/helios/openmpi/4.0.5
+cp host-configs/generic/gcc_cuda.cmake ./my_config.cmake
+edit my_config.cmake and provide paths to gnu compilers and mpi
+we assume nvcc is in your path
 
 mkdir build;
 cd build;
-cmake ../src;
+cmake -C ../my_config.cmake ../src
+# optional
 ccmake .
 swich GPU compilation ON or OFF
-make
+make -j
 ```
 
+To test:
+cd case
+mpiexec -n 1 ../build/fvsand.exe input.fvsand.coarse
+mpiexec -n 4 ../build/fvsand.exe input.fvsand.coarse
+
+There are medium and fine grids provided as well
+
 j.s 08/28/2021
+j.s 12/28/2025

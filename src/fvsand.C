@@ -26,6 +26,7 @@ void listdev( int rank )
     printf( "rank %d, cnt %d\n", rank, dev_cnt );
     
     cudaDeviceProp prop;
+    int mydevice_id = rank% dev_cnt;
     for (int dev = 0; dev < dev_cnt; ++dev) {
         err = cudaGetDeviceProperties( &prop, dev );
         assert( err == cudaSuccess );
@@ -40,7 +41,8 @@ void listdev( int rank )
         // dylan: for NVLINK systems multiple GPUs will appear on the
         // same PCIe bus. A unique identifier for the GPU is the UUID,
         // which we can just print the first 8 bytes from.
-        printf( "rank %d, dev %d, prop %s [%X]\n",
+	if (dev == mydevice_id) 
+          printf( "rank %d, dev %d, prop %s [%X]\n",
                 rank, dev, prop.name, ((unsigned long long*)prop.uuid.bytes)[0]);
     }
 }
