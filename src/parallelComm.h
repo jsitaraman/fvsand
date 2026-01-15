@@ -288,6 +288,7 @@ namespace FVSAND {
       delete [] istatus;
     }
 
+		inline
     void postRecvs_direct(double *qbuf, int nfields, 
 			  std::unordered_map <int, std::vector<int>> rcvmap,
 			  MPI_Request *ireq,
@@ -296,17 +297,17 @@ namespace FVSAND {
     {
       int offset=0;
       int rcount=*k;
-      for(auto r:rcvmap)
-	{
-	  MPI_Irecv(qbuf+offset,
-		    r.second.size()*nfields, MPI_DOUBLE,
-		    r.first,0,comm,&ireq[rcount++]);
-	  offset+=r.second.size()*nfields;
-	}
+      for(const auto& r: rcvmap)
+			{
+				MPI_Irecv(qbuf+offset,
+						r.second.size()*nfields, MPI_DOUBLE,
+						r.first,0,comm,&ireq[rcount++]);
+				offset+=r.second.size()*nfields;
+			}
       *k=rcount;
     }
     
-    
+    inline 
     void postSends_direct(double *qbuf, int nfields, 
 			  std::unordered_map <int, std::vector<int>> sndmap,
 			  MPI_Request *ireq,
@@ -315,16 +316,17 @@ namespace FVSAND {
     {
       int offset=0;
       int scount=*k;
-      for(auto s:sndmap)
-	{
-	  MPI_Isend(qbuf+offset,
-		    s.second.size()*nfields, MPI_DOUBLE,
-		    s.first,0,comm,&ireq[scount++]);
-	  offset+=s.second.size()*nfields;
-	}
+      for(const auto& s:sndmap)
+			{
+				MPI_Isend(qbuf+offset,
+						s.second.size()*nfields, MPI_DOUBLE,
+						s.first,0,comm,&ireq[scount++]);
+				offset+=s.second.size()*nfields;
+			}
       *k=scount;
     }
 
+		inline
     void finish_comm(int nrequests, MPI_Request *ireq, MPI_Status *istatus)
     {
       MPI_Waitall(nrequests,ireq,istatus);
