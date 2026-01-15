@@ -94,6 +94,8 @@ class LocalMesh
   MPI_Request *ireq{nullptr};
   MPI_Status *istatus{nullptr};
   
+  bool usecudampi{false}; // indicates whether cuda-aware MPI is used
+
  public:
 
   // solution fields at n+1,n & n-1
@@ -108,7 +110,8 @@ class LocalMesh
   ~LocalMesh();
   LocalMesh(GlobalMesh *g,
 	    int myid,
-	    MPI_Comm comm);
+	    MPI_Comm comm,
+      bool usecudampi=false );
   void WriteMesh(int label);
   void CreateGridMetrics(int);
   void CreateFaces();
