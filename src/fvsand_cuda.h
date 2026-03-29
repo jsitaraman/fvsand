@@ -48,6 +48,14 @@ inline T* allocate_on_device(const size_t size)
 }
 
 template <typename T>
+inline T* allocate_host_pinned(const size_t size)
+{
+    T* dptr = nullptr;
+    FVSAND_CUDA_CHECK_ERROR(cudaHostAlloc((void**)(&dptr), size,cudaHostAllocMapped));
+    return dptr;
+}
+
+template <typename T>
 inline void copy_to_device(T* dptr, const T* hptr, const size_t size)
 {
     FVSAND_CUDA_CHECK_ERROR(cudaMemcpy(dptr, hptr, size, cudaMemcpyHostToDevice));
@@ -72,6 +80,13 @@ inline void deallocate_device(T** dptr)
 {
     FVSAND_CUDA_CHECK_ERROR(cudaFree(static_cast<void*>(*dptr)));
     *dptr = nullptr;
+}
+
+template <typename T>
+inline void deallocate_host_pinned(T** ptr)
+{
+    FVSAND_CUDA_CHECK_ERROR(cudaFreeHost(static_cast<void*>(*ptr)));
+    *ptr = nullptr;
 }
 
 template <typename T>
